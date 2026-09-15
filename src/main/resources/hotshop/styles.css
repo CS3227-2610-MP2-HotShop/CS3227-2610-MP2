@@ -1,0 +1,16 @@
+.root {
+    -fx-font-family: "System";
+    -fx-background-color: #fff8f2;
+}
+.welcome {
+    -fx-padding: 32;
+}
+.title {
+    -fx-font-size: 40px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #b83b19;
+}
+.subtitle {
+    -fx-font-size: 18px;
+    -fx-text-fill: #423b37;
+}
