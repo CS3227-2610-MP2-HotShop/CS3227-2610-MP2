@@ -56,7 +56,7 @@ Tests belong under:
 ```
 src/test/java/
 ```
-Test resources bellong under:
+Test resources belong under:
 ```
 src/test/resources/
 ```
@@ -78,12 +78,13 @@ Do not reorganize existing packages or directories merely because another struct
 ## Before Making Changes
 Before modifying the repository:
 1. Read the user's request completely.
-2. Inspect the files relevant to the requested change.
-3. Inspect related tests.
-4. Inspect relevant interfaces, models, controllers, services, or other
+2. Read the specifications relevant to the user's request in `HotShop_Architecture.md`
+3. Inspect the files relevant to the requested change.
+4. Inspect related tests.
+5. Inspect relevant interfaces, models, controllers, services, or other
 dependencies before modifying their behaviour.
-5. Check existing conventions in nearby code before introducing a new pattern.
-6. Determine the smallest reasonable set of files that must be changed.
+6. Check existing conventions in nearby code before introducing a new pattern.
+7. Determine the smallest reasonable set of files that must be changed.
 
 Do not begin by creating new classes when existing classes may already provide the required functionality.
 
