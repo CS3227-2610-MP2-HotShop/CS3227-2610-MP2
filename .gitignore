@@ -8,3 +8,4 @@ release/*.jar
 .settings/
 .DS_Store
 Thumbs.db
+bin/
