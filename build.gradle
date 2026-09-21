@@ -1,0 +1,64 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'checkstyle'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.gradleup.shadow' version '9.2.2'
+}
+
+group = 'hotshop'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+javafx {
+    version = '25.0.2'
+    modules = ['javafx.controls', 'javafx.fxml']
+}
+
+application {
+    mainClass = 'hotshop.Launcher'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = '12.3.1'
+    maxWarnings = 0
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('shadowJar') {
+    archiveFileName = 'HotShop.jar'
+    destinationDirectory = layout.projectDirectory.dir('release')
+    mergeServiceFiles()
+    manifest {
+        attributes 'Main-Class': application.mainClass.get(),
+                'Enable-Native-Access': 'ALL-UNNAMED'
+    }
+}
+
+tasks.named('wrapper') {
+    gradleVersion = '9.1.0'
+    distributionType = Wrapper.DistributionType.BIN
+}
