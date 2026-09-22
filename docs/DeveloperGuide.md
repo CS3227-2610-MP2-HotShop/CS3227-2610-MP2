@@ -58,7 +58,24 @@ select the branch containing these files and **/docs**, and save.
 GitHub publishes the site after its Pages build completes.
 Hosting has not been enabled by this local setup.
 
+## Engineering skills
+
+Agent skill configuration lives in [docs/agents](agents/). It defines the
+[team GitHub issue tracker](agents/issue-tracker.md),
+[triage labels](agents/triage-labels.md), and
+[domain documentation rules](agents/domain.md). `AGENTS.md` directs agents
+to read these files when needed.
+
+Edit these configuration files directly to adjust the workflow. Re-run
+`setup-matt-pocock-skills` when switching trackers or restarting setup.
+Domain documentation uses a root `CONTEXT.md` and `docs/adr/`, created by
+`domain-modeling` as terminology and decisions are resolved.
+
 ## Acknowledgements
+
+- Matt Pocock's engineering skills: agent configuration adapted from the
+  installed `setup-matt-pocock-skills` templates in
+  `.agents/skills/setup-matt-pocock-skills/`.
 
 - [OpenJFX Gradle plugin](https://github.com/openjfx/javafx-gradle-plugin): dependency configuration.
 - [SE-EDU Java conventions](https://se-education.org/guides/conventions/java/intermediate.html):
