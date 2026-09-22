@@ -6,7 +6,7 @@ The project is a Java desktop marketplace where buyers and sellers can list item
 
 The application uses **JavaFX for the interface and SQLite for local storage**. SQLite runs within the application, so users do not need to install or configure a separate database server.
 
-The initial version supports one running application instance using one local database. Users can log in with different accounts, and accounts supporting both roles can switch between buyer and seller dashboards.
+The initial version supports one running application instance using one local database. Every user can buy and sell. A user is the seller of their own listing and a potential buyer of another user's listing; these are contextual roles, not assigned account types.
 
 The application works offline. Separate installations have separate data and do not automatically exchange listings or messages.
 
@@ -171,12 +171,12 @@ Java models remain independent of JavaFX and SQL. Repositories translate between
 
 | **Model or record** | **Table**                   | **Main information**                                                                               |
 | ------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
-| User                | users                       | ID, username, password hash, display name, profile image, preferred pickup location                |
-| User role           | user_roles                  | User ID and role                                                                                   |
+| User                | users                       | ID, username, display name, profile image, preferred pickup location; credentials managed separately |
 | Listing             | listings                    | ID, seller ID, title, description, category, price in cents, condition, pickup location, status    |
 | Listing image       | listing_images              | Listing ID, relative filename, display order                                                       |
 | Offer               | offers                      | ID, listing ID, buyer ID, amount in cents, status                                                  |
-| Transaction         | transactions                | ID, listing ID, accepted offer ID, buyer/seller IDs, agreed price, status, confirmation timestamps |
+| Transaction         | transactions                | ID, listing ID, accepted offer ID, buyer/seller IDs, agreed price, title/description/condition snapshots, status, confirmation timestamps |
+| CancellationRequest | transaction_cancellation_requests | ID, transaction ID, requester ID, creation time, status, resolution time |
 | MeetupSlot          | meetup_slots                | ID, seller ID, available start/end time, location                                                  |
 | Meetup              | meetups                     | ID, transaction ID, slot ID, agreed time/location, status                                          |
 | Reschedule proposal | meetup_reschedule_proposals | Meetup ID, proposer ID, proposed slot, status                                                      |
@@ -186,7 +186,17 @@ Java models remain independent of JavaFX and SQL. Repositories translate between
 | Notification        | notifications               | Recipient ID, event type, related record reference, creation time, read time                       |
 | Schema migration    | schema_migrations           | Applied migration version and application time                                                     |
 
-Store prices as integer cents and timestamps consistently, such as UTC epoch milliseconds. Convert timestamps to local time for display.
+Models assign UUIDs at creation and use IDs for references. Store SGD prices as positive integer cents (`long` in Java); both listing prices and offers must be at least one cent, and offers may exceed asking price. Models use `Instant` for timestamps; persistence can translate them to UTC epoch values. Convert timestamps to local time for display.
+
+The shared `User` model excludes password hashes. Future authentication code may store credentials in the same database table, but must use a separate representation. There is no `user_roles` table.
+
+The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). Services, database tables, authentication, and buyer/seller screens in this architecture remain planned, not implemented by that milestone.
+
+Listings represent indivisible sales without quantity tracking. Categories are Electronics, Books, Clothing, Furniture, Sports, and Other; conditions are New, Like new, Good, Fair, and Poor. Listing images are optional, with at most ten in explicit display order.
+
+Only available listings can be edited. Actual changes to title, description, price, category, condition, pickup location, or images reject all pending offers; unchanged saves do not. Reserved sale details are frozen. Sold and archived listings cannot be edited or reopened. Archiving an available listing rejects its pending offers and hides it from browsing while retaining history. Reserved listings require transaction cancellation before archival.
+
+Each buyer may have at most one pending offer per listing. An amount change requires withdrawal and a new offer; closed offers remain in history. Services enforce these cross-record rules and perform related changes atomically.
 
 Use IDs to connect records rather than copying complete objects.
 
@@ -208,10 +218,10 @@ A transaction is created when an offer is accepted. Buyer purchase history and s
 
 | **Repository**         | **Data handled**                                   |
 | ---------------------- | -------------------------------------------------- |
-| UserRepository         | Accounts, profiles, and roles                      |
+| UserRepository         | Accounts and profiles; authentication reads credentials separately |
 | ListingRepository      | Listings and image references                      |
 | OfferRepository        | Offers                                             |
-| TransactionRepository  | Sales and transaction history                      |
+| TransactionRepository  | Sales, confirmations, cancellation requests, and transaction history |
 | MeetupRepository       | Availability, bookings, and rescheduling proposals |
 | WishlistRepository     | Saved listings                                     |
 | ChatRepository         | Conversations, messages, and read positions        |
@@ -243,6 +253,7 @@ Use Java enums for application statuses and matching database checks.
 | Listing             | `AVAILABLE`, `RESERVED`, `SOLD`, `ARCHIVED`    |
 | Offer               | `PENDING`, `ACCEPTED`, `REJECTED`, `WITHDRAWN` |
 | Transaction         | `ACTIVE`, `COMPLETED`, `CANCELLED`             |
+| Cancellation request | `PENDING`, `ACCEPTED`, `REJECTED`, `WITHDRAWN` |
 | Meetup              | `SCHEDULED`, `COMPLETED`, `CANCELLED`          |
 | Reschedule proposal | `PENDING`, `ACCEPTED`, `REJECTED`, `WITHDRAWN` |
 
@@ -281,9 +292,11 @@ When a seller accepts an offer:
 
 If a step fails before commit, roll back the operation. Do not use PostgreSQL-specific row-locking statements in SQLite.
 
-For completion, each participant confirms separately. When both confirmations exist, the service marks the transaction completed and the listing sold in one database transaction.
+For completion, each participant confirms separately. When both confirmations exist, the service marks the transaction completed and the listing sold in one database transaction. Completed sales are final in this milestone.
 
-Cancelling an active sale releases the listing and cancels its upcoming meetup and pending rescheduling proposals together.
+Before the first confirmation, either participant may cancel directly. After the first confirmation, cancellation requires an explicit request accepted by the other participant. There can be only one pending cancellation request per transaction. While pending, it blocks further completion confirmations and keeps the transaction active and listing reserved. The requester may withdraw it, and the other participant may reject it. Rejection or withdrawal preserves prior completion confirmations; further requests are allowed and all outcomes remain in history.
+
+Cancelling an active sale releases the listing and cancels its upcoming meetup and pending rescheduling proposals together when those features are implemented. Prior offers remain closed. The transaction retains the agreed price and snapshots of the listing title, description, and condition, but not pickup location.
 
 ```mermaid
 
@@ -468,4 +481,3 @@ SQLite supports the planned local marketplace without a separate database server
 The first release assumes one running application instance per data directory. Accounts on that installation share listings and chat history.
 
 Separate computers have separate databases. Supporting an online marketplace would require a shared backend and changes to authentication, storage, and message delivery. A live SQLite file should not be placed in a shared or synchronised folder as a substitute for that backend.
-
