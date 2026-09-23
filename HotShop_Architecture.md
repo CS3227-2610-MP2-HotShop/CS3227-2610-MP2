@@ -188,9 +188,9 @@ Java models remain independent of JavaFX and SQL. Repositories translate between
 
 Models assign UUIDs at creation and use IDs for references. Store SGD prices as positive integer cents (`long` in Java); both listing prices and offers must be at least one cent, and offers may exceed asking price. Models use `Instant` for timestamps; persistence can translate them to UTC epoch values. Convert timestamps to local time for display.
 
-The shared `User` model excludes password hashes. Future authentication code may store credentials in the same database table, but must use a separate representation. There is no `user_roles` table.
+The shared `User` model excludes password hashes. AccountService persists credentials in a separate `credentials` table and uses a separate representation. There is no `user_roles` table. Validated `User.restore` preserves UUID identity when loading or replacing profiles.
 
-The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). Services, database tables, authentication, and buyer/seller screens in this architecture remain planned, not implemented by that milestone.
+The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). Other services, their tables, and account/buyer/seller screens remain planned.
 
 Listings represent indivisible sales without quantity tracking. Categories are Electronics, Books, Clothing, Furniture, Sports, and Other; conditions are New, Like new, Good, Fair, and Poor. Listing images are optional, with at most ten in explicit display order.
 
@@ -423,11 +423,23 @@ On startup:
 3. Acquire an application lock to prevent a second instance using the same data directory.
 4. Open or create the SQLite database.
 5. Enable connection settings and apply outstanding migrations.
-6. Display the login screen.
+6. Display the welcome screen. Displaying an account login screen remains future UI work.
 
 An existing database is preserved. Startup must not recreate tables destructively or reset user data.
 
 If setup fails, show an error rather than silently replacing the database with an empty one.
+
+The implemented runtime defaults to `.hotshop` under the user's home directory;
+`hotshop.dataDir` can override this location. Account operations and session changes
+run through one shared service worker. Registration does not log in, and application
+restart always begins logged out. Public-profile reads require login and omit the
+owner's preferred pickup location. ListingService will own seller-listing queries.
+
+Profile images use a managed `images/profiles` namespace and a durable cleanup
+queue. JPEG/PNG imports are limited to 5 MiB and 512 pixels in each dimension;
+future listing-image imports can supply their own limits. Startup retries failed
+cleanup and removes unreferenced generated profile-image files after checking
+persisted references.
 
 ## 12. Images, backups, and packaging
 

@@ -386,6 +386,11 @@ A task is complete only when all applicable conditions below are satisfied:
 
 ---
 
+## Git Conventions
+All Git conventions when creating commits should follow from the [SE-EDU Git Conventions](https://se-education.org/guides/conventions/git.html)While it is not always necessary to have a body for the commit message, it must always have a subject.
+
+---
+
 ## Final Response
 When completing a task, provide a concise summary containing:
 - what was changed;
