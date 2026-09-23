@@ -18,6 +18,14 @@ The first build downloads dependencies and requires internet access.
 An 800 by 600 window titled **HotShop** displays **Welcome to HotShop**.
 Resize the window as desired and close it with the operating system's close button.
 
+Startup creates or opens a local database and image folder at `.hotshop` in your
+home directory. Accounts and profile images in that folder survive application
+restarts. Only one HotShop instance may use the same folder at a time.
+
+If startup fails, HotShop displays an error and exits without resetting existing
+data. Check folder permissions and close another running HotShop instance before
+retrying. Close HotShop before backing up its entire data folder, including images.
+
 ## Run the packaged application
 
 Build on the operating system and architecture where the JAR will run:
@@ -32,5 +40,30 @@ include Java itself. The CI artifact targets Linux.
 
 ## Current scope
 
-This starter has a welcome screen only. Accounts, authentication, listings,
-and buyer/seller workflows are not available.
+The application still has a welcome screen only. Account registration, login,
+profile editing, and password changes are implemented at service level for future
+screen integration; they are not accessible from the current window. Listings
+and buyer/seller workflows are not yet available.
+
+The account service enforces these rules:
+
+- Registration requires a unique username, display name, and password. Usernames
+  use 3-30 ASCII letters, digits, or underscores and are case-insensitively unique.
+  Usernames cannot be changed. Display names contain 1-80 Unicode code points.
+- Passwords contain 8-128 Unicode code points, including an ASCII uppercase letter,
+  lowercase letter, digit, and punctuation character. Spaces are allowed but do
+  not count as punctuation. Password case and whitespace are preserved exactly.
+- Registration leaves the user logged out. Restarting also logs out; switching
+  users requires logout. Password changes require the current password and retain
+  the current session. Password recovery and account deletion are not available.
+- Display name and optional preferred pickup location save together. A provided
+  location contains 1-200 Unicode code points; it can also be cleared. Location
+  preferences are private. Other logged-in users receive only display name and
+  image through public-profile access.
+- Profile images must contain readable JPEG or PNG data, be at most 5 MiB, and
+  measure at most 512 pixels wide and 512 pixels high. Rectangular images are
+  accepted. Images are not resized or cropped automatically.
+- Image changes save separately from text details. HotShop copies imported images
+  into its data folder; moving the original photo afterward does not affect the
+  saved copy. Replacing or removing an image never deletes the original photo.
+  Failed saves preserve the prior image. Failed cleanup is retried at startup.

@@ -13,6 +13,15 @@ A user acting as a potential purchaser of a listing or as the purchaser in an ag
 **Seller**:
 The user who owns a listing and offers it for sale.
 
+**Profile**:
+A user's display name, profile image, and preferred pickup location. Display name and image are visible to other users; preferred pickup location is private to the owner.
+
+**Current user**:
+The user currently logged in to this running HotShop application. At most one user is logged in at a time; restarting the application leaves no current user.
+
+**Public profile**:
+The portion of a user's profile visible to other logged-in HotShop users: display name and profile image. It excludes the user's preferred pickup location.
+
 **Listing**:
 A seller's advertised item or bundle offered as one sale, with its description and asking price. A listing has no separately tracked quantities.
 _Avoid_: Product (when referring to the seller's advertisement)
