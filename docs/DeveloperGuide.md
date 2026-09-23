@@ -205,6 +205,20 @@ Edit these configuration files directly to adjust the workflow. Re-run
 Domain documentation uses a root `CONTEXT.md` and `docs/adr/`, created by
 `domain-modeling` as terminology and decisions are resolved.
 
+The skills are installed once in `.agents/skills/`, where Codex reads them.
+Claude Code reads `.claude/skills/` instead, so link that path to the same
+folder rather than copying it. On Windows (no administrator rights needed):
+
+```powershell
+New-Item -ItemType Directory -Force .claude
+cmd /c mklink /J .claude\skills .agents\skills
+Add-Content .git\info\exclude ".claude/skills"
+```
+
+On macOS/Linux, use `ln -s ../.agents/skills .claude/skills`. The link is
+excluded locally rather than committed because the repository does not enable
+Git symlinks. Restart Claude Code if the skills do not appear.
+
 ## Acknowledgements
 
 - Matt Pocock's engineering skills: agent configuration adapted from the
