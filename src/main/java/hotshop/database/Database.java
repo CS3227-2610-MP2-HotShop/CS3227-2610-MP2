@@ -8,15 +8,25 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Opens configured connections and groups repository work into one transaction. */
 public final class Database {
-    private static final int SCHEMA_VERSION = 1;
+    /** Released migrations in order; a migration's version is its one-based position. Append only. */
+    private static final List<String> MIGRATIONS = List.of("/db/migration/001_accounts.sql");
     private final String url;
+    private final List<String> migrations;
 
     /** Selects an absolute SQLite file; connections are opened only when work is executed. */
     public Database(Path file) {
+        this(file, MIGRATIONS);
+    }
+
+    /** Uses the given ordered migration resources instead of the released schema. */
+    Database(Path file, List<String> migrations) {
         url = "jdbc:sqlite:" + file.toAbsolutePath().normalize();
+        this.migrations = List.copyOf(migrations);
     }
 
     /** Work may pass this connection to any participating repository. */
@@ -57,40 +67,58 @@ public final class Database {
         }
     }
 
-    /** Applies ordered migrations atomically; never downgrades a newer database. */
+    /**
+     * Applies each pending migration in order, one transaction per version, so a failure leaves
+     * the database at the last fully applied version. Never downgrades a newer database.
+     */
     public void migrate() throws SQLException, IOException {
-        String migration;
-        try (var input = Database.class.getResourceAsStream("/db/migration/001_accounts.sql")) {
-            if (input == null) {
-                throw new IOException("Missing account migration");
-            }
-            migration = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        List<String> scripts = new ArrayList<>();
+        for (String resource : migrations) {
+            scripts.add(readMigration(resource));
         }
+        int current = executeTransaction(this::readSchemaVersion);
+        if (current > scripts.size()) {
+            throw new SQLException("Database requires a newer HotShop version");
+        }
+        for (int version = current + 1; version <= scripts.size(); version++) {
+            applyMigration(version, scripts.get(version - 1));
+        }
+    }
+
+    private static String readMigration(String resource) throws IOException {
+        try (var input = Database.class.getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IOException("Missing migration " + resource);
+            }
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private int readSchemaVersion(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
+                    + "(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            try (var rows = statement.executeQuery("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
+                rows.next();
+                return rows.getInt(1);
+            }
+        }
+    }
+
+    private void applyMigration(int version, String script) throws SQLException {
         executeTransaction(connection -> {
             try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
-                        + "(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-                int version;
-                try (var rows = statement.executeQuery("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
-                    rows.next();
-                    version = rows.getInt(1);
-                }
-                if (version > SCHEMA_VERSION) {
-                    throw new SQLException("Database requires a newer HotShop version");
-                }
-                if (version == 0) {
-                    for (String sql : migration.split(";")) {
-                        if (!sql.isBlank()) {
-                            statement.execute(sql);
-                        }
-                    }
-                    try (var insert = connection.prepareStatement(
-                            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)")) {
-                        insert.setInt(1, SCHEMA_VERSION);
-                        insert.setString(2, Instant.now().toString());
-                        insert.executeUpdate();
+                for (String sql : script.split(";")) {
+                    if (!sql.isBlank()) {
+                        statement.execute(sql);
                     }
                 }
+            }
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)")) {
+                insert.setInt(1, version);
+                insert.setString(2, Instant.now().toString());
+                insert.executeUpdate();
             }
             return null;
         });

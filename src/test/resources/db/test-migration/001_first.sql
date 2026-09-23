@@ -1,0 +1,1 @@
+CREATE TABLE first (value INTEGER NOT NULL);
