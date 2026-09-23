@@ -229,7 +229,15 @@ appearing next to the constant.
 
 ListingService is implemented with persistence, photos, and buyer search, and
 committed to branch `Listing-Service`, which is based on
-`Better-Database-Migration`. It has not been pushed. The teammate must agree to
+`Better-Database-Migration`.
+
+> ok lets push this and create a pr and have the four shared changes in the pr message
+>
+> i alr have a pr for Better-Database-Migration proceed with pushing this and creating a pr for listing service along with the shared changes in the pr message
+
+The branch was pushed and opened as PR #6, stacked on PR #5
+(`Better-Database-Migration`) so it shows only the ListingService commit. The
+PR description lists the four shared changes for the teammate's review. The teammate must agree to
 the shared changes before merging: the `ServiceException` rename, `Listing`
 constructor and `update` signature changes, the price cap, and the image cleanup
 namespace. Offer-history checks for delete and pending-offer rejection remain
