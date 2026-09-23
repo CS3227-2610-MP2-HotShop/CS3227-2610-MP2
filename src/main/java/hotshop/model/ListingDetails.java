@@ -13,7 +13,7 @@ public record ListingDetails(String title, String description, Category category
         description = ModelValidation.text(description, 5000, "Description");
         Objects.requireNonNull(category, "Category");
         if (priceCents <= 0 || priceCents > MAX_PRICE_CENTS) {
-            throw new IllegalArgumentException("Price must be between 1 cent and S$1,000,000");
+            throw new IllegalArgumentException("Price must be between S$0.01 and S$1,000,000.00");
         }
         Objects.requireNonNull(condition, "Condition");
         pickupLocation = ModelValidation.text(pickupLocation, 200, "Pickup location");

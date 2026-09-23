@@ -13,10 +13,13 @@ import java.util.concurrent.CompletionException;
 
 import hotshop.database.Database;
 import hotshop.repository.ListingRepository;
+import hotshop.repository.OfferRepository;
+import hotshop.repository.TransactionRepository;
 import hotshop.repository.UserRepository;
 import hotshop.service.AccountService;
 import hotshop.service.AuthenticatedSession;
 import hotshop.service.ListingService;
+import hotshop.service.OfferService;
 import hotshop.service.ServiceWorker;
 import hotshop.storage.ImageStorage;
 
@@ -27,6 +30,7 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final ServiceWorker worker = new ServiceWorker();
     private final AccountService accounts;
     private final ListingService listings;
+    private final OfferService offers;
     private boolean isClosed;
 
     private ApplicationRuntime(FileChannel lockChannel, FileLock lock, Database database, ImageStorage profileImages,
@@ -36,7 +40,12 @@ public final class ApplicationRuntime implements AutoCloseable {
         UserRepository users = new UserRepository();
         AuthenticatedSession session = new AuthenticatedSession();
         accounts = new AccountService(database, users, worker, session, profileImages);
-        listings = new ListingService(database, new ListingRepository(), users, worker, session, listingImages, clock);
+        ListingRepository listingRepository = new ListingRepository();
+        OfferRepository offerRepository = new OfferRepository();
+        listings = new ListingService(database, listingRepository, offerRepository, users, worker, session,
+                listingImages, clock);
+        offers = new OfferService(database, offerRepository, listingRepository, new TransactionRepository(),
+                users, worker, session, clock);
     }
 
     public AccountService getAccounts() {
@@ -45,6 +54,10 @@ public final class ApplicationRuntime implements AutoCloseable {
 
     public ListingService getListings() {
         return listings;
+    }
+
+    public OfferService getOffers() {
+        return offers;
     }
 
     /** Locks and initializes the data directory using the system clock. */

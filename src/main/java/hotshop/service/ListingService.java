@@ -5,7 +5,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -21,6 +20,7 @@ import hotshop.model.ListingDetails;
 import hotshop.model.ListingImage;
 import hotshop.model.ListingStatus;
 import hotshop.repository.ListingRepository;
+import hotshop.repository.OfferRepository;
 import hotshop.repository.UserRepository;
 import hotshop.storage.ImageStorage;
 
@@ -30,8 +30,10 @@ import hotshop.storage.ImageStorage;
  * futures fail with ServiceException; joining wraps it in CompletionException.
  */
 public final class ListingService {
+    private static final String STORAGE_FAILURE = "Listings are unavailable right now. Please try again.";
     private final Database database;
     private final ListingRepository listings;
+    private final OfferRepository offers;
     private final UserRepository users;
     private final ServiceWorker worker;
     private final AuthenticatedSession session;
@@ -39,10 +41,11 @@ public final class ListingService {
     private final Clock clock;
 
     /** Wires the shared database, worker, and session with the listing-specific managed image namespace. */
-    public ListingService(Database database, ListingRepository listings, UserRepository users, ServiceWorker worker,
-            AuthenticatedSession session, ImageStorage storage, Clock clock) {
+    public ListingService(Database database, ListingRepository listings, OfferRepository offers, UserRepository users,
+            ServiceWorker worker, AuthenticatedSession session, ImageStorage storage, Clock clock) {
         this.database = database;
         this.listings = listings;
+        this.offers = offers;
         this.users = users;
         this.worker = worker;
         this.session = session;
@@ -70,8 +73,8 @@ public final class ListingService {
             ListingDetails details = toDetails(draft);
             return withPhotoRecovery(photos, () -> {
                 List<ListingImage> saved = resolvePhotos(photos, List.of());
-                Listing listing = new Listing(sellerId, details, saved, now());
-                return executeTransaction(connection -> {
+                Listing listing = new Listing(sellerId, details, saved, ServiceSupport.now(clock));
+                return transaction(connection -> {
                     listings.insert(connection, listing);
                     return withSeller(connection, listing);
                 });
@@ -83,8 +86,8 @@ public final class ListingService {
     public CompletableFuture<List<ListingWithSeller>> getMyListings() {
         return submit(() -> {
             UUID sellerId = session.requireUserId();
-            return executeTransaction(connection -> {
-                PublicProfile seller = requireSeller(connection, sellerId);
+            return transaction(connection -> {
+                PublicProfile seller = ServiceSupport.publicProfile(connection, users, sellerId);
                 return listings.findBySeller(connection, sellerId).stream()
                         .map(listing -> new ListingWithSeller(listing, seller)).toList();
             });
@@ -96,7 +99,7 @@ public final class ListingService {
         return submit(() -> {
             session.requireUserId();
             requireId(id);
-            return executeTransaction(connection -> withSeller(connection, requireListing(connection, id)));
+            return transaction(connection -> withSeller(connection, requireListing(connection, id)));
         });
     }
 
@@ -108,7 +111,7 @@ public final class ListingService {
         return submit(() -> {
             UUID userId = session.requireUserId();
             requireValid(search);
-            return executeTransaction(connection -> {
+            return transaction(connection -> {
                 List<ListingWithSeller> results = new ArrayList<>();
                 for (Listing listing : listings.findAvailableExcludingSeller(connection, userId).stream()
                         .filter(search::matches).sorted(search.order()).toList()) {
@@ -121,25 +124,27 @@ public final class ListingService {
 
     /**
      * Owner only, while available: replaces details and the complete ordered photo list together.
-     * Only an actual change advances the update time. Removed photos are retired after commit.
-     * Permission and status are checked before importing photos, then again in the saving
-     * transaction; OfferService must reject pending offers in that transaction when it exists.
+     * An actual change advances the update time and rejects every pending offer in the same
+     * transaction; an unchanged save changes nothing. Removed photos are retired after commit.
+     * Permission and status are checked before importing photos and again when saving.
      */
     public CompletableFuture<ListingWithSeller> updateListing(UUID id, ListingDraft draft, List<ListingPhoto> photos) {
         return submit(() -> {
             UUID userId = session.requireUserId();
             requireId(id);
             ListingDetails details = toDetails(draft);
-            List<ListingImage> previous = executeTransaction(connection ->
+            List<ListingImage> previous = transaction(connection ->
                     requireEditable(connection, id, userId)).getImages();
             return withPhotoRecovery(photos, () -> {
                 List<ListingImage> saved = resolvePhotos(photos, previous);
                 Set<String> keptNames = new HashSet<>();
                 saved.forEach(image -> keptNames.add(image.filename()));
-                return executeTransaction(connection -> {
+                return transaction(connection -> {
                     Listing listing = requireEditable(connection, id, userId);
-                    if (listing.update(details, saved, latest(now(), listing.getUpdatedAt()))) {
+                    Instant time = ServiceSupport.latest(ServiceSupport.now(clock), listing.getUpdatedAt());
+                    if (listing.update(details, saved, time)) {
                         listings.update(connection, listing);
+                        PendingOffers.rejectAll(connection, offers, id, time);
                         for (ListingImage image : previous) {
                             if (!keptNames.contains(image.filename())) {
                                 images.schedule(connection, image.filename());
@@ -154,37 +159,46 @@ public final class ListingService {
 
     /**
      * Owner only; available or sold listings leave browsing but stay visible by ID and in My Listings.
-     * OfferService must reject pending offers here when it exists.
+     * Every pending offer is rejected in the same transaction.
      */
     public CompletableFuture<ListingWithSeller> archiveListing(UUID id) {
         return submit(() -> {
             UUID userId = session.requireUserId();
             requireId(id);
-            return executeTransaction(connection -> {
+            return transaction(connection -> {
                 Listing listing = requireOwned(connection, id, userId);
-                try {
-                    listing.archive();
-                } catch (IllegalStateException exception) {
-                    throw invalidState("Only available or sold listings can be archived");
+                if (listing.getStatus() == ListingStatus.ARCHIVED) {
+                    throw ServiceException.invalidState("This listing is already archived.");
                 }
+                if (listing.getStatus() == ListingStatus.RESERVED) {
+                    throw ServiceException.invalidState("This listing is reserved, so it can't be archived "
+                            + "until its sale is completed or cancelled.");
+                }
+                listing.archive();
                 listings.update(connection, listing);
+                PendingOffers.rejectAll(connection, offers, id, ServiceSupport.now(clock));
                 return withSeller(connection, listing);
             });
         });
     }
 
     /**
-     * Owner only; permanently removes an available or archived listing and retires its photos.
-     * OfferService and ChatService must also refuse listings with offer or conversation history.
+     * Owner only; permanently removes an available or archived listing that has never received an
+     * offer, and retires its photos. ChatService must also refuse listings with conversation history.
      */
     public CompletableFuture<Void> deleteListing(UUID id) {
         return submit(() -> {
             UUID userId = session.requireUserId();
             requireId(id);
-            Listing deleted = executeTransaction(connection -> {
+            Listing deleted = transaction(connection -> {
                 Listing listing = requireOwned(connection, id, userId);
                 if (!listing.isDeletable()) {
-                    throw invalidState("Only available or archived listings can be deleted");
+                    throw ServiceException.invalidState("This listing is " + ServiceSupport.describe(
+                            listing.getStatus()) + ", so it can't be deleted.");
+                }
+                if (offers.existsForListing(connection, id)) {
+                    throw ServiceException.invalidState(
+                            "This listing has offer history, so it can't be deleted. Archive it instead.");
                 }
                 for (ListingImage image : listing.getImages()) {
                     images.schedule(connection, image.filename());
@@ -204,7 +218,8 @@ public final class ListingService {
             try {
                 return operation.call();
             } catch (IOException exception) {
-                throw new ServiceException(ServiceException.Code.STORAGE, "Unable to save listing photos", exception);
+                throw new ServiceException(ServiceException.Code.STORAGE,
+                        "Your photos couldn't be saved. Please try again.", exception);
             }
         });
     }
@@ -228,10 +243,11 @@ public final class ListingService {
     private List<ListingImage> resolvePhotos(List<ListingPhoto> photos, List<ListingImage> current)
             throws IOException {
         if (photos == null || photos.stream().anyMatch(Objects::isNull)) {
-            throw validation("Photo list must not contain empty entries");
+            throw ServiceException.validation("Every photo entry must be a new file or one of this listing's photos.");
         }
         if (photos.size() > Listing.MAX_IMAGES) {
-            throw validation("A listing may have at most " + Listing.MAX_IMAGES + " photos");
+            throw ServiceException.validation("A listing can have at most " + Listing.MAX_IMAGES
+                    + " photos, but " + photos.size() + " were chosen.");
         }
         Set<String> currentNames = new HashSet<>();
         current.forEach(image -> currentNames.add(image.filename()));
@@ -239,7 +255,8 @@ public final class ListingService {
         for (ListingPhoto photo : photos) {
             if (photo instanceof ListingPhoto.Existing existing
                     && (!currentNames.contains(existing.filename()) || !kept.add(existing.filename()))) {
-                throw validation("Kept photos must belong to this listing and appear once");
+                throw ServiceException.validation(
+                        "A kept photo doesn't belong to this listing or appears more than once.");
             }
         }
         List<ListingImage> result = new ArrayList<>();
@@ -253,30 +270,36 @@ public final class ListingService {
         return result;
     }
 
+    /**
+     * Model messages name the field and its limits. A missing value's exception names only the
+     * field, so it is reported as required; an unnamed one falls back to a general message.
+     */
     private ListingDetails toDetails(ListingDraft draft) {
         if (draft == null) {
-            throw validation("Listing details are required");
+            throw ServiceException.validation("Enter the listing details first.");
         }
         try {
             return new ListingDetails(draft.title(), draft.description(), draft.category(), draft.priceCents(),
                     draft.condition(), draft.pickupLocation());
         } catch (IllegalArgumentException exception) {
-            throw validation(exception.getMessage());
+            throw ServiceException.validation(exception.getMessage() + ".");
         } catch (NullPointerException exception) {
-            throw validation("Every listing detail is required");
+            String field = exception.getMessage();
+            throw ServiceException.validation(field == null
+                    ? "Fill in every listing detail." : field + " is required.");
         }
     }
 
     private Listing requireListing(Connection connection, UUID id) throws SQLException {
-        return listings.findById(connection, id).orElseThrow(() ->
-                new ServiceException(ServiceException.Code.NOT_FOUND, "Listing was not found"));
+        return listings.findById(connection, id)
+                .orElseThrow(() -> ServiceException.notFound("This listing no longer exists."));
     }
 
     /** Permission is checked in the service even though screens only offer these actions to owners. */
     private Listing requireOwned(Connection connection, UUID id, UUID userId) throws SQLException {
         Listing listing = requireListing(connection, id);
         if (!listing.getSellerId().equals(userId)) {
-            throw new ServiceException(ServiceException.Code.PERMISSION, "You can only change your own listings");
+            throw ServiceException.permission("Only the seller can change this listing.");
         }
         return listing;
     }
@@ -284,67 +307,44 @@ public final class ListingService {
     private Listing requireEditable(Connection connection, UUID id, UUID userId) throws SQLException {
         Listing listing = requireOwned(connection, id, userId);
         if (listing.getStatus() != ListingStatus.AVAILABLE) {
-            throw invalidState("Only available listings can be edited");
+            throw ServiceException.invalidState("This listing is " + ServiceSupport.describe(listing.getStatus())
+                    + ", so it can't be edited.");
         }
         return listing;
     }
 
     private ListingWithSeller withSeller(Connection connection, Listing listing) throws SQLException {
-        return new ListingWithSeller(listing, requireSeller(connection, listing.getSellerId()));
-    }
-
-    private PublicProfile requireSeller(Connection connection, UUID sellerId) throws SQLException {
-        return PublicProfile.of(users.findById(connection, sellerId)
-                .orElseThrow(() -> new SQLException("Listing seller is missing")));
+        return new ListingWithSeller(listing, ServiceSupport.publicProfile(connection, users, listing.getSellerId()));
     }
 
     private static void requireValid(ListingSearch search) {
         if (search == null) {
-            throw validation("Search criteria are required");
+            throw ServiceException.validation("Choose what to search for first.");
         }
         requirePriceBound(search.minPriceCents());
         requirePriceBound(search.maxPriceCents());
         if (search.minPriceCents() != null && search.maxPriceCents() != null
                 && search.minPriceCents() > search.maxPriceCents()) {
-            throw validation("Minimum price cannot exceed maximum price");
+            throw ServiceException.validation("The minimum price (" + ServiceSupport.formatPrice(search.minPriceCents())
+                    + ") is higher than the maximum price (" + ServiceSupport.formatPrice(search.maxPriceCents())
+                    + ").");
         }
     }
 
     private static void requirePriceBound(Long priceCents) {
         if (priceCents != null && (priceCents < 0 || priceCents > ListingDetails.MAX_PRICE_CENTS)) {
-            throw validation("Price filters must be between 0 and S$1,000,000");
+            throw ServiceException.validation("Price filters must be between " + ServiceSupport.formatPrice(0)
+                    + " and " + ServiceSupport.formatPrice(ListingDetails.MAX_PRICE_CENTS) + ".");
         }
     }
 
     private static void requireId(UUID id) {
         if (id == null) {
-            throw validation("Listing ID is required");
+            throw ServiceException.validation("Choose a listing first.");
         }
     }
 
-    private static ServiceException validation(String message) {
-        return new ServiceException(ServiceException.Code.VALIDATION, message);
-    }
-
-    private static ServiceException invalidState(String message) {
-        return new ServiceException(ServiceException.Code.INVALID_STATE, message);
-    }
-
-    /** Guards against the system clock moving backwards between edits. */
-    private static Instant latest(Instant first, Instant second) {
-        return first.isAfter(second) ? first : second;
-    }
-
-    /** SQLite stores milliseconds, so times are truncated to match what a restart restores. */
-    private Instant now() {
-        return clock.instant().truncatedTo(ChronoUnit.MILLIS);
-    }
-
-    private <T> T executeTransaction(Database.Work<T> work) {
-        try {
-            return database.executeTransaction(work);
-        } catch (SQLException exception) {
-            throw new ServiceException(ServiceException.Code.STORAGE, "Listing storage is unavailable", exception);
-        }
+    private <T> T transaction(Database.Work<T> work) {
+        return ServiceSupport.transaction(database, STORAGE_FAILURE, work);
     }
 }

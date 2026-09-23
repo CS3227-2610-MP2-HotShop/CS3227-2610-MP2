@@ -84,18 +84,21 @@ class ListingPhotoTest {
     }
 
     @Test
-    void createListing_fileAboveTenMebibytes_reportsValidation() throws Exception {
+    void createListing_fileAboveTenMebibytes_reportsValidationStatingLimits() throws Exception {
         Path large = directory.resolve("large.png");
         Files.write(large, new byte[10 * 1024 * 1024 + 1]);
-        assertRejectedPhoto(large);
+        var failure = assertRejectedPhoto(large);
+        assertTrue(failure.getMessage().contains("10 MiB") && failure.getMessage().contains("4096"),
+                failure.getMessage());
     }
 
-    private void assertRejectedPhoto(Path source) throws Exception {
+    private ServiceException assertRejectedPhoto(Path source) throws Exception {
         try (ApplicationRuntime runtime = open()) {
             registerAndLogin(runtime, "alice");
-            assertFailure(ServiceException.Code.VALIDATION, () -> runtime.getListings().createListing(
+            var failure = assertFailure(ServiceException.Code.VALIDATION, () -> runtime.getListings().createListing(
                     draft("Chairs", 5000), List.of(ListingPhoto.add(source))).join());
             assertEquals(Set.of(), savedFiles());
+            return failure;
         }
     }
 

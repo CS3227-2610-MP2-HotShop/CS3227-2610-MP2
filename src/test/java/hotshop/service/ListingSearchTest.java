@@ -5,6 +5,7 @@ import static hotshop.service.ListingServiceTest.registerAndLogin;
 import static hotshop.service.ListingServiceTest.setStatus;
 import static hotshop.service.ListingServiceTest.titles;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -87,8 +88,14 @@ class ListingSearchTest {
     }
 
     @Test
-    void searchListings_minimumAboveMaximum_reportsValidation() throws Exception {
-        assertInvalidPrices(300L, 200L);
+    void searchListings_minimumAboveMaximum_reportsValidationWithBothPrices() throws Exception {
+        try (ApplicationRuntime runtime = seeded()) {
+            var search = new ListingSearch(null, null, null, 300L, 200L, null);
+            var failure = assertFailure(ServiceException.Code.VALIDATION,
+                    () -> runtime.getListings().searchListings(search).join());
+            assertTrue(failure.getMessage().contains("S$3.00") && failure.getMessage().contains("S$2.00"),
+                    failure.getMessage());
+        }
     }
 
     @ParameterizedTest
