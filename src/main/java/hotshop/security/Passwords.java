@@ -8,7 +8,7 @@ import java.util.Arrays;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-import hotshop.service.AccountException;
+import hotshop.service.ServiceException;
 
 /** Password policy and versioned, salted PBKDF2 storage. */
 public final class Passwords {
@@ -36,7 +36,7 @@ public final class Passwords {
         if (!ALGORITHM.equals(stored.algorithm()) || stored.iterations() < ITERATIONS
                 || stored.iterations() > ITERATIONS * 10 || stored.salt().length != SALT_BYTES
                 || stored.hash().length != HASH_BITS / Byte.SIZE) {
-            throw new AccountException(AccountException.Code.STORAGE, "Unsupported credential format");
+            throw new ServiceException(ServiceException.Code.STORAGE, "Unsupported credential format");
         }
         byte[] actual = derive(password, stored.salt(), stored.iterations());
         try {
@@ -62,8 +62,8 @@ public final class Passwords {
         }
     }
 
-    private AccountException invalidPassword() {
-        return new AccountException(AccountException.Code.VALIDATION,
+    private ServiceException invalidPassword() {
+        return new ServiceException(ServiceException.Code.VALIDATION,
                 "Password requires 8-128 characters with uppercase, lowercase, digit and ASCII punctuation");
     }
 
@@ -74,7 +74,7 @@ public final class Passwords {
         try {
             return SecretKeyFactory.getInstance(ALGORITHM).generateSecret(specification).getEncoded();
         } catch (GeneralSecurityException exception) {
-            throw new AccountException(AccountException.Code.STORAGE, "Password storage is unavailable", exception);
+            throw new ServiceException(ServiceException.Code.STORAGE, "Password storage is unavailable", exception);
         } finally {
             specification.clearPassword();
         }

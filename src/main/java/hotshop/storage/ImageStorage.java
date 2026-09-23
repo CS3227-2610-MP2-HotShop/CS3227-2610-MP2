@@ -17,6 +17,7 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
 /** Managed image files; each feature supplies its own bounded import policy. */
 public final class ImageStorage {
     public static final Limits PROFILE_LIMITS = new Limits(5 * 1024 * 1024, 512, 512);
+    public static final Limits LISTING_LIMITS = new Limits(10 * 1024 * 1024, 4096, 4096);
     private static final String MANAGED_NAME =
             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(png|jpeg)";
     private final Path root;

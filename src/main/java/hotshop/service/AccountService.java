@@ -17,7 +17,7 @@ import hotshop.storage.ImageStorage;
 
 /**
  * Authenticated account operations, serialized with all other application services.
- * Returned futures fail with AccountException; joining wraps it in CompletionException.
+ * Returned futures fail with ServiceException; joining wraps it in CompletionException.
  * Completion callbacks must not block on other service calls or close the runtime.
  */
 public final class AccountService {
@@ -44,7 +44,7 @@ public final class AccountService {
             try {
                 images.recover();
             } catch (SQLException | IOException exception) {
-                throw new AccountException(AccountException.Code.STORAGE, "Image storage is unavailable", exception);
+                throw new ServiceException(ServiceException.Code.STORAGE, "Image storage is unavailable", exception);
             }
             return null;
         });
@@ -57,7 +57,7 @@ public final class AccountService {
             try {
                 return images.replace(id, source);
             } catch (SQLException | IOException exception) {
-                throw new AccountException(AccountException.Code.STORAGE, "Unable to save profile image", exception);
+                throw new ServiceException(ServiceException.Code.STORAGE, "Unable to save profile image", exception);
             }
         });
     }
@@ -69,7 +69,7 @@ public final class AccountService {
             try {
                 return images.remove(id);
             } catch (SQLException exception) {
-                throw new AccountException(AccountException.Code.STORAGE, "Unable to remove profile image", exception);
+                throw new ServiceException(ServiceException.Code.STORAGE, "Unable to remove profile image", exception);
             }
         });
     }
@@ -82,12 +82,12 @@ public final class AccountService {
             try {
                 user = new User(username, displayName, null, null);
             } catch (IllegalArgumentException | NullPointerException exception) {
-                throw new AccountException(AccountException.Code.VALIDATION, "Invalid username or display name");
+                throw new ServiceException(ServiceException.Code.VALIDATION, "Invalid username or display name");
             }
             var hash = passwords.hash(password);
             return executeTransaction(connection -> {
                 if (users.findByUsername(connection, user.getNormalizedUsername()).isPresent()) {
-                    throw new AccountException(AccountException.Code.USERNAME_UNAVAILABLE, "Username is unavailable");
+                    throw new ServiceException(ServiceException.Code.USERNAME_UNAVAILABLE, "Username is unavailable");
                 }
                 users.insert(connection, user, hash);
                 return user;
@@ -144,11 +144,10 @@ public final class AccountService {
         return worker.submit(() -> {
             session.requireUserId();
             if (id == null) {
-                throw new AccountException(AccountException.Code.VALIDATION, "User ID is required");
+                throw new ServiceException(ServiceException.Code.VALIDATION, "User ID is required");
             }
             return executeTransaction(connection -> {
-                User user = requireUser(connection, id);
-                return new PublicProfile(user.getId(), user.getDisplayName(), user.getProfileImage());
+                return PublicProfile.of(requireUser(connection, id));
             });
         });
     }
@@ -164,7 +163,7 @@ public final class AccountService {
                     updated = User.restore(id, old.getUsername(), displayName,
                             old.getProfileImage().orElse(null), preferredPickupLocation);
                 } catch (IllegalArgumentException | NullPointerException exception) {
-                    throw new AccountException(AccountException.Code.VALIDATION, "Invalid profile details");
+                    throw new ServiceException(ServiceException.Code.VALIDATION, "Invalid profile details");
                 }
                 users.updateProfile(connection, updated);
                 return updated;
@@ -174,7 +173,7 @@ public final class AccountService {
 
     private User requireUser(Connection connection, UUID id) throws SQLException {
         return users.findById(connection, id).orElseThrow(() ->
-                new AccountException(AccountException.Code.NOT_FOUND, "Profile was not found"));
+                new ServiceException(ServiceException.Code.NOT_FOUND, "Profile was not found"));
     }
 
     /** Clears session identity in queue order; already logged out is a successful no-op. */
@@ -185,15 +184,15 @@ public final class AccountService {
         });
     }
 
-    private AccountException invalidCredentials() {
-        return new AccountException(AccountException.Code.AUTHENTICATION, "Invalid username or password");
+    private ServiceException invalidCredentials() {
+        return new ServiceException(ServiceException.Code.AUTHENTICATION, "Invalid username or password");
     }
 
     private <T> T executeTransaction(Database.Work<T> work) {
         try {
             return database.executeTransaction(work);
         } catch (SQLException exception) {
-            throw new AccountException(AccountException.Code.STORAGE, "Account storage is unavailable", exception);
+            throw new ServiceException(ServiceException.Code.STORAGE, "Account storage is unavailable", exception);
         }
     }
 }

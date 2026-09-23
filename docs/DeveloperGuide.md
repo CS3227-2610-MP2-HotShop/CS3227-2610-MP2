@@ -27,10 +27,11 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 
 This is a single-project, non-modular build. Launcher is separate from the
 Application subclass so the bundled JAR can launch JavaFX from the classpath.
-The shared model layer and AccountService are implemented, including SQLite
-persistence, authentication, profile images, and lifecycle initialization.
-Other services and buyer/seller/account screens remain deferred; the application
-still opens the welcome screen.
+The shared model layer, AccountService, and ListingService are implemented,
+including SQLite persistence, authentication, profile and listing images, buyer
+listing search, and lifecycle initialization. Other services and
+buyer/seller/account screens remain deferred; the application still opens the
+welcome screen.
 
 ## Dependencies and checks
 
@@ -77,15 +78,21 @@ account requirements and implementation scope.
   immutable and retains all resolved requests.
 
 IDs are UUIDs generated at creation. `User.restore` provides validated restoration
-and immutable profile replacement with the original UUID. Other models do not yet
-have database restoration methods. Amounts are
+and immutable profile replacement with the original UUID; `Listing.restore` does
+the same for listings, including status and timestamps. Offer, Transaction, and
+CancellationRequest do not yet have database restoration methods. Amounts are
 positive `long` values in SGD cents. Text is stripped of surrounding whitespace;
 length limits count Unicode code points. Missing required references throw
 `NullPointerException`, invalid values/actors throw `IllegalArgumentException`,
 and forbidden lifecycle operations throw `IllegalStateException`. Failed
 operations leave model state unchanged.
 
-Transaction creation and timestamped operations take an explicit `Instant`.
+`Listing` has a fixed `createdAt` and an `updatedAt` that advances only when
+`update` reports an actual change; status changes never touch it. Listing prices
+are capped at `ListingDetails.MAX_PRICE_CENTS` (S$1,000,000). `isDeletable` is
+true only for available or archived listings.
+
+Listing creation and updates, transaction creation, and timestamped operations take an explicit `Instant`.
 Pass times from the service clock; operations must not precede the transaction's
 last recorded event. Tests use fixed times without sleeping.
 
@@ -101,7 +108,9 @@ Future services must obtain actor IDs from the authenticated session and:
 2. Enforce username uniqueness and at most one pending offer per buyer/listing.
 3. Accept an offer, reserve its listing, reject competing offers, and create a
    transaction atomically. Construct `Transaction` after acceptance/reservation.
-4. Reject pending offers after an actual listing edit or archival.
+4. Reject pending offers after an actual listing edit or archival, inside the
+   saving transaction of `ListingService.updateListing` and `archiveListing`.
+   Make `deleteListing` refuse listings with offer or conversation history.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
 6. Preserve listing/offer/request history and exclude archived listings from browsing.
@@ -122,13 +131,15 @@ for development with `-Dhotshop.dataDir=/absolute/path` before `-jar`.
 SQLite JDBC 3.53.4.0 is the only new library. The bundled driver supplies SQLite;
 no server or separately installed SQLite executable is needed. Tests enable native
 access just like the launcher. The runtime directory contains `marketplace.db`,
-`application.lock`, and `images/profiles/`.
+`application.lock`, `images/profiles/`, and `images/listings/`.
 
 `Database.executeTransaction` opens a connection with foreign keys and a 5000 ms busy
 timeout, then commits or rolls back the callback. Pass that same connection to
 every repository participating in a business operation. `UserRepository` maps
 profiles and separate `PasswordHash` records; it does not authorize callers.
 Schema version 1 lives in `src/main/resources/db/migration/001_accounts.sql`.
+Version 2 (`002_listings.sql`) adds `listings` and `listing_images` and rebuilds
+`image_cleanup` with a `namespace` column, tagging existing rows as `profiles`.
 
 ### Schema migrations
 
@@ -162,9 +173,10 @@ AccountService returns `CompletableFuture` results. Its public operations are
 `register`, `login`, `logout`, `getCurrentUserId`, `getOwnProfile`, `getPublicProfile`,
 `updateProfile`, `changePassword`, `replaceProfileImage`, and `removeProfileImage`.
 `recoverImages` is a lifecycle maintenance operation. Access the service through
-`ApplicationRuntime.getAccounts()`. `AccountException.getCode()` distinguishes
-validation, authentication, session, duplicate username, not-found, and storage
-failures; a joined future wraps the exception in `CompletionException`.
+`ApplicationRuntime.getAccounts()`. `ServiceException.getCode()` distinguishes
+validation, authentication, session, duplicate username, not-found, storage,
+permission, and invalid-state failures for every service; a joined future wraps
+the exception in `CompletionException`.
 
 Future services must share the same `ServiceWorker`, `AuthenticatedSession`, and
 `Database` when wired into ApplicationRuntime. Resolve acting identity inside the
@@ -184,19 +196,63 @@ through a profile. A local database is not protection against someone who can
 modify the application's data files; there is no remote authentication server.
 
 ImageStorage accepts per-feature limits and validates actual JPEG/PNG contents,
-dimensions, and bounded bytes before writing a generated filename. ProfileImages
-coordinates persistence and the durable `image_cleanup` queue. Startup discovers
-unreferenced generated files only within `images/profiles`; cleanup rechecks
-database references and retries failed removals. Keep future listing images in
-their own namespace so profile recovery cannot delete them. SQL fixtures/triggers
+dimensions, and bounded bytes before writing a generated filename. `ManagedImages`
+owns one image namespace (a folder, its limits, a "still referenced" query, and
+its rows in the durable `image_cleanup` queue). It imports files, queues retired
+files inside the caller's transaction, and recovers orphans. `ProfileImages` and
+`ListingService` each configure one (`profiles` and `listings`), so recovery in
+one namespace never processes or deletes the other's files. Cleanup rechecks
+database references and retries failed removals at startup. A new image feature
+should add a namespace to the `image_cleanup` CHECK constraint in a migration
+and construct its own `ManagedImages`. SQL fixtures/triggers
 in tests inject persistence failures at the external database boundary; assertions
 check service-visible results and managed-file lifecycle.
+
+## Listing service
+
+[ListingService Design](ListingServiceDesign.md) records the approved requirements.
+**ListingService includes buyer search.** Buyer screens should call
+`searchListings` and `getListing` rather than implementing a second search.
+
+Access it through `ApplicationRuntime.getListings()`. It shares the worker,
+session, and database with AccountService, and every operation requires login.
+
+| Operation | Rule |
+| --- | --- |
+| `createListing(draft, photos)` | Saves an available listing owned by the current user. |
+| `updateListing(id, draft, photos)` | Owner only; available listings only. |
+| `archiveListing(id)` | Owner only; available or sold listings. |
+| `deleteListing(id)` | Owner only; available or archived listings; removes photos. |
+| `getMyListings()` | Current user's listings in every status, newest first. |
+| `getListing(id)` | Any existing listing in any status. |
+| `searchListings(search)` | Other sellers' available listings only. |
+
+Screens pass a `ListingDraft` of raw form values; invalid values become
+`VALIDATION` failures rather than exceptions from the model. Photos are a complete
+ordered `List<ListingPhoto>` of `ListingPhoto.keep(filename)` and
+`ListingPhoto.add(path)` entries (0 to 10), validated against
+`ImageStorage.LISTING_LIMITS` (JPEG/PNG, 10 MiB, 4096 px per side). Imports happen
+before the database write; on any failure, recovery removes the unsaved copies.
+Results are `ListingWithSeller`: a detached `Listing` plus the seller's
+`PublicProfile`. Non-owners get `PERMISSION`; a status that forbids the action
+gets `INVALID_STATE`. Both codes are part of the shared `ServiceException`.
+
+`ListingSearch` holds optional filters (title text, category, conditions, price
+bounds of 0 to the price cap) and a `ListingSort`. SQL selects other sellers'
+available listings; `ListingSearch` then filters and sorts them in Java because
+SQLite's case-insensitive matching covers ASCII letters only. There is no
+pagination.
+
+`ApplicationRuntime.open(Path, Clock)` lets tests fix the time; timestamps are
+truncated to milliseconds to match what SQLite stores. Tests that need reserved
+or sold listings set the status in SQL, standing in for the future OfferService.
 
 Targeted development checks:
 
 ```powershell
 .\gradlew.bat test --tests hotshop.service.AccountServiceTest
 .\gradlew.bat test --tests hotshop.service.ProfileImageTest
+.\gradlew.bat test --tests "hotshop.service.Listing*"
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```

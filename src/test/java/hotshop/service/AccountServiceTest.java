@@ -28,7 +28,7 @@ class AccountServiceTest {
     @ValueSource(strings = {"", "ab", "a b", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
     void register_invalidUsername_reportsValidation(String username) throws Exception {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
-            assertFailure(AccountException.Code.VALIDATION,
+            assertFailure(ServiceException.Code.VALIDATION,
                     () -> runtime.getAccounts().register(username, PASSWORD, "Alice").join());
         }
     }
@@ -41,7 +41,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.VALIDATION, () -> accounts.updateProfile(displayName, null).join());
+            assertFailure(ServiceException.Code.VALIDATION, () -> accounts.updateProfile(displayName, null).join());
             assertEquals("Alice", accounts.getOwnProfile().join().getDisplayName());
         }
     }
@@ -54,7 +54,7 @@ class AccountServiceTest {
             id = accounts.register("a".repeat(30), PASSWORD, "a").join().getId();
             accounts.login("a".repeat(30), PASSWORD).join();
             accounts.updateProfile("\ud83d\ude00".repeat(80), "x".repeat(200)).join();
-            assertFailure(AccountException.Code.VALIDATION,
+            assertFailure(ServiceException.Code.VALIDATION,
                     () -> accounts.updateProfile("x".repeat(81), null).join());
         }
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
@@ -70,9 +70,9 @@ class AccountServiceTest {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
             var accounts = runtime.getAccounts();
             accounts.register("alice", "Sample1!\u00e9", "Alice").join();
-            assertFailure(AccountException.Code.AUTHENTICATION,
+            assertFailure(ServiceException.Code.AUTHENTICATION,
                     () -> accounts.login("alice", "Sample1!e\u0301").join());
-            assertFailure(AccountException.Code.AUTHENTICATION,
+            assertFailure(ServiceException.Code.AUTHENTICATION,
                     () -> accounts.login("alice", "sample1!\u00e9").join());
             assertEquals("alice", accounts.login("alice", "Sample1!\u00e9").join().getUsername());
         }
@@ -89,11 +89,11 @@ class AccountServiceTest {
                 statement.execute("CREATE TRIGGER fail_password BEFORE UPDATE ON credentials "
                         + "BEGIN SELECT RAISE(ABORT, 'simulated failure'); END");
             }
-            assertFailure(AccountException.Code.STORAGE,
+            assertFailure(ServiceException.Code.STORAGE,
                     () -> accounts.changePassword(PASSWORD, "Changed1!").join());
             assertEquals(alice.getId(), accounts.getCurrentUserId().join().orElseThrow());
             accounts.logout().join();
-            assertFailure(AccountException.Code.AUTHENTICATION, () -> accounts.login("alice", "Changed1!").join());
+            assertFailure(ServiceException.Code.AUTHENTICATION, () -> accounts.login("alice", "Changed1!").join());
             assertEquals(alice.getId(), accounts.login("alice", PASSWORD).join().getId());
         }
     }
@@ -105,7 +105,7 @@ class AccountServiceTest {
                     var statement = connection.createStatement()) {
                 statement.execute("CREATE TRIGGER fail_credentials BEFORE INSERT ON credentials "
                         + "BEGIN SELECT RAISE(ABORT, 'simulated failure'); END");
-                assertFailure(AccountException.Code.STORAGE,
+                assertFailure(ServiceException.Code.STORAGE,
                         () -> runtime.getAccounts().register("alice", PASSWORD, "Alice").join());
                 statement.execute("DROP TRIGGER fail_credentials");
             }
@@ -139,9 +139,9 @@ class AccountServiceTest {
     void register_invalidPassword_rejectsWithoutCreatingAccount(String password) throws Exception {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
             var accounts = runtime.getAccounts();
-            assertFailure(AccountException.Code.VALIDATION,
+            assertFailure(ServiceException.Code.VALIDATION,
                     () -> accounts.register("alice", password, "Alice").join());
-            assertFailure(AccountException.Code.AUTHENTICATION, () -> accounts.login("alice", PASSWORD).join());
+            assertFailure(ServiceException.Code.AUTHENTICATION, () -> accounts.login("alice", PASSWORD).join());
             assertTrue(accounts.getCurrentUserId().join().isEmpty());
         }
     }
@@ -159,7 +159,7 @@ class AccountServiceTest {
     @Test
     void register_overlongPassword_rejectsValue() throws Exception {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
-            assertFailure(AccountException.Code.VALIDATION,
+            assertFailure(ServiceException.Code.VALIDATION,
                     () -> runtime.getAccounts().register("alice", "Ab1!" + "x".repeat(125), "Alice").join());
         }
     }
@@ -170,7 +170,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             String password = " Ab1!" + "\ud83d\ude00".repeat(122) + " ";
             var user = accounts.register("alice", password, "Alice").join();
-            assertFailure(AccountException.Code.AUTHENTICATION,
+            assertFailure(ServiceException.Code.AUTHENTICATION,
                     () -> accounts.login("alice", password.strip()).join());
             assertEquals(user.getId(), accounts.login("alice", password).join().getId());
         }
@@ -181,7 +181,7 @@ class AccountServiceTest {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
             var accounts = runtime.getAccounts();
             var original = accounts.register("Alice", PASSWORD, "Alice").join();
-            assertFailure(AccountException.Code.USERNAME_UNAVAILABLE,
+            assertFailure(ServiceException.Code.USERNAME_UNAVAILABLE,
                     () -> accounts.register(" ALICE ", "Different1!", "Other").join());
             assertEquals(original.getId(), accounts.login("alice", PASSWORD).join().getId());
         }
@@ -195,7 +195,7 @@ class AccountServiceTest {
             var unknown = assertThrows(CompletionException.class, () -> accounts.login("nobody", PASSWORD).join());
             var wrong = assertThrows(CompletionException.class, () -> accounts.login("alice", "Wrong1!").join());
             assertEquals(unknown.getCause().getMessage(), wrong.getCause().getMessage());
-            assertEquals(AccountException.Code.AUTHENTICATION, ((AccountException) wrong.getCause()).getCode());
+            assertEquals(ServiceException.Code.AUTHENTICATION, ((ServiceException) wrong.getCause()).getCode());
             assertTrue(accounts.getCurrentUserId().join().isEmpty());
         }
     }
@@ -206,7 +206,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             var alice = accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.SESSION,
+            assertFailure(ServiceException.Code.SESSION,
                     () -> accounts.register("bobby", PASSWORD, "Bob").join());
             assertEquals(alice.getId(), accounts.getCurrentUserId().join().orElseThrow());
         }
@@ -219,7 +219,7 @@ class AccountServiceTest {
             accounts.register("alice", PASSWORD, "Alice").join();
             var bob = accounts.register("bobby", PASSWORD, "Bob").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.SESSION, () -> accounts.login("bobby", PASSWORD).join());
+            assertFailure(ServiceException.Code.SESSION, () -> accounts.login("bobby", PASSWORD).join());
             accounts.logout().join();
             accounts.logout().join();
             assertTrue(accounts.getCurrentUserId().join().isEmpty());
@@ -231,10 +231,10 @@ class AccountServiceTest {
     void profileOperations_loggedOut_rejectAccess() throws Exception {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory)) {
             var accounts = runtime.getAccounts();
-            assertFailure(AccountException.Code.SESSION, () -> accounts.getOwnProfile().join());
-            assertFailure(AccountException.Code.SESSION, () -> accounts.getPublicProfile(UUID.randomUUID()).join());
-            assertFailure(AccountException.Code.SESSION, () -> accounts.updateProfile("Alice", null).join());
-            assertFailure(AccountException.Code.SESSION, () -> accounts.changePassword(PASSWORD, "Changed1!").join());
+            assertFailure(ServiceException.Code.SESSION, () -> accounts.getOwnProfile().join());
+            assertFailure(ServiceException.Code.SESSION, () -> accounts.getPublicProfile(UUID.randomUUID()).join());
+            assertFailure(ServiceException.Code.SESSION, () -> accounts.updateProfile("Alice", null).join());
+            assertFailure(ServiceException.Code.SESSION, () -> accounts.changePassword(PASSWORD, "Changed1!").join());
         }
     }
 
@@ -245,7 +245,7 @@ class AccountServiceTest {
             accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
             accounts.updateProfile("Alice", "Campus").join();
-            assertFailure(AccountException.Code.VALIDATION,
+            assertFailure(ServiceException.Code.VALIDATION,
                     () -> accounts.updateProfile("Changed", "x".repeat(201)).join());
             assertEquals("Alice", accounts.getOwnProfile().join().getDisplayName());
             assertEquals("Campus", accounts.getOwnProfile().join().getPreferredPickupLocation().orElseThrow());
@@ -259,7 +259,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.NOT_FOUND, () -> accounts.getPublicProfile(UUID.randomUUID()).join());
+            assertFailure(ServiceException.Code.NOT_FOUND, () -> accounts.getPublicProfile(UUID.randomUUID()).join());
         }
     }
 
@@ -269,7 +269,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             var alice = accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.AUTHENTICATION,
+            assertFailure(ServiceException.Code.AUTHENTICATION,
                     () -> accounts.changePassword("Wrong1!", "Changed1!").join());
             assertEquals(alice.getId(), accounts.getCurrentUserId().join().orElseThrow());
             accounts.logout().join();
@@ -283,7 +283,7 @@ class AccountServiceTest {
             var accounts = runtime.getAccounts();
             accounts.register("alice", PASSWORD, "Alice").join();
             accounts.login("alice", PASSWORD).join();
-            assertFailure(AccountException.Code.VALIDATION, () -> accounts.changePassword(PASSWORD, "short").join());
+            assertFailure(ServiceException.Code.VALIDATION, () -> accounts.changePassword(PASSWORD, "short").join());
             accounts.logout().join();
             assertEquals("alice", accounts.login("alice", PASSWORD).join().getUsername());
         }
@@ -298,14 +298,14 @@ class AccountServiceTest {
             accounts.changePassword(PASSWORD, "Changed2!").join();
             assertEquals(alice.getId(), accounts.getCurrentUserId().join().orElseThrow());
             accounts.logout().join();
-            assertFailure(AccountException.Code.AUTHENTICATION, () -> accounts.login("alice", PASSWORD).join());
+            assertFailure(ServiceException.Code.AUTHENTICATION, () -> accounts.login("alice", PASSWORD).join());
             assertEquals(alice.getId(), accounts.login("alice", "Changed2!").join().getId());
         }
     }
 
-    private static void assertFailure(AccountException.Code code, Runnable action) {
+    private static void assertFailure(ServiceException.Code code, Runnable action) {
         CompletionException failure = assertThrows(CompletionException.class, action::run);
-        assertEquals(code, ((AccountException) failure.getCause()).getCode());
+        assertEquals(code, ((ServiceException) failure.getCause()).getCode());
     }
 
     @Test

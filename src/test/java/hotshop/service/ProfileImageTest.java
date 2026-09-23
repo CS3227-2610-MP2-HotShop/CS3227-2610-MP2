@@ -37,7 +37,7 @@ class ProfileImageTest {
                 statement.execute("CREATE TRIGGER fail_profile BEFORE UPDATE ON users "
                         + "BEGIN SELECT RAISE(ABORT, 'simulated failure'); END");
             }
-            assertFailure(AccountException.Code.STORAGE, () -> accounts.replaceProfileImage(source).join());
+            assertFailure(ServiceException.Code.STORAGE, () -> accounts.replaceProfileImage(source).join());
             assertEquals(original, accounts.getOwnProfile().join().getProfileImage().orElseThrow());
             try (var files = Files.list(data.resolve("images/profiles"))) {
                 assertEquals(1, files.count());
@@ -105,7 +105,7 @@ class ProfileImageTest {
             accounts.login("alice", "Sample1!").join();
             String saved = accounts.replaceProfileImage(source).join().getProfileImage().orElseThrow();
             Files.writeString(source, "not an image");
-            assertFailure(AccountException.Code.VALIDATION, () -> accounts.replaceProfileImage(source).join());
+            assertFailure(ServiceException.Code.VALIDATION, () -> accounts.replaceProfileImage(source).join());
             assertEquals(saved, accounts.getOwnProfile().join().getProfileImage().orElseThrow());
         }
     }
@@ -113,9 +113,9 @@ class ProfileImageTest {
     @Test
     void imageOperations_loggedOut_rejectBeforeAccessingFiles() throws Exception {
         try (ApplicationRuntime runtime = ApplicationRuntime.open(directory.resolve("data"))) {
-            assertFailure(AccountException.Code.SESSION,
+            assertFailure(ServiceException.Code.SESSION,
                     () -> runtime.getAccounts().replaceProfileImage(directory.resolve("missing.png")).join());
-            assertFailure(AccountException.Code.SESSION, () -> runtime.getAccounts().removeProfileImage().join());
+            assertFailure(ServiceException.Code.SESSION, () -> runtime.getAccounts().removeProfileImage().join());
         }
     }
 
@@ -125,9 +125,9 @@ class ProfileImageTest {
         return source;
     }
 
-    private void assertFailure(AccountException.Code code, Runnable action) {
+    private void assertFailure(ServiceException.Code code, Runnable action) {
         var failure = assertThrows(CompletionException.class, action::run);
-        assertEquals(code, ((AccountException) failure.getCause()).getCode());
+        assertEquals(code, ((ServiceException) failure.getCause()).getCode());
     }
 
     @Test

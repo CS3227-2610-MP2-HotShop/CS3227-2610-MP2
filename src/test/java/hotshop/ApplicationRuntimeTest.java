@@ -14,7 +14,7 @@ import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import hotshop.service.AccountException;
+import hotshop.service.ServiceException;
 
 class ApplicationRuntimeTest {
     @TempDir
@@ -52,7 +52,7 @@ class ApplicationRuntimeTest {
         runtime.close();
         var id = pending.join().getId();
         var failure = assertThrows(CompletionException.class, () -> runtime.getAccounts().getCurrentUserId().join());
-        assertEquals(AccountException.Code.SESSION, ((AccountException) failure.getCause()).getCode());
+        assertEquals(ServiceException.Code.SESSION, ((ServiceException) failure.getCause()).getCode());
         try (ApplicationRuntime reopened = ApplicationRuntime.open(directory)) {
             assertEquals(id, reopened.getAccounts().login("alice", "Sample1!").join().getId());
         }

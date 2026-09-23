@@ -1,5 +1,6 @@
 package hotshop.model;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -9,32 +10,60 @@ import java.util.UUID;
  * and transaction changes; this model governs the listing's own state.
  */
 public final class Listing {
-    private static final int MAX_IMAGES = 10;
+    public static final int MAX_IMAGES = 10;
 
-    private final UUID id = UUID.randomUUID();
+    private final UUID id;
     private final UUID sellerId;
+    private final Instant createdAt;
     private ListingDetails details;
     private List<ListingImage> images;
-    private ListingStatus status = ListingStatus.AVAILABLE;
+    private ListingStatus status;
+    private Instant updatedAt;
 
-    public Listing(UUID sellerId, ListingDetails details, List<ListingImage> images) {
+    /** Creates an available listing; both timestamps start at the creation time. */
+    public Listing(UUID sellerId, ListingDetails details, List<ListingImage> images, Instant createdAt) {
+        this(UUID.randomUUID(), sellerId, details, images, ListingStatus.AVAILABLE, createdAt, createdAt);
+    }
+
+    private Listing(UUID id, UUID sellerId, ListingDetails details, List<ListingImage> images,
+            ListingStatus status, Instant createdAt, Instant updatedAt) {
+        this.id = Objects.requireNonNull(id, "Listing ID");
         this.sellerId = Objects.requireNonNull(sellerId, "Seller ID");
         this.details = Objects.requireNonNull(details, "Listing details");
         this.images = validateImages(images);
+        this.status = Objects.requireNonNull(status, "Listing status");
+        this.createdAt = Objects.requireNonNull(createdAt, "Creation time");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "Update time");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("Update time cannot precede creation time");
+        }
+    }
+
+    /** Restores a persisted listing while enforcing the same invariants as creation. */
+    public static Listing restore(UUID id, UUID sellerId, ListingDetails details, List<ListingImage> images,
+            ListingStatus status, Instant createdAt, Instant updatedAt) {
+        return new Listing(id, sellerId, details, images, status, createdAt, updatedAt);
     }
 
     /**
-     * Replaces all sale details while available.
+     * Replaces all sale details while available. Only an actual change advances the update time.
      *
      * @return true when sale terms changed and the service must reject pending offers
      */
-    public boolean update(ListingDetails newDetails, List<ListingImage> newImages) {
+    public boolean update(ListingDetails newDetails, List<ListingImage> newImages, Instant time) {
         requireStatus(ListingStatus.AVAILABLE);
         Objects.requireNonNull(newDetails, "Listing details");
+        Objects.requireNonNull(time, "Update time");
+        if (time.isBefore(updatedAt)) {
+            throw new IllegalArgumentException("Update time cannot precede the previous update");
+        }
         List<ListingImage> checkedImages = validateImages(newImages);
         boolean hasChanges = !details.equals(newDetails) || !images.equals(checkedImages);
-        details = newDetails;
-        images = checkedImages;
+        if (hasChanges) {
+            details = newDetails;
+            images = checkedImages;
+            updatedAt = time;
+        }
         return hasChanges;
     }
 
@@ -64,6 +93,14 @@ public final class Listing {
         status = ListingStatus.ARCHIVED;
     }
 
+    /**
+     * True for available or archived listings; reserved and sold listings always have a transaction.
+     * Services must also refuse listings with offer or conversation history.
+     */
+    public boolean isDeletable() {
+        return status == ListingStatus.AVAILABLE || status == ListingStatus.ARCHIVED;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -82,6 +119,15 @@ public final class Listing {
 
     public ListingStatus getStatus() {
         return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    /** Time of the last actual change to sale details or images; status changes do not count. */
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
     private void requireStatus(ListingStatus expected) {

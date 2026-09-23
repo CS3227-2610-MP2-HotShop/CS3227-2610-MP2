@@ -16,7 +16,7 @@ class OfferTest {
     private static final UUID BUYER = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     private Listing listing() {
-        return new Listing(SELLER, ListingTest.details("Chair", 5000), List.of());
+        return new Listing(SELLER, ListingTest.details("Chair", 5000), List.of(), ListingTest.CREATED);
     }
 
     @ParameterizedTest

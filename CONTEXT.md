@@ -26,6 +26,14 @@ The portion of a user's profile visible to other logged-in HotShop users: displa
 A seller's advertised item or bundle offered as one sale, with its description and asking price. A listing has no separately tracked quantities.
 _Avoid_: Product (when referring to the seller's advertisement)
 
+**Archive**:
+A seller's action that withdraws a listing from browsing and search while keeping it, and its offer, transaction, and conversation history, visible to the people involved. An archived listing cannot be reopened.
+_Avoid_: Delete (when history is kept)
+
+**Delete**:
+A seller's action that permanently removes a listing and its images. Only possible for a listing with no offer, transaction, or conversation history; otherwise the seller archives it.
+_Avoid_: Archive, remove
+
 **Listing image**:
 A photograph or other image associated with a listing for display to potential buyers.
 
