@@ -19,7 +19,7 @@ An 800 by 600 window titled **HotShop** displays **Welcome to HotShop**.
 Resize the window as desired and close it with the operating system's close button.
 
 Startup creates or opens a local database and image folder at `.hotshop` in your
-home directory. Accounts, listings, and their images in that folder survive
+home directory. Accounts, listings, offers, and images in that folder survive
 application restarts. Only one HotShop instance may use the same folder at a time.
 Opening an older HotShop data folder upgrades it automatically without removing
 existing accounts.
@@ -43,10 +43,10 @@ include Java itself. The CI artifact targets Linux.
 ## Current scope
 
 The application still has a welcome screen only. Account registration, login,
-profile editing, password changes, and listing management and search are
+profile editing, password changes, listing management and search, and offers are
 implemented at service level for future screen integration; they are not
-accessible from the current window. Offers, meetups, chat, and other buyer/seller
-workflows are not yet available.
+accessible from the current window. Completing or cancelling a sale, meetups,
+chat, notifications, and other buyer/seller workflows are not yet available.
 
 The account service enforces these rules:
 
@@ -85,11 +85,34 @@ The listing service enforces these rules. Every listing action requires login.
 - Sellers see all of their own listings, in every status, newest first.
 - Only the seller can edit, archive, or delete a listing. Only available
   listings can be edited; saving without any change does not count as an edit.
+- **Editing a listing rejects all of its pending offers**, because the buyers
+  offered on the old details. Saving without any change keeps them.
 - Archiving hides an available or sold listing from search but keeps it, and
-  people with a link to it can still open it. Archived listings cannot be reopened.
+  people with a link to it can still open it. Archived listings cannot be
+  reopened. **Archiving also rejects all pending offers.** A reserved listing
+  cannot be archived.
 - Deleting permanently removes an available or archived listing and its photos.
-  Reserved and sold listings cannot be deleted.
+  Reserved and sold listings cannot be deleted, and neither can any listing that
+  has ever received an offer, even one that was later withdrawn; archive it instead.
 - Search shows only other sellers' available listings. It can match text in the
   title (ignoring upper and lower case), and filter by one category, one or more
   conditions, and a minimum and/or maximum price (both inclusive). Results are
   sorted newest first, or by price from low to high or high to low.
+
+The offer service enforces these rules. Every offer action requires login.
+
+- Buyers can offer from S$0.01 to S$1,000,000.00 on another seller's available
+  listing. Offers may be above the asking price. You cannot offer on your own
+  listing, or on a listing that is reserved, sold, or archived.
+- You can have only one pending offer on each listing. To change the amount,
+  withdraw your offer and make a new one. Only pending offers can be withdrawn.
+- Buyers see all of their own offers, newest first, with each listing's current
+  status. Other buyers never see your offer or its amount.
+- Sellers see every offer on their own listing: the accepted offer first, then
+  the others newest first.
+- Accepting an offer reserves the listing and automatically rejects every other
+  pending offer on it. Only pending offers can be accepted or rejected, and only
+  by the seller.
+- Every refused action explains what went wrong and what to do next, for
+  example: "You already have a pending offer of S$40.00 on this listing.
+  Withdraw it before making a new one."

@@ -27,9 +27,10 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 
 This is a single-project, non-modular build. Launcher is separate from the
 Application subclass so the bundled JAR can launch JavaFX from the classpath.
-The shared model layer, AccountService, and ListingService are implemented,
-including SQLite persistence, authentication, profile and listing images, buyer
-listing search, and lifecycle initialization. Other services and
+The shared model layer, AccountService, ListingService, and OfferService are
+implemented, including SQLite persistence, authentication, profile and listing
+images, buyer listing search, offers, saving agreed sales, and lifecycle
+initialization. Other services and
 buyer/seller/account screens remain deferred; the application still opens the
 welcome screen.
 
@@ -79,8 +80,10 @@ account requirements and implementation scope.
 
 IDs are UUIDs generated at creation. `User.restore` provides validated restoration
 and immutable profile replacement with the original UUID; `Listing.restore` does
-the same for listings, including status and timestamps. Offer, Transaction, and
-CancellationRequest do not yet have database restoration methods. Amounts are
+the same for listings, including status and timestamps, and `Offer.restore` for
+offers (`closedAt` is present exactly when the offer is no longer pending).
+Transaction and CancellationRequest do not yet have database restoration methods.
+Offer amounts share the listing price cap. Amounts are
 positive `long` values in SGD cents. Text is stripped of surrounding whitespace;
 length limits count Unicode code points. Missing required references throw
 `NullPointerException`, invalid values/actors throw `IllegalArgumentException`,
@@ -92,7 +95,8 @@ operations leave model state unchanged.
 are capped at `ListingDetails.MAX_PRICE_CENTS` (S$1,000,000). `isDeletable` is
 true only for available or archived listings.
 
-Listing creation and updates, transaction creation, and timestamped operations take an explicit `Instant`.
+Listing creation and updates, offer creation and closing (`accept`, `reject`,
+`withdraw`), transaction creation, and timestamped operations take an explicit `Instant`.
 Pass times from the service clock; operations must not precede the transaction's
 last recorded event. Tests use fixed times without sleeping.
 
@@ -108,9 +112,9 @@ Future services must obtain actor IDs from the authenticated session and:
 2. Enforce username uniqueness and at most one pending offer per buyer/listing.
 3. Accept an offer, reserve its listing, reject competing offers, and create a
    transaction atomically. Construct `Transaction` after acceptance/reservation.
-4. Reject pending offers after an actual listing edit or archival, inside the
-   saving transaction of `ListingService.updateListing` and `archiveListing`.
-   Make `deleteListing` refuse listings with offer or conversation history.
+4. Reject pending offers after an actual listing edit or archival. Done by
+   ListingService through `PendingOffers`; `deleteListing` refuses listings with
+   offer history. ChatService must add the same refusal for conversation history.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
 6. Preserve listing/offer/request history and exclude archived listings from browsing.
@@ -140,6 +144,11 @@ profiles and separate `PasswordHash` records; it does not authorize callers.
 Schema version 1 lives in `src/main/resources/db/migration/001_accounts.sql`.
 Version 2 (`002_listings.sql`) adds `listings` and `listing_images` and rebuilds
 `image_cleanup` with a `namespace` column, tagging existing rows as `profiles`.
+Version 3 (`003_offers.sql`) adds `offers`, with a partial unique index allowing
+one pending offer per buyer and listing, and `transactions`, with a partial
+unique index allowing one active sale per listing. `Transaction`'s internal
+`lastEventAt` is not stored; TransactionService can derive it from the saved
+creation, confirmation, and cancellation-request times.
 
 ### Schema migrations
 
@@ -244,8 +253,44 @@ SQLite's case-insensitive matching covers ASCII letters only. There is no
 pagination.
 
 `ApplicationRuntime.open(Path, Clock)` lets tests fix the time; timestamps are
-truncated to milliseconds to match what SQLite stores. Tests that need reserved
-or sold listings set the status in SQL, standing in for the future OfferService.
+truncated to milliseconds to match what SQLite stores. Tests that need sold
+listings or cancelled sales set the status in SQL, standing in for the future
+TransactionService.
+
+## Offer service
+
+[OfferService Design](OfferServiceDesign.md) records the approved requirements.
+**OfferService includes the buyer operations** (submit, withdraw, my offers).
+Buyer screens should call them rather than implementing them again.
+
+Access it through `ApplicationRuntime.getOffers()`. It shares the worker,
+session, and database with the other services, and every operation requires login.
+
+| Operation | Who | Rule |
+| --- | --- | --- |
+| `submitOffer(listingId, amountCents)` | Buyer | Another seller's available listing; one pending offer per buyer and listing. |
+| `withdrawOffer(offerId)` | The offer's buyer | Pending offers only. |
+| `getMyOffers()` | Buyer | Own offers in every status, newest first, each with listing and seller. |
+| `getOffersForListing(listingId)` | The listing's seller | Every offer; live sale first, then accepted offers whose sale was cancelled, then the rest newest first. |
+| `acceptOffer(offerId)` | The listing's seller | Pending offer on an available listing. |
+| `rejectOffer(offerId)` | The listing's seller | Pending offers only. |
+
+`acceptOffer` does everything in one database transaction: accept the offer,
+reserve the listing, reject the other pending offers through `PendingOffers`, and
+save a `Transaction`. It returns `AcceptedOffer` (offer, reserved listing, sale
+ID). `OfferWithListing` and `OfferWithBuyer` carry the sale status for accepted
+offers, so screens can show "Accepted, sale cancelled" without a new offer status.
+
+`ServiceSupport` holds plumbing shared by ListingService and OfferService: the
+truncated current time, transaction error mapping, public-profile lookup, status
+words, and price formatting (`S$40.00`). `ServiceException` has factories for
+its codes. Refusal messages say what is wrong and what to do, using real values,
+and never mention SQL. Tests assert the code and key values in selected
+messages, not exact wording.
+
+Hooks for later services: NotificationService adds notifications inside the
+accept and reject transactions; TransactionService handles confirmation and
+cancellation, after which a released listing can receive offers again.
 
 Targeted development checks:
 
@@ -253,6 +298,7 @@ Targeted development checks:
 .\gradlew.bat test --tests hotshop.service.AccountServiceTest
 .\gradlew.bat test --tests hotshop.service.ProfileImageTest
 .\gradlew.bat test --tests "hotshop.service.Listing*"
+.\gradlew.bat test --tests hotshop.service.OfferServiceTest
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```

@@ -15,6 +15,7 @@ import hotshop.storage.ImageStorage;
  * orphans. Coordinates the non-atomic filesystem/database boundary on the service worker.
  */
 final class ManagedImages {
+    private static final int BYTES_PER_MIB = 1024 * 1024;
     private static final System.Logger LOGGER = System.getLogger(ManagedImages.class.getName());
     private final Database database;
     private final ImageStorage storage;
@@ -38,12 +39,17 @@ final class ManagedImages {
         this.references = references;
     }
 
-    /** Copies a validated image into this namespace; invalid images are reported as validation failures. */
+    /**
+     * Copies a validated image into this namespace; invalid images are reported as validation
+     * failures that restate this namespace's limits.
+     */
     String importImage(Path source) throws IOException {
         try {
             return storage.importImage(source, limits);
         } catch (IllegalArgumentException exception) {
-            throw new ServiceException(ServiceException.Code.VALIDATION, exception.getMessage());
+            throw ServiceException.validation(exception.getMessage() + ". Images must be JPEG or PNG, at most "
+                    + limits.maximumBytes() / BYTES_PER_MIB + " MiB and " + limits.maximumWidth() + " by "
+                    + limits.maximumHeight() + " pixels.");
         }
     }
 

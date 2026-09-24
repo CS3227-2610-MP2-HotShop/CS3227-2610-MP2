@@ -21,8 +21,8 @@ class CancellationRequestTest {
 
     private Transaction transaction() {
         Listing listing = new Listing(SELLER, ListingTest.details("Chair", 5000), List.of(), ListingTest.CREATED);
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         listing.reserve();
         return new Transaction(listing, offer, START);
     }

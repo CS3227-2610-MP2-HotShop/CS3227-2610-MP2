@@ -35,9 +35,58 @@ class DatabaseTest {
     void migrate_releasedSchema_createsListingTables() throws Exception {
         Database database = new Database(directory.resolve("test.db"));
         database.migrate();
-        assertEquals(List.of(1, 2), appliedVersions(database));
+        assertEquals(List.of(1, 2, 3), appliedVersions(database));
         assertTrue(tableExists(database, "listings"));
         assertTrue(tableExists(database, "listing_images"));
+    }
+
+    @Test
+    void migrate_releasedSchema_createsOfferAndTransactionTables() throws Exception {
+        Database database = new Database(directory.resolve("test.db"));
+        database.migrate();
+        assertTrue(tableExists(database, "offers"));
+        assertTrue(tableExists(database, "transactions"));
+    }
+
+    @Test
+    void migrate_releasedSchema_allowsOnePendingOfferPerBuyerAndListing() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'WITHDRAWN', 0, 1)");
+        execute(database, "INSERT INTO offers VALUES ('o2', 'l1', 'b', 100, 'PENDING', 2, NULL)");
+        assertThrows(SQLException.class,
+                () -> execute(database, "INSERT INTO offers VALUES ('o3', 'l1', 'b', 200, 'PENDING', 3, NULL)"));
+    }
+
+    @Test
+    void migrate_releasedSchema_rejectsPendingOfferWithCloseTime() throws Exception {
+        Database database = seededMarketplace();
+        assertThrows(SQLException.class,
+                () -> execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'PENDING', 0, 1)"));
+    }
+
+    @Test
+    void migrate_releasedSchema_allowsOneActiveSalePerListing() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(database, "INSERT INTO offers VALUES ('o2', 'l1', 'b', 100, 'ACCEPTED', 2, 3)");
+        execute(database, "INSERT INTO offers VALUES ('o3', 'l1', 'b', 100, 'ACCEPTED', 4, 5)");
+        execute(database, transaction("t1", "o1", "CANCELLED"));
+        execute(database, transaction("t2", "o2", "ACTIVE"));
+        assertThrows(SQLException.class, () -> execute(database, transaction("t3", "o3", "ACTIVE")));
+    }
+
+    @Test
+    void migrate_listingsDatabase_keepsListingsWhenAddingOffers() throws Exception {
+        Path file = directory.resolve("test.db");
+        Database listingsOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql"));
+        listingsOnly.migrate();
+        execute(listingsOnly, "INSERT INTO users(id, username, normalized_username, display_name) "
+                + "VALUES ('u', 'alice', 'alice', 'Alice')");
+        insertListing(listingsOnly, "l1", 100);
+        Database upgraded = new Database(file);
+        upgraded.migrate();
+        assertEquals(List.of(1, 2, 3), appliedVersions(upgraded));
+        assertEquals(1, countRows(upgraded, "listings"));
     }
 
     @Test
@@ -178,6 +227,30 @@ class DatabaseTest {
                 }
             }
             return versions;
+        });
+    }
+
+    /** A released-schema database with seller 'u', buyer 'b', and listing 'l1'. */
+    private Database seededMarketplace() throws Exception {
+        Database database = new Database(directory.resolve("test.db"));
+        database.migrate();
+        execute(database, "INSERT INTO users(id, username, normalized_username, display_name) "
+                + "VALUES ('u', 'alice', 'alice', 'Alice'), ('b', 'bobby', 'bobby', 'Bob')");
+        insertListing(database, "l1", 100);
+        return database;
+    }
+
+    private static String transaction(String id, String offerId, String status) {
+        return "INSERT INTO transactions VALUES ('" + id + "', 'l1', '" + offerId + "', 'b', 'u', 100, 'T', 'D', "
+                + "'NEW', 0, '" + status + "', NULL, NULL)";
+    }
+
+    private static void execute(Database database, String sql) throws SQLException {
+        database.executeTransaction(connection -> {
+            try (var statement = connection.createStatement()) {
+                statement.execute(sql);
+            }
+            return null;
         });
     }
 

@@ -23,8 +23,8 @@ class TransactionTest {
 
     private Transaction transaction() {
         Listing listing = listing();
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         listing.reserve();
         return new Transaction(listing, offer, START);
     }
@@ -32,8 +32,8 @@ class TransactionTest {
     @Test
     void constructor_acceptedOffer_preservesAgreedSnapshotAfterListingChanges() {
         Listing listing = listing();
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         listing.reserve();
         Transaction transaction = new Transaction(listing, offer, START);
         transaction.cancel(BUYER);
@@ -51,7 +51,7 @@ class TransactionTest {
     @Test
     void constructor_pendingOffer_throwsException() {
         Listing listing = listing();
-        Offer offer = new Offer(listing, BUYER, 4500);
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
         listing.reserve();
         assertThrows(IllegalStateException.class, () -> new Transaction(listing, offer, START));
     }
@@ -59,8 +59,8 @@ class TransactionTest {
     @Test
     void constructor_unreservedListing_throwsException() {
         Listing listing = listing();
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         assertThrows(IllegalStateException.class, () -> new Transaction(listing, offer, START));
     }
 
@@ -94,8 +94,8 @@ class TransactionTest {
     @Test
     void constructor_differentListing_throwsException() {
         Listing listing = listing();
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         Listing other = listing();
         other.reserve();
         assertThrows(IllegalArgumentException.class, () -> new Transaction(other, offer, START));
