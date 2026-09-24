@@ -226,7 +226,15 @@ expose the detached model copy, consistent with the listing and offer results.
 ## Final Output and Conclusion
 
 TransactionService is implemented on branch `Transaction-Service`, based on
-`Offer-Service`. The teammate should agree to the shared changes: `Transaction`'s
+`Offer-Service`.
+
+> yes do that, also include a summary of what was done and what my teammate should know and agree on in the pr message
+
+The branch was pushed and opened as PR #8 against `Offer-Service` (PR #7). The
+description summarises the work and lists five shared changes for the teammate
+to agree on, plus migration, test-speed, and hook notes. While checking the
+stack, the assistant found that the teammate had merged PR #5 into `main`; PR #6
+still targets `Better-Database-Migration` because that branch was not deleted. The teammate should agree to the shared changes: `Transaction`'s
 `cancel` signature, restore, and public state queries; building "My purchases"
 here; and My Listings returning `OwnListing` with the new order. Meetups and
 notifications remain.
