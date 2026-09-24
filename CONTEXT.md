@@ -49,6 +49,10 @@ _Avoid_: Retract (ambiguous between a withdrawn offer and a cancelled sale)
 An agreed sale between a buyer and seller, formed when the seller accepts an offer.
 _Avoid_: Order, payment (when referring to the agreed sale)
 
+**Active sale**:
+A transaction that has been agreed but not yet completed or cancelled: the participants are still to meet, hand over the item, and both confirm completion. Its listing is reserved.
+_Avoid_: Pending sale, open order
+
 **Completion confirmation**:
 A transaction participant's declaration that the agreed sale is complete. Both participants must confirm for the transaction to be completed.
 

@@ -2,6 +2,7 @@ package hotshop.database;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +36,7 @@ class DatabaseTest {
     void migrate_releasedSchema_createsListingTables() throws Exception {
         Database database = new Database(directory.resolve("test.db"));
         database.migrate();
-        assertEquals(List.of(1, 2, 3), appliedVersions(database));
+        assertEquals(List.of(1, 2, 3, 4), appliedVersions(database));
         assertTrue(tableExists(database, "listings"));
         assertTrue(tableExists(database, "listing_images"));
     }
@@ -76,6 +77,48 @@ class DatabaseTest {
     }
 
     @Test
+    void migrate_releasedSchema_allowsOnePendingCancellationRequestPerSale() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(database, transaction("t1", "o1", "ACTIVE"));
+        execute(database, request("r1", "WITHDRAWN", "3"));
+        execute(database, request("r2", "PENDING", "NULL"));
+        assertThrows(SQLException.class, () -> execute(database, request("r3", "PENDING", "NULL")));
+    }
+
+    @Test
+    void migrate_releasedSchema_rejectsResolvedRequestWithoutResolutionTime() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(database, transaction("t1", "o1", "ACTIVE"));
+        assertThrows(SQLException.class, () -> execute(database, request("r1", "REJECTED", "NULL")));
+    }
+
+    @Test
+    void migrate_offersDatabaseWithSale_keepsSaleWithoutCancellationDetails() throws Exception {
+        Path file = directory.resolve("test.db");
+        Database offersOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql",
+                "/db/migration/003_offers.sql"));
+        offersOnly.migrate();
+        execute(offersOnly, "INSERT INTO users(id, username, normalized_username, display_name) "
+                + "VALUES ('u', 'alice', 'alice', 'Alice'), ('b', 'bobby', 'bobby', 'Bob')");
+        insertListing(offersOnly, "l1", 100);
+        execute(offersOnly, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(offersOnly, transaction("t1", "o1", "ACTIVE"));
+        Database upgraded = new Database(file);
+        upgraded.migrate();
+        String cancelledBy = upgraded.executeTransaction(connection -> {
+            try (var statement = connection.createStatement();
+                    var rows = statement.executeQuery("SELECT cancelled_by FROM transactions WHERE id = 't1'")) {
+                rows.next();
+                return rows.getString(1);
+            }
+        });
+        assertNull(cancelledBy);
+        assertTrue(tableExists(upgraded, "cancellation_requests"));
+    }
+
+    @Test
     void migrate_listingsDatabase_keepsListingsWhenAddingOffers() throws Exception {
         Path file = directory.resolve("test.db");
         Database listingsOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql"));
@@ -85,7 +128,7 @@ class DatabaseTest {
         insertListing(listingsOnly, "l1", 100);
         Database upgraded = new Database(file);
         upgraded.migrate();
-        assertEquals(List.of(1, 2, 3), appliedVersions(upgraded));
+        assertEquals(List.of(1, 2, 3, 4), appliedVersions(upgraded));
         assertEquals(1, countRows(upgraded, "listings"));
     }
 
@@ -241,8 +284,16 @@ class DatabaseTest {
     }
 
     private static String transaction(String id, String offerId, String status) {
-        return "INSERT INTO transactions VALUES ('" + id + "', 'l1', '" + offerId + "', 'b', 'u', 100, 'T', 'D', "
-                + "'NEW', 0, '" + status + "', NULL, NULL)";
+        return "INSERT INTO transactions (id, listing_id, accepted_offer_id, buyer_id, seller_id, "
+                + "agreed_price_cents, listing_title, listing_description, listing_condition, created_at, status) "
+                + "VALUES ('" + id + "', 'l1', '" + offerId + "', 'b', 'u', 100, 'T', 'D', 'NEW', 0, '"
+                + status + "')";
+    }
+
+    /** A request by buyer 'b' on sale 't1'; resolvedAt is SQL text such as "3" or "NULL". */
+    private static String request(String id, String status, String resolvedAt) {
+        return "INSERT INTO cancellation_requests (id, transaction_id, requester_id, created_at, status, "
+                + "resolved_at) VALUES ('" + id + "', 't1', 'b', 2, '" + status + "', " + resolvedAt + ")";
     }
 
     private static void execute(Database database, String sql) throws SQLException {

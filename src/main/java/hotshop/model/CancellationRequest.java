@@ -1,6 +1,7 @@
 package hotshop.model;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,26 @@ public final class CancellationRequest {
         this.createdAt = createdAt;
         this.status = status;
         this.resolvedAt = resolvedAt;
+    }
+
+    /**
+     * Restores a persisted request. Its owning Transaction's restoration checks that it belongs to
+     * that sale and fits the sale's history.
+     */
+    public static CancellationRequest restore(UUID id, UUID transactionId, UUID requesterId, Instant createdAt,
+            CancellationStatus status, Instant resolvedAt) {
+        Objects.requireNonNull(id, "Request ID");
+        Objects.requireNonNull(transactionId, "Transaction ID");
+        Objects.requireNonNull(requesterId, "Requester ID");
+        Objects.requireNonNull(createdAt, "Request time");
+        Objects.requireNonNull(status, "Request status");
+        if ((status == CancellationStatus.PENDING) != (resolvedAt == null)) {
+            throw new IllegalArgumentException("Only resolved requests have a resolution time");
+        }
+        if (resolvedAt != null && resolvedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("Resolution cannot precede the request");
+        }
+        return new CancellationRequest(id, transactionId, requesterId, createdAt, status, resolvedAt);
     }
 
     CancellationRequest resolve(CancellationStatus outcome, Instant time) {

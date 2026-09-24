@@ -27,10 +27,11 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 
 This is a single-project, non-modular build. Launcher is separate from the
 Application subclass so the bundled JAR can launch JavaFX from the classpath.
-The shared model layer, AccountService, ListingService, and OfferService are
-implemented, including SQLite persistence, authentication, profile and listing
-images, buyer listing search, offers, saving agreed sales, and lifecycle
-initialization. Other services and
+The shared model layer, AccountService, ListingService, OfferService, and
+TransactionService are implemented, including SQLite persistence,
+authentication, profile and listing images, buyer listing search, offers, sale
+completion and cancellation, sales and purchase history, the sales dashboard
+summary, and lifecycle initialization. Other services and
 buyer/seller/account screens remain deferred; the application still opens the
 welcome screen.
 
@@ -82,7 +83,12 @@ IDs are UUIDs generated at creation. `User.restore` provides validated restorati
 and immutable profile replacement with the original UUID; `Listing.restore` does
 the same for listings, including status and timestamps, and `Offer.restore` for
 offers (`closedAt` is present exactly when the offer is no longer pending).
-Transaction and CancellationRequest do not yet have database restoration methods.
+`Transaction.restore` takes a `Transaction.Snapshot` (one component per saved
+column plus the request history) and rejects histories the live model could
+never produce; `CancellationRequest.restore` restores one request.
+`Transaction.cancel` records who cancelled and when; an accepted request records
+its requester as the canceller. `hasConfirmation`, `hasConfirmed`, and
+`getPendingCancellation` answer the state questions services and screens ask.
 Offer amounts share the listing price cap. Amounts are
 positive `long` values in SGD cents. Text is stripped of surrounding whitespace;
 length limits count Unicode code points. Missing required references throw
@@ -117,6 +123,7 @@ Future services must obtain actor IDs from the authenticated session and:
    offer history. ChatService must add the same refusal for conversation history.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
+   Done by TransactionService; MeetupService must also cancel the sale's meetup there.
 6. Preserve listing/offer/request history and exclude archived listings from browsing.
 
 `Transaction` itself enforces participant membership, one pending cancellation
@@ -146,9 +153,12 @@ Version 2 (`002_listings.sql`) adds `listings` and `listing_images` and rebuilds
 `image_cleanup` with a `namespace` column, tagging existing rows as `profiles`.
 Version 3 (`003_offers.sql`) adds `offers`, with a partial unique index allowing
 one pending offer per buyer and listing, and `transactions`, with a partial
-unique index allowing one active sale per listing. `Transaction`'s internal
-`lastEventAt` is not stored; TransactionService can derive it from the saved
-creation, confirmation, and cancellation-request times.
+unique index allowing one active sale per listing. Version 4
+(`004_sale_completion.sql`) adds `cancelled_at` and `cancelled_by` to
+`transactions` and a `cancellation_requests` table with a partial unique index
+allowing one pending request per sale. `Transaction`'s internal `lastEventAt` is
+not stored; `restore` derives it from the saved times. Requests are saved with an
+upsert and read back in the order they were made, so the latest is always last.
 
 ### Schema migrations
 
@@ -232,7 +242,7 @@ session, and database with AccountService, and every operation requires login.
 | `updateListing(id, draft, photos)` | Owner only; available listings only. |
 | `archiveListing(id)` | Owner only; available or sold listings. |
 | `deleteListing(id)` | Owner only; available or archived listings; removes photos. |
-| `getMyListings()` | Current user's listings in every status, newest first. |
+| `getMyListings()` | Current user's listings as `OwnListing` (listing plus pending offer count): reserved, available, sold, archived, each newest first. |
 | `getListing(id)` | Any existing listing in any status. |
 | `searchListings(search)` | Other sellers' available listings only. |
 
@@ -253,9 +263,9 @@ SQLite's case-insensitive matching covers ASCII letters only. There is no
 pagination.
 
 `ApplicationRuntime.open(Path, Clock)` lets tests fix the time; timestamps are
-truncated to milliseconds to match what SQLite stores. Tests that need sold
-listings or cancelled sales set the status in SQL, standing in for the future
-TransactionService.
+truncated to milliseconds to match what SQLite stores. Some listing tests set a
+listing's status in SQL to reach reserved or sold states directly; offer and sale
+tests use the real services.
 
 ## Offer service
 
@@ -289,8 +299,43 @@ and never mention SQL. Tests assert the code and key values in selected
 messages, not exact wording.
 
 Hooks for later services: NotificationService adds notifications inside the
-accept and reject transactions; TransactionService handles confirmation and
-cancellation, after which a released listing can receive offers again.
+accept and reject transactions. After TransactionService cancels a sale, the
+released listing can receive offers again.
+
+## Transaction service
+
+[TransactionService Design](TransactionServiceDesign.md) records the approved
+requirements, including which lists are intended for which page.
+**TransactionService includes the buyer's purchase list.** Buyer screens should
+call `getMyPurchases` rather than implementing it again.
+
+Access it through `ApplicationRuntime.getTransactions()`. Every operation
+requires login, and only the sale's buyer and seller may act on it. Actions take
+only the sale ID; the request being accepted, rejected, or withdrawn is always
+the sale's one pending request.
+
+| Operation | Rule |
+| --- | --- |
+| `confirmCompletion(saleId)` | Active sale, no pending request, not yet confirmed by you. The second confirmation completes the sale and marks the listing sold. |
+| `cancelSale(saleId)` | Active sale that nobody has confirmed. Releases the listing. |
+| `requestCancellation(saleId)` | Active sale with a confirmation and no pending request. |
+| `acceptCancellation` / `rejectCancellation(saleId)` | The participant who did not make the pending request. Accepting cancels and releases the listing. |
+| `withdrawCancellation(saleId)` | The participant who made the pending request. |
+| `getMySales()` / `getMyPurchases()` | One `SaleForParticipant` per agreed sale: pending request first, other active, completed, cancelled, each newest first. |
+| `getSalesDashboard()` | `SalesDashboard`: pending offers across your listings, active and completed sale counts, and the total of completed sales. |
+
+Every change loads the sale, checks the participant and status, applies it
+through the `Transaction` model, and saves the sale and any listing change in
+one database transaction (`applyToActiveSale`). `SaleProgress` turns a sale's
+state into the viewer's `NextStep` (with display text), `SaleAction`s, and list
+position, using the same model queries the rules use, so screens never offer an
+action that would be refused. Hooks: MeetupService cancels the meetup and
+NotificationService notifies the other participant inside these transactions.
+
+The full test suite takes more than ten minutes on a typical laptop, mostly
+because each test account's password is hashed with 600,000 PBKDF2 iterations.
+Run the targeted checks below while developing and the full suite before
+committing.
 
 Targeted development checks:
 
@@ -299,6 +344,7 @@ Targeted development checks:
 .\gradlew.bat test --tests hotshop.service.ProfileImageTest
 .\gradlew.bat test --tests "hotshop.service.Listing*"
 .\gradlew.bat test --tests hotshop.service.OfferServiceTest
+.\gradlew.bat test --tests hotshop.service.TransactionServiceTest
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```

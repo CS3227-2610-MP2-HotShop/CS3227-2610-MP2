@@ -21,6 +21,7 @@ import hotshop.service.AuthenticatedSession;
 import hotshop.service.ListingService;
 import hotshop.service.OfferService;
 import hotshop.service.ServiceWorker;
+import hotshop.service.TransactionService;
 import hotshop.storage.ImageStorage;
 
 /** Owns application resources for exactly one local data directory. */
@@ -31,6 +32,7 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final AccountService accounts;
     private final ListingService listings;
     private final OfferService offers;
+    private final TransactionService transactions;
     private boolean isClosed;
 
     private ApplicationRuntime(FileChannel lockChannel, FileLock lock, Database database, ImageStorage profileImages,
@@ -44,7 +46,10 @@ public final class ApplicationRuntime implements AutoCloseable {
         OfferRepository offerRepository = new OfferRepository();
         listings = new ListingService(database, listingRepository, offerRepository, users, worker, session,
                 listingImages, clock);
-        offers = new OfferService(database, offerRepository, listingRepository, new TransactionRepository(),
+        TransactionRepository transactionRepository = new TransactionRepository();
+        offers = new OfferService(database, offerRepository, listingRepository, transactionRepository,
+                users, worker, session, clock);
+        transactions = new TransactionService(database, transactionRepository, listingRepository, offerRepository,
                 users, worker, session, clock);
     }
 
@@ -58,6 +63,10 @@ public final class ApplicationRuntime implements AutoCloseable {
 
     public OfferService getOffers() {
         return offers;
+    }
+
+    public TransactionService getTransactions() {
+        return transactions;
     }
 
     /** Locks and initializes the data directory using the system clock. */

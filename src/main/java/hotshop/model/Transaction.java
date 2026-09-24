@@ -12,7 +12,7 @@ import java.util.UUID;
  * the authenticated service; services also coordinate the corresponding listing update.
  */
 public final class Transaction {
-    private final UUID id = UUID.randomUUID();
+    private final UUID id;
     private final UUID listingId;
     private final UUID acceptedOfferId;
     private final UUID buyerId;
@@ -23,13 +23,17 @@ public final class Transaction {
     private final Condition listingCondition;
     private final Instant createdAt;
     private final List<CancellationRequest> cancellationRequests = new ArrayList<>();
-    private TransactionStatus status = TransactionStatus.ACTIVE;
+    private TransactionStatus status;
     private Instant buyerConfirmedAt;
     private Instant sellerConfirmedAt;
+    private Instant cancelledAt;
+    private UUID cancelledBy;
     private Instant lastEventAt;
 
     /** Captures an accepted offer and its reserved listing without retaining either mutable object. */
     public Transaction(Listing listing, Offer offer, Instant createdAt) {
+        id = UUID.randomUUID();
+        status = TransactionStatus.ACTIVE;
         Objects.requireNonNull(listing, "Listing");
         Objects.requireNonNull(offer, "Offer");
         this.createdAt = Objects.requireNonNull(createdAt, "Creation time");
@@ -48,6 +52,110 @@ public final class Transaction {
         listingTitle = listing.getDetails().title();
         listingDescription = listing.getDetails().description();
         listingCondition = listing.getDetails().condition();
+    }
+
+    /** Every persisted field of a sale, used to restore it; optional fields are null when absent. */
+    public record Snapshot(UUID id, UUID listingId, UUID acceptedOfferId, UUID buyerId, UUID sellerId,
+            long agreedPriceCents, String listingTitle, String listingDescription, Condition listingCondition,
+            Instant createdAt, TransactionStatus status, Instant buyerConfirmedAt, Instant sellerConfirmedAt,
+            Instant cancelledAt, UUID cancelledBy, List<CancellationRequest> cancellationRequests) {
+    }
+
+    private Transaction(Snapshot saved) {
+        id = Objects.requireNonNull(saved.id(), "Transaction ID");
+        listingId = Objects.requireNonNull(saved.listingId(), "Listing ID");
+        acceptedOfferId = Objects.requireNonNull(saved.acceptedOfferId(), "Accepted offer ID");
+        buyerId = Objects.requireNonNull(saved.buyerId(), "Buyer ID");
+        sellerId = Objects.requireNonNull(saved.sellerId(), "Seller ID");
+        agreedPriceCents = saved.agreedPriceCents();
+        listingTitle = Objects.requireNonNull(saved.listingTitle(), "Listing title");
+        listingDescription = Objects.requireNonNull(saved.listingDescription(), "Listing description");
+        listingCondition = Objects.requireNonNull(saved.listingCondition(), "Listing condition");
+        createdAt = Objects.requireNonNull(saved.createdAt(), "Creation time");
+        status = Objects.requireNonNull(saved.status(), "Transaction status");
+        buyerConfirmedAt = saved.buyerConfirmedAt();
+        sellerConfirmedAt = saved.sellerConfirmedAt();
+        cancelledAt = saved.cancelledAt();
+        cancelledBy = saved.cancelledBy();
+        cancellationRequests.addAll(saved.cancellationRequests());
+        lastEventAt = createdAt;
+        validateRestoredState();
+    }
+
+    /**
+     * Restores a persisted sale, rejecting combinations the live model could never produce. The
+     * last-event time that orders later actions is derived from the saved times.
+     */
+    public static Transaction restore(Snapshot saved) {
+        Objects.requireNonNull(saved, "Saved transaction");
+        return new Transaction(saved);
+    }
+
+    private void validateRestoredState() {
+        if (buyerId.equals(sellerId) || agreedPriceCents <= 0 || agreedPriceCents > ListingDetails.MAX_PRICE_CENTS) {
+            throw new IllegalArgumentException("Saved sale has invalid participants or price");
+        }
+        if ((status == TransactionStatus.COMPLETED) != (buyerConfirmedAt != null && sellerConfirmedAt != null)) {
+            throw new IllegalArgumentException("Only a completed sale has both confirmations");
+        }
+        if ((status == TransactionStatus.CANCELLED) != (cancelledAt != null && cancelledBy != null)
+                || (status != TransactionStatus.CANCELLED && (cancelledAt != null || cancelledBy != null))) {
+            throw new IllegalArgumentException("Only a cancelled sale records who cancelled and when");
+        }
+        if (cancelledBy != null) {
+            requireParticipant(cancelledBy);
+        }
+        if (!cancellationRequests.isEmpty() && !hasConfirmation()) {
+            throw new IllegalArgumentException("Cancellation requests require an earlier confirmation");
+        }
+        for (int i = 0; i < cancellationRequests.size(); i++) {
+            validateRestoredRequest(cancellationRequests.get(i), i == cancellationRequests.size() - 1);
+        }
+        boolean isCancelledByRequest = !cancellationRequests.isEmpty()
+                && cancellationRequests.getLast().getStatus() == CancellationStatus.ACCEPTED;
+        if (status == TransactionStatus.CANCELLED && hasConfirmation() && !isCancelledByRequest) {
+            throw new IllegalArgumentException("A confirmed sale can only be cancelled by an accepted request");
+        }
+        if (isCancelledByRequest && !cancellationRequests.getLast().getRequesterId().equals(cancelledBy)) {
+            throw new IllegalArgumentException("An accepted request's requester is who cancelled the sale");
+        }
+        advanceLastEvent(buyerConfirmedAt);
+        advanceLastEvent(sellerConfirmedAt);
+        advanceLastEvent(cancelledAt);
+    }
+
+    /**
+     * Requests must belong to this sale, be made by a participant, and follow one another in time.
+     * Only the latest may be pending (on an active sale) or accepted (which cancels the sale).
+     */
+    private void validateRestoredRequest(CancellationRequest request, boolean isLast) {
+        if (!request.getTransactionId().equals(id)) {
+            throw new IllegalArgumentException("Cancellation request belongs to another sale");
+        }
+        requireParticipant(request.getRequesterId());
+        if (request.getCreatedAt().isBefore(lastEventAt)) {
+            throw new IllegalArgumentException("Cancellation requests are out of order");
+        }
+        boolean mayBePending = isLast && status == TransactionStatus.ACTIVE;
+        boolean mayBeAccepted = isLast && status == TransactionStatus.CANCELLED;
+        if ((request.getStatus() == CancellationStatus.PENDING && !mayBePending)
+                || (request.getStatus() == CancellationStatus.ACCEPTED && !mayBeAccepted)) {
+            throw new IllegalArgumentException("Request status does not fit the sale's history");
+        }
+        advanceLastEvent(request.getCreatedAt());
+        request.getResolvedAt().ifPresent(this::advanceLastEvent);
+    }
+
+    private void advanceLastEvent(Instant time) {
+        if (time == null) {
+            return;
+        }
+        if (time.isBefore(createdAt)) {
+            throw new IllegalArgumentException("Saved event precedes the sale");
+        }
+        if (time.isAfter(lastEventAt)) {
+            lastEventAt = time;
+        }
     }
 
     /** Records one participant's confirmation; the second completes this transaction. */
@@ -75,14 +183,15 @@ public final class Transaction {
         lastEventAt = confirmedAt;
     }
 
-    /** Cancels directly only before the first participant confirmation. */
-    public void cancel(UUID actorId) {
+    /** Cancels directly only before the first participant confirmation, recording who and when. */
+    public void cancel(UUID actorId, Instant cancelledAt) {
         requireActive();
         requireParticipant(actorId);
+        requireTime(cancelledAt);
         if (hasConfirmation()) {
             throw new IllegalStateException("Cancellation now requires the other participant's agreement");
         }
-        status = TransactionStatus.CANCELLED;
+        markCancelled(actorId, cancelledAt);
     }
 
     /** Requests mutual cancellation after the first confirmation, preserving earlier request history. */
@@ -101,8 +210,8 @@ public final class Transaction {
 
     /** Accepts the other participant's current request and cancels this transaction. */
     public void acceptCancellation(UUID requestId, UUID actorId, Instant resolvedAt) {
-        resolveCancellation(requestId, actorId, resolvedAt, CancellationStatus.ACCEPTED);
-        status = TransactionStatus.CANCELLED;
+        UUID requesterId = resolveCancellation(requestId, actorId, resolvedAt, CancellationStatus.ACCEPTED);
+        markCancelled(requesterId, resolvedAt);
     }
 
     /** Rejects the other participant's request without clearing existing confirmations. */
@@ -172,8 +281,35 @@ public final class Transaction {
         return Optional.ofNullable(sellerConfirmedAt);
     }
 
-    private boolean hasConfirmation() {
+    /** The latest recorded event; a new action's time must not precede it. */
+    public Instant getLastEventAt() {
+        return lastEventAt;
+    }
+
+    /** When the sale was cancelled, directly or by an accepted request; empty unless cancelled. */
+    public Optional<Instant> getCancelledAt() {
+        return Optional.ofNullable(cancelledAt);
+    }
+
+    /** Who cancelled directly, or whose cancellation request was accepted; empty unless cancelled. */
+    public Optional<UUID> getCancelledBy() {
+        return Optional.ofNullable(cancelledBy);
+    }
+
+    /** True once either participant has confirmed; direct cancellation is then no longer allowed. */
+    public boolean hasConfirmation() {
         return buyerConfirmedAt != null || sellerConfirmedAt != null;
+    }
+
+    /** True when the given participant has confirmed completion. */
+    public boolean hasConfirmed(UUID participantId) {
+        requireParticipant(participantId);
+        return participantId.equals(buyerId) ? buyerConfirmedAt != null : sellerConfirmedAt != null;
+    }
+
+    /** The request awaiting a response, if any; it is always the latest request. */
+    public Optional<CancellationRequest> getPendingCancellation() {
+        return hasPendingCancellation() ? Optional.of(cancellationRequests.getLast()) : Optional.empty();
     }
 
     private boolean hasPendingCancellation() {
@@ -181,7 +317,15 @@ public final class Transaction {
                 && cancellationRequests.getLast().getStatus() == CancellationStatus.PENDING;
     }
 
-    private void resolveCancellation(UUID requestId, UUID actorId, Instant time, CancellationStatus outcome) {
+    private void markCancelled(UUID participantId, Instant time) {
+        status = TransactionStatus.CANCELLED;
+        cancelledBy = participantId;
+        cancelledAt = time;
+        lastEventAt = time;
+    }
+
+    /** Resolves the pending request and returns its requester. */
+    private UUID resolveCancellation(UUID requestId, UUID actorId, Instant time, CancellationStatus outcome) {
         requireActive();
         requireParticipant(actorId);
         requireTime(time);
@@ -196,6 +340,7 @@ public final class Transaction {
         }
         cancellationRequests.set(cancellationRequests.size() - 1, request.resolve(outcome, time));
         lastEventAt = time;
+        return request.getRequesterId();
     }
 
     private void requireActive() {

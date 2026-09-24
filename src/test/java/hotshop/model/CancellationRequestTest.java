@@ -50,6 +50,28 @@ class CancellationRequestTest {
     }
 
     @Test
+    void acceptCancellation_pendingRequest_recordsRequesterAsCanceller() {
+        Transaction transaction = transaction();
+        transaction.confirmCompletion(BUYER, START);
+        CancellationRequest request = transaction.requestCancellation(SELLER, START.plusSeconds(1));
+        transaction.acceptCancellation(request.getId(), BUYER, START.plusSeconds(2));
+        assertEquals(SELLER, transaction.getCancelledBy().orElseThrow());
+        assertEquals(START.plusSeconds(2), transaction.getCancelledAt().orElseThrow());
+    }
+
+    @Test
+    void restore_pendingRequestWithResolutionTime_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> CancellationRequest.restore(UUID.randomUUID(),
+                UUID.randomUUID(), SELLER, START, CancellationStatus.PENDING, START.plusSeconds(1)));
+    }
+
+    @Test
+    void restore_resolvedRequestWithoutResolutionTime_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> CancellationRequest.restore(UUID.randomUUID(),
+                UUID.randomUUID(), SELLER, START, CancellationStatus.ACCEPTED, null));
+    }
+
+    @Test
     void confirmCompletion_pendingCancellation_throwsException() {
         Transaction transaction = transaction();
         transaction.confirmCompletion(BUYER, START);

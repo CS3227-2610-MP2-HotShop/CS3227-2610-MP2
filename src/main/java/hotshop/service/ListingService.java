@@ -6,8 +6,10 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -31,6 +33,9 @@ import hotshop.storage.ImageStorage;
  */
 public final class ListingService {
     private static final String STORAGE_FAILURE = "Listings are unavailable right now. Please try again.";
+    /** Reserved listings come first because they await a physical handover and confirmation. */
+    private static final List<ListingStatus> MY_LISTINGS_ORDER = List.of(ListingStatus.RESERVED,
+            ListingStatus.AVAILABLE, ListingStatus.SOLD, ListingStatus.ARCHIVED);
     private final Database database;
     private final ListingRepository listings;
     private final OfferRepository offers;
@@ -82,14 +87,21 @@ public final class ListingService {
         });
     }
 
-    /** Returns the current user's listings in every status, newest first. */
-    public CompletableFuture<List<ListingWithSeller>> getMyListings() {
+    /**
+     * Returns the current user's listings in every status with their pending offer counts: reserved
+     * first (awaiting handover), then available, sold, and archived, each newest first.
+     */
+    public CompletableFuture<List<OwnListing>> getMyListings() {
         return submit(() -> {
             UUID sellerId = session.requireUserId();
             return transaction(connection -> {
                 PublicProfile seller = ServiceSupport.publicProfile(connection, users, sellerId);
+                Map<UUID, Integer> pending = offers.countPendingByListingForSeller(connection, sellerId);
                 return listings.findBySeller(connection, sellerId).stream()
-                        .map(listing -> new ListingWithSeller(listing, seller)).toList();
+                        .sorted(Comparator.comparingInt(listing -> MY_LISTINGS_ORDER.indexOf(listing.getStatus())))
+                        .map(listing -> new OwnListing(new ListingWithSeller(listing, seller),
+                                pending.getOrDefault(listing.getId(), 0)))
+                        .toList();
             });
         });
     }

@@ -7,7 +7,9 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -84,6 +86,23 @@ public final class OfferRepository {
             statement.setString(1, buyerId.toString());
             return readAll(statement);
         }
+    }
+
+    /** Pending offer counts for each of the seller's listings that has any, keyed by listing ID. */
+    public Map<UUID, Integer> countPendingByListingForSeller(Connection connection, UUID sellerId)
+            throws SQLException {
+        Map<UUID, Integer> result = new HashMap<>();
+        try (var statement = connection.prepareStatement("SELECT offers.listing_id, COUNT(*) FROM offers "
+                + "JOIN listings ON listings.id = offers.listing_id WHERE listings.seller_id = ? "
+                + "AND offers.status = 'PENDING' GROUP BY offers.listing_id")) {
+            statement.setString(1, sellerId.toString());
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    result.put(UUID.fromString(rows.getString(1)), rows.getInt(2));
+                }
+            }
+        }
+        return result;
     }
 
     /** True when the listing has ever received an offer, whatever became of it. */

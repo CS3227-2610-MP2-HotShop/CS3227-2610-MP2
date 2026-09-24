@@ -109,8 +109,8 @@ class ListingServiceTest {
             runtime.getAccounts().logout().join();
             runtime.getAccounts().login("alice", PASSWORD).join();
             var mine = listings.getMyListings().join();
-            assertEquals(List.of("Newer", "Older"), titles(mine));
-            assertEquals("alice", mine.get(0).seller().displayName());
+            assertEquals(List.of("Newer", "Older"), ownTitles(mine));
+            assertEquals("alice", mine.get(0).listing().seller().displayName());
         }
     }
 
@@ -232,7 +232,7 @@ class ListingServiceTest {
             UUID id = create(runtime, "Chairs");
             setStatus(directory, id, status);
             assertEquals(ListingStatus.ARCHIVED, runtime.getListings().archiveListing(id).join().listing().getStatus());
-            assertEquals(List.of("Chairs"), titles(runtime.getListings().getMyListings().join()));
+            assertEquals(List.of("Chairs"), ownTitles(runtime.getListings().getMyListings().join()));
             registerAndLogin(runtime, "bobby");
             assertEquals(ListingStatus.ARCHIVED, runtime.getListings().getListing(id).join().listing().getStatus());
         }
@@ -391,6 +391,49 @@ class ListingServiceTest {
                     () -> runtime.getListings().updateListing(id, draft("Mine", 1), List.of()).join());
             assertTrue(failure.getMessage().contains("seller"), failure.getMessage());
         }
+    }
+
+    @Test
+    void getMyListings_everyStatus_ordersReservedAvailableSoldArchived() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID sold = create(runtime, "Sold");
+            clock.advanceSeconds(60);
+            create(runtime, "Older available");
+            clock.advanceSeconds(60);
+            UUID archived = create(runtime, "Archived");
+            clock.advanceSeconds(60);
+            UUID reserved = create(runtime, "Reserved");
+            clock.advanceSeconds(60);
+            create(runtime, "Newer available");
+            setStatus(directory, sold, ListingStatus.SOLD);
+            setStatus(directory, archived, ListingStatus.ARCHIVED);
+            setStatus(directory, reserved, ListingStatus.RESERVED);
+            assertEquals(List.of("Reserved", "Newer available", "Older available", "Sold", "Archived"),
+                    ownTitles(runtime.getListings().getMyListings().join()));
+        }
+    }
+
+    @Test
+    void getMyListings_pendingOffers_countsOnlyPendingOffersPerListing() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID chairs = create(runtime, "Chairs");
+            clock.advanceSeconds(60);
+            create(runtime, "Desk");
+            offerAs(runtime, "bobby", chairs);
+            UUID withdrawn = offerAs(runtime, "carol", chairs);
+            runtime.getOffers().withdrawOffer(withdrawn).join();
+            offerAs(runtime, "david", chairs);
+            loginAs(runtime, "alice");
+            var mine = runtime.getListings().getMyListings().join();
+            assertEquals(List.of("Desk", "Chairs"), ownTitles(mine));
+            assertEquals(List.of(0, 2), mine.stream().map(OwnListing::pendingOffers).toList());
+        }
+    }
+
+    private static List<String> ownTitles(List<OwnListing> results) {
+        return titles(results.stream().map(OwnListing::listing).toList());
     }
 
     private UUID offerAs(ApplicationRuntime runtime, String buyer, UUID listing) {
