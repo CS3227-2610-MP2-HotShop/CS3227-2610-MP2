@@ -36,7 +36,7 @@ class DatabaseTest {
     void migrate_releasedSchema_createsListingTables() throws Exception {
         Database database = new Database(directory.resolve("test.db"));
         database.migrate();
-        assertEquals(List.of(1, 2, 3, 4), appliedVersions(database));
+        assertEquals(List.of(1, 2, 3, 4, 5), appliedVersions(database));
         assertTrue(tableExists(database, "listings"));
         assertTrue(tableExists(database, "listing_images"));
     }
@@ -95,6 +95,49 @@ class DatabaseTest {
     }
 
     @Test
+    void migrate_releasedSchema_allowsOneScheduledMeetupPerSale() throws Exception {
+        Database database = seededSale();
+        execute(database, meetup("m1", "CANCELLED"));
+        execute(database, meetup("m2", "SCHEDULED"));
+        assertThrows(SQLException.class, () -> execute(database, meetup("m3", "SCHEDULED")));
+    }
+
+    @Test
+    void migrate_releasedSchema_allowsOnePendingMoveProposalPerMeetup() throws Exception {
+        Database database = seededSale();
+        execute(database, meetup("m1", "SCHEDULED"));
+        execute(database, proposal("p1", "REJECTED", "6"));
+        execute(database, proposal("p2", "PENDING", "NULL"));
+        assertThrows(SQLException.class, () -> execute(database, proposal("p3", "PENDING", "NULL")));
+    }
+
+    @Test
+    void migrate_releasedSchema_rejectsSlotEndingBeforeItStarts() throws Exception {
+        Database database = seededSale();
+        assertThrows(SQLException.class, () -> execute(database, "INSERT INTO meetup_slots "
+                + "(id, transaction_id, start_at, end_at, location, created_at) VALUES ('s1', 't1', 10, 5, 'L', 0)"));
+    }
+
+    @Test
+    void migrate_saleCompletionDatabaseWithSale_keepsSaleWhenAddingMeetups() throws Exception {
+        Path file = directory.resolve("test.db");
+        Database salesOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql",
+                "/db/migration/003_offers.sql", "/db/migration/004_sale_completion.sql"));
+        salesOnly.migrate();
+        execute(salesOnly, "INSERT INTO users(id, username, normalized_username, display_name) "
+                + "VALUES ('u', 'alice', 'alice', 'Alice'), ('b', 'bobby', 'bobby', 'Bob')");
+        insertListing(salesOnly, "l1", 100);
+        execute(salesOnly, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(salesOnly, transaction("t1", "o1", "ACTIVE"));
+        Database upgraded = new Database(file);
+        upgraded.migrate();
+        assertEquals(1, countRows(upgraded, "transactions"));
+        assertTrue(tableExists(upgraded, "meetups"));
+        assertTrue(tableExists(upgraded, "meetup_slots"));
+        assertTrue(tableExists(upgraded, "meetup_reschedule_proposals"));
+    }
+
+    @Test
     void migrate_offersDatabaseWithSale_keepsSaleWithoutCancellationDetails() throws Exception {
         Path file = directory.resolve("test.db");
         Database offersOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql",
@@ -128,7 +171,7 @@ class DatabaseTest {
         insertListing(listingsOnly, "l1", 100);
         Database upgraded = new Database(file);
         upgraded.migrate();
-        assertEquals(List.of(1, 2, 3, 4), appliedVersions(upgraded));
+        assertEquals(List.of(1, 2, 3, 4, 5), appliedVersions(upgraded));
         assertEquals(1, countRows(upgraded, "listings"));
     }
 
@@ -288,6 +331,26 @@ class DatabaseTest {
                 + "agreed_price_cents, listing_title, listing_description, listing_condition, created_at, status) "
                 + "VALUES ('" + id + "', 'l1', '" + offerId + "', 'b', 'u', 100, 'T', 'D', 'NEW', 0, '"
                 + status + "')";
+    }
+
+    /** The seeded marketplace plus accepted offer 'o1' and active sale 't1'. */
+    private Database seededSale() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'ACCEPTED', 0, 1)");
+        execute(database, transaction("t1", "o1", "ACTIVE"));
+        return database;
+    }
+
+    private static String meetup(String id, String status) {
+        return "INSERT INTO meetups (id, transaction_id, start_at, end_at, location, status, created_at) "
+                + "VALUES ('" + id + "', 't1', 1000, 2000, 'Library', '" + status + "', 5)";
+    }
+
+    /** A move proposal by buyer 'b' on meetup 'm1'; resolvedAt is SQL text such as "6" or "NULL". */
+    private static String proposal(String id, String status, String resolvedAt) {
+        return "INSERT INTO meetup_reschedule_proposals (id, meetup_id, proposer_id, start_at, end_at, location, "
+                + "created_at, status, resolved_at) VALUES ('" + id + "', 'm1', 'b', 3000, 4000, 'Canteen', 5, '"
+                + status + "', " + resolvedAt + ")";
     }
 
     /** A request by buyer 'b' on sale 't1'; resolvedAt is SQL text such as "3" or "NULL". */

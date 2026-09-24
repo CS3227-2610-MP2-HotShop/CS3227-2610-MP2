@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -22,7 +23,9 @@ import hotshop.model.ListingDetails;
 import hotshop.model.ListingImage;
 import hotshop.model.ListingStatus;
 import hotshop.repository.ListingRepository;
+import hotshop.repository.MeetupRepository;
 import hotshop.repository.OfferRepository;
+import hotshop.repository.TransactionRepository;
 import hotshop.repository.UserRepository;
 import hotshop.storage.ImageStorage;
 
@@ -39,6 +42,8 @@ public final class ListingService {
     private final Database database;
     private final ListingRepository listings;
     private final OfferRepository offers;
+    private final TransactionRepository transactions;
+    private final MeetupRepository meetups;
     private final UserRepository users;
     private final ServiceWorker worker;
     private final AuthenticatedSession session;
@@ -46,11 +51,14 @@ public final class ListingService {
     private final Clock clock;
 
     /** Wires the shared database, worker, and session with the listing-specific managed image namespace. */
-    public ListingService(Database database, ListingRepository listings, OfferRepository offers, UserRepository users,
-            ServiceWorker worker, AuthenticatedSession session, ImageStorage storage, Clock clock) {
+    public ListingService(Database database, ListingRepository listings, OfferRepository offers,
+            TransactionRepository transactions, MeetupRepository meetups, UserRepository users, ServiceWorker worker,
+            AuthenticatedSession session, ImageStorage storage, Clock clock) {
         this.database = database;
         this.listings = listings;
         this.offers = offers;
+        this.transactions = transactions;
+        this.meetups = meetups;
         this.users = users;
         this.worker = worker;
         this.session = session;
@@ -89,19 +97,24 @@ public final class ListingService {
 
     /**
      * Returns the current user's listings in every status with their pending offer counts: reserved
-     * first (awaiting handover), then available, sold, and archived, each newest first.
+     * first (awaiting handover), then available, sold, and archived, each newest first. Reserved
+     * listings also carry their active sale's meetup summary.
      */
     public CompletableFuture<List<OwnListing>> getMyListings() {
         return submit(() -> {
             UUID sellerId = session.requireUserId();
+            Instant now = ServiceSupport.now(clock);
             return transaction(connection -> {
                 PublicProfile seller = ServiceSupport.publicProfile(connection, users, sellerId);
                 Map<UUID, Integer> pending = offers.countPendingByListingForSeller(connection, sellerId);
-                return listings.findBySeller(connection, sellerId).stream()
+                List<OwnListing> results = new ArrayList<>();
+                for (Listing listing : listings.findBySeller(connection, sellerId).stream()
                         .sorted(Comparator.comparingInt(listing -> MY_LISTINGS_ORDER.indexOf(listing.getStatus())))
-                        .map(listing -> new OwnListing(new ListingWithSeller(listing, seller),
-                                pending.getOrDefault(listing.getId(), 0)))
-                        .toList();
+                        .toList()) {
+                    results.add(new OwnListing(new ListingWithSeller(listing, seller),
+                            pending.getOrDefault(listing.getId(), 0), reservedMeetup(connection, listing, now)));
+                }
+                return results;
             });
         });
     }
@@ -121,6 +134,17 @@ public final class ListingService {
                         .map(listing -> new ListingWithSeller(listing, seller)).toList();
             });
         });
+    }
+
+    /** The active sale's meetup summary for a reserved listing; other listings have none. */
+    private Optional<MeetupSummary> reservedMeetup(Connection connection, Listing listing, Instant now)
+            throws SQLException {
+        if (listing.getStatus() != ListingStatus.RESERVED) {
+            return Optional.empty();
+        }
+        Optional<UUID> sale = transactions.findActiveIdForListing(connection, listing.getId());
+        return sale.isPresent()
+                ? Optional.of(SaleMeetups.load(connection, meetups, sale.orElseThrow(), now)) : Optional.empty();
     }
 
     /** Returns any existing listing in any status; deleted and unknown listings are not found. */

@@ -28,13 +28,15 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 
 This is a single-project, non-modular build. Launcher is separate from the
 Application subclass so the bundled JAR can launch JavaFX from the classpath.
-The shared model layer, AccountService, ListingService, OfferService, and
-TransactionService are implemented, including SQLite persistence,
-authentication, profile and listing images, buyer listing search, offers, sale
-completion and cancellation, sales and purchase history, the sales dashboard
-summary, and lifecycle initialization. The account, profile, listing/search,
-offer, sale, and seller-dashboard screens now call those services. Chat, meetups,
-wishlists, and notifications remain deferred; their UI entry points are disabled.
+The shared model layer, AccountService, ListingService, OfferService,
+TransactionService, and MeetupService are implemented, including SQLite
+persistence, authentication, profile and listing images, buyer listing search,
+offers, sale completion and cancellation, sales and purchase history, meetup
+slots and bookings, the sales dashboard summary, and lifecycle initialization.
+The account, profile, listing/search, offer, sale, and seller-dashboard screens
+now call those services. Meetup screens are not built yet. Chat, wishlists, and
+notifications remain deferred; their UI entry points, and the meetup ones, are
+disabled.
 
 ## Dependencies and checks
 
@@ -160,7 +162,7 @@ Future services must obtain actor IDs from the authenticated session and:
    offer history. ChatService must add the same refusal for conversation history.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
-   Done by TransactionService; MeetupService must also cancel the sale's meetup there.
+   Done by TransactionService, which also closes the sale's meetup through `SaleMeetups`.
 6. Preserve listing/offer/request history and exclude archived listings from browsing.
 
 `Transaction` itself enforces participant membership, one pending cancellation
@@ -196,6 +198,9 @@ unique index allowing one active sale per listing. Version 4
 allowing one pending request per sale. `Transaction`'s internal `lastEventAt` is
 not stored; `restore` derives it from the saved times. Requests are saved with an
 upsert and read back in the order they were made, so the latest is always last.
+Version 5 (`005_meetups.sql`) adds `meetup_slots`, `meetups`, and
+`meetup_reschedule_proposals`, with partial unique indexes allowing one scheduled
+meetup per sale and one pending move proposal per meetup.
 
 ### Schema migrations
 
@@ -359,15 +364,47 @@ the sale's one pending request.
 | `acceptCancellation` / `rejectCancellation(saleId)` | The participant who did not make the pending request. Accepting cancels and releases the listing. |
 | `withdrawCancellation(saleId)` | The participant who made the pending request. |
 | `getMySales()` / `getMyPurchases()` | One `SaleForParticipant` per agreed sale: pending request first, other active, completed, cancelled, each newest first. |
-| `getSalesDashboard()` | `SalesDashboard`: pending offers across your listings, active and completed sale counts, and the total of completed sales. |
+| `getSalesDashboard()` | `SalesDashboard`: pending offers across your listings, active and completed sale counts, the total of completed sales, and upcoming meetups. |
 
 Every change loads the sale, checks the participant and status, applies it
 through the `Transaction` model, and saves the sale and any listing change in
 one database transaction (`applyToActiveSale`). `SaleProgress` turns a sale's
 state into the viewer's `NextStep` (with display text), `SaleAction`s, and list
 position, using the same model queries the rules use, so screens never offer an
-action that would be refused. Hooks: MeetupService cancels the meetup and
+action that would be refused. Completing a sale completes its scheduled meetup,
+and cancelling it cancels the meetup, in the same transaction. Hook for later:
 NotificationService notifies the other participant inside these transactions.
+
+## Meetup service
+
+[MeetupService Design](MeetupServiceDesign.md) records the approved requirements.
+**MeetupService includes the buyer's operations** (booking, moving, cancelling).
+Buyer screens should call them rather than implementing them again.
+
+Access it through `ApplicationRuntime.getMeetups()`. Every operation requires
+login and only the sale's participants may act. Times are `MeetupTime` values:
+15 minutes to 4 hours long, a 1-200 character location, starting in the future
+and at most 60 days ahead.
+
+| Operation | Rule |
+| --- | --- |
+| `offerSlot(saleId, start, end, location)` | Seller of an active sale with no booked meetup. At most 3 future slots; they cannot overlap each other or the seller's scheduled meetups. |
+| `withdrawSlot(slotId)` | Seller of the slot's sale. |
+| `bookSlot(slotId)` | Buyer of the sale, for a future slot. Neither participant may have another scheduled meetup at an overlapping time, in any role. The sale's other slots are deleted. |
+| `proposeMove(meetupId, start, end, location)` | Either participant, when no move is pending. Overlaps are checked as for booking. |
+| `acceptMove` / `rejectMove(meetupId)` | The participant who did not propose. Accepting rechecks overlaps and moves the meetup. |
+| `withdrawMove(meetupId)` | The participant who proposed. |
+| `cancelMeetup(meetupId)` | Either participant. The sale stays active and the seller can offer new slots. |
+| `getMeetupSummary(saleId)` | `MeetupSummary`: future offered slots and the current meetup (scheduled, else the completed one). Cancelled meetups are kept in the database as history but not returned. |
+
+The same summary is carried by `SaleForParticipant`, by reserved entries in
+`OwnListing`, and counted in `SalesDashboard.upcomingMeetups` (the seller's
+scheduled meetups that have not started). `SaleMeetups` is the package-private
+helper that loads summaries and closes a sale's meetup for TransactionService.
+`SaleProgress` puts cancellation requests and the viewer's own confirmation ahead
+of meetup steps; a meetup counts as past once its end time has passed.
+Hook for later: NotificationService notifies the other participant of offered
+slots, bookings, moves, and cancellations.
 
 The full test suite takes more than ten minutes on a typical laptop, mostly
 because each test account's password is hashed with 600,000 PBKDF2 iterations.
@@ -382,6 +419,7 @@ Targeted development checks:
 .\gradlew.bat test --tests "hotshop.service.Listing*"
 .\gradlew.bat test --tests hotshop.service.OfferServiceTest
 .\gradlew.bat test --tests hotshop.service.TransactionServiceTest
+.\gradlew.bat test --tests hotshop.service.MeetupServiceTest --tests "hotshop.model.Meetup*"
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```

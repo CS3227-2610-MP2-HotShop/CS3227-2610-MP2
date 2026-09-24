@@ -1,11 +1,15 @@
 package hotshop.service;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import hotshop.model.CancellationRequest;
+import hotshop.model.Meetup;
+import hotshop.model.MeetupStatus;
+import hotshop.model.RescheduleProposal;
 import hotshop.model.Transaction;
 import hotshop.model.TransactionStatus;
 
@@ -19,7 +23,11 @@ final class SaleProgress {
     private SaleProgress() {
     }
 
-    static NextStep nextStep(Transaction sale, UUID viewerId) {
+    /**
+     * Cancellation requests come first, then the viewer's own confirmation, then the meetup: a pending
+     * move, a booked meetup (upcoming or past), offered slots, or nothing arranged yet.
+     */
+    static NextStep nextStep(Transaction sale, UUID viewerId, MeetupSummary meetup, Instant now) {
         if (sale.getStatus() != TransactionStatus.ACTIVE) {
             return NextStep.NONE;
         }
@@ -28,7 +36,27 @@ final class SaleProgress {
             return pending.orElseThrow().getRequesterId().equals(viewerId)
                     ? NextStep.WAIT_FOR_CANCELLATION_RESPONSE : NextStep.RESPOND_TO_CANCELLATION_REQUEST;
         }
-        return sale.hasConfirmed(viewerId) ? NextStep.WAIT_FOR_CONFIRMATION : NextStep.CONFIRM_AFTER_HANDOVER;
+        if (sale.hasConfirmed(viewerId)) {
+            return NextStep.WAIT_FOR_CONFIRMATION;
+        }
+        Optional<Meetup> scheduled = meetup.meetup().filter(found -> found.getStatus() == MeetupStatus.SCHEDULED);
+        if (scheduled.isPresent()) {
+            return meetupStep(scheduled.orElseThrow(), viewerId, now);
+        }
+        boolean isBuyer = viewerId.equals(sale.getBuyerId());
+        if (!meetup.offeredSlots().isEmpty()) {
+            return isBuyer ? NextStep.CHOOSE_MEETUP_TIME : NextStep.WAIT_FOR_MEETUP_CHOICE;
+        }
+        return isBuyer ? NextStep.WAIT_FOR_MEETUP_TIMES : NextStep.OFFER_MEETUP_TIMES;
+    }
+
+    private static NextStep meetupStep(Meetup meetup, UUID viewerId, Instant now) {
+        Optional<RescheduleProposal> move = meetup.getPendingProposal();
+        if (move.isPresent()) {
+            return move.orElseThrow().getProposerId().equals(viewerId)
+                    ? NextStep.WAIT_FOR_MOVE_RESPONSE : NextStep.RESPOND_TO_MOVE_PROPOSAL;
+        }
+        return meetup.getTime().endAt().isAfter(now) ? NextStep.MEET_THEN_CONFIRM : NextStep.CONFIRM_AFTER_PAST_MEETUP;
     }
 
     /** Uses the same state queries the model enforces, so screens never offer a refused action. */

@@ -16,6 +16,7 @@ import hotshop.model.Listing;
 import hotshop.model.Transaction;
 import hotshop.model.TransactionStatus;
 import hotshop.repository.ListingRepository;
+import hotshop.repository.MeetupRepository;
 import hotshop.repository.OfferRepository;
 import hotshop.repository.TransactionRepository;
 import hotshop.repository.UserRepository;
@@ -31,6 +32,7 @@ public final class TransactionService {
     private final TransactionRepository transactions;
     private final ListingRepository listings;
     private final OfferRepository offers;
+    private final MeetupRepository meetups;
     private final UserRepository users;
     private final ServiceWorker worker;
     private final AuthenticatedSession session;
@@ -38,12 +40,13 @@ public final class TransactionService {
 
     /** Wires the shared database, worker, and session with the repositories sales touch. */
     public TransactionService(Database database, TransactionRepository transactions, ListingRepository listings,
-            OfferRepository offers, UserRepository users, ServiceWorker worker, AuthenticatedSession session,
-            Clock clock) {
+            OfferRepository offers, MeetupRepository meetups, UserRepository users, ServiceWorker worker,
+            AuthenticatedSession session, Clock clock) {
         this.database = database;
         this.transactions = transactions;
         this.listings = listings;
         this.offers = offers;
+        this.meetups = meetups;
         this.users = users;
         this.worker = worker;
         this.session = session;
@@ -52,7 +55,7 @@ public final class TransactionService {
 
     /**
      * Records the current user's confirmation that the item changed hands. The second confirmation
-     * completes the sale and marks its listing sold in the same database transaction.
+     * completes the sale, its meetup, and marks its listing sold in the same database transaction.
      * NotificationService should notify the other participant inside this transaction when it exists.
      */
     public CompletableFuture<SaleForParticipant> confirmCompletion(UUID saleId) {
@@ -70,14 +73,15 @@ public final class TransactionService {
                 Listing listing = requireListing(connection, sale);
                 listing.markSold();
                 listings.update(connection, listing);
+                SaleMeetups.completeWithSale(connection, meetups, saleId, eventTime(sale));
             }
         });
     }
 
     /**
-     * Cancels an active sale before anyone confirms, releasing its listing for new offers. When they
-     * exist, MeetupService cancels the sale's meetup and NotificationService notifies the other
-     * participant inside this transaction.
+     * Cancels an active sale before anyone confirms, releasing its listing for new offers and
+     * cancelling its meetup. NotificationService should notify the other participant inside this
+     * transaction when it exists.
      */
     public CompletableFuture<SaleForParticipant> cancelSale(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -109,7 +113,7 @@ public final class TransactionService {
 
     /**
      * The other participant agrees to the pending request; the sale is cancelled and its listing
-     * released. MeetupService and NotificationService hook in here as for {@link #cancelSale}.
+     * released and its meetup cancelled, as for {@link #cancelSale}.
      */
     public CompletableFuture<SaleForParticipant> acceptCancellation(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -159,8 +163,9 @@ public final class TransactionService {
                 long total = completed.stream().mapToLong(Transaction::getAgreedPriceCents).sum();
                 int pendingOffers = offers.countPendingByListingForSeller(connection, userId).values().stream()
                         .mapToInt(Integer::intValue).sum();
-                return new SalesDashboard(pendingOffers, active,
-                        completed.size(), total);
+                int upcoming = SaleMeetups.countUpcomingForSeller(connection, meetups, userId,
+                        ServiceSupport.now(clock));
+                return new SalesDashboard(pendingOffers, active, completed.size(), total, upcoming);
             });
         });
     }
@@ -223,11 +228,15 @@ public final class TransactionService {
         return request.getId();
     }
 
-    /** Releases a cancelled sale's listing so it can receive offers again. */
+    /**
+     * Releases a cancelled sale's listing so it can receive offers again, and cancels its meetup and
+     * any pending move, deleting its offered slots.
+     */
     private void release(Connection connection, Transaction sale) throws SQLException {
         Listing listing = requireListing(connection, sale);
         listing.release();
         listings.update(connection, listing);
+        SaleMeetups.cancelWithSale(connection, meetups, sale.getId(), eventTime(sale));
     }
 
     private Listing requireListing(Connection connection, Transaction sale) throws SQLException {
@@ -249,9 +258,11 @@ public final class TransactionService {
             throws SQLException {
         boolean isBuyer = userId.equals(sale.getBuyerId());
         UUID otherId = isBuyer ? sale.getSellerId() : sale.getBuyerId();
+        Instant now = ServiceSupport.now(clock);
+        MeetupSummary meetup = SaleMeetups.load(connection, meetups, sale.getId(), now);
         return new SaleForParticipant(sale, ServiceSupport.publicProfile(connection, users, otherId),
-                isBuyer ? SaleRole.BUYER : SaleRole.SELLER, SaleProgress.nextStep(sale, userId),
-                SaleProgress.availableActions(sale, userId));
+                isBuyer ? SaleRole.BUYER : SaleRole.SELLER, SaleProgress.nextStep(sale, userId, meetup, now),
+                SaleProgress.availableActions(sale, userId), meetup);
     }
 
     /** Event times never precede the sale's last event, even if the system clock moved backwards. */
