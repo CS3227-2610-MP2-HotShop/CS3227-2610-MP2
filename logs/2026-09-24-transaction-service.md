@@ -249,7 +249,21 @@ now would make #7 include the unmerged ListingService commits, and asked.
 The assistant explained that mixed diffs cause review noise and make an
 out-of-order merge easy, but no conflicts or lost work, and that GitHub shrinks
 the diff again once the lower PR merges. #7 and #8 stay stacked; each will be
-retargeted to `main` after the PR below it merges. The teammate should agree to the shared changes: `Transaction`'s
+retargeted to `main` after the PR below it merges.
+
+> ok whats left to build
+
+Checking the remote first, the assistant found that the teammate had merged #6
+into `main` and then #7 into `Listing-Service`, because #7 still targeted that
+branch. `git merge-base --is-ancestor` confirmed the OfferService commit was not
+in `main`. The assistant explained the problem and listed the remaining work.
+
+> ok lets fix the PR now only one is left which is #8
+
+PR #8 was retargeted to `main`. It now contains the two OfferService commits
+already reviewed in #7 plus the TransactionService commits, so merging it lands
+both. `git merge-tree` confirmed a clean merge and GitHub reported it mergeable.
+The description now explains this and asks for branches to be deleted after merging. The teammate should agree to the shared changes: `Transaction`'s
 `cancel` signature, restore, and public state queries; building "My purchases"
 here; and My Listings returning `OwnListing` with the new order. Meetups and
 notifications remain.
