@@ -200,7 +200,13 @@ the design and Developer Guide).
 ## Final Output and Conclusion
 
 OfferService is implemented and committed to branch `Offer-Service`, which is
-based on `Listing-Service`. It has not been pushed. The teammate should agree to
+based on `Listing-Service`.
+
+> yes lets do that
+
+In reply to the offer to push and open a stacked PR, the branch was pushed and
+opened as PR #7 against `Listing-Service` (PR #6), so it shows only the
+OfferService commit. The description lists the shared changes for the teammate. The teammate should agree to
 the shared changes: Offer's new constructor and close-method signatures, the
 offer amount cap, and building the buyer offer operations here. Notifications,
 completing and cancelling sales, and the chat-history check for delete remain.
