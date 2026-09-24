@@ -129,8 +129,34 @@ timeout, then commits or rolls back the callback. Pass that same connection to
 every repository participating in a business operation. `UserRepository` maps
 profiles and separate `PasswordHash` records; it does not authorize callers.
 Schema version 1 lives in `src/main/resources/db/migration/001_accounts.sql`.
-Extend the ordered migration runner with a new version for future schema changes;
-never rewrite an already released migration or reset an existing database.
+
+### Schema migrations
+
+`Database.migrate` runs at every startup. It reads the database's highest
+recorded version from `schema_migrations`, then applies each later migration
+in order, each in its own transaction together with its version record. A
+failure therefore leaves the database at the last fully applied version, and
+the next startup retries from there. A database whose version is higher than
+the application knows is refused rather than downgraded.
+
+To change the schema:
+
+1. Add `src/main/resources/db/migration/NNN_description.sql`, numbered one
+   above the latest file.
+2. Append its resource path to `Database.MIGRATIONS`. A migration's version is
+   its one-based position in that list, so only ever append.
+3. Add tests that open a database created at the previous version and check
+   that existing data survives the upgrade.
+
+Never edit or reorder a migration that has been merged, and never reset an
+existing database; change the schema with a new migration instead. If both
+teammates add a migration on separate branches, whoever merges second
+renumbers theirs. Statements are split on `;`, so migrations must not contain
+triggers or semicolons inside string literals or comments.
+
+`DatabaseTest` supplies its own migration files from
+`src/test/resources/db/test-migration/` through a package-private constructor,
+so runner tests do not depend on the released schema.
 
 AccountService returns `CompletableFuture` results. Its public operations are
 `register`, `login`, `logout`, `getCurrentUserId`, `getOwnProfile`, `getPublicProfile`,
@@ -204,6 +230,20 @@ Edit these configuration files directly to adjust the workflow. Re-run
 `setup-matt-pocock-skills` when switching trackers or restarting setup.
 Domain documentation uses a root `CONTEXT.md` and `docs/adr/`, created by
 `domain-modeling` as terminology and decisions are resolved.
+
+The skills are installed once in `.agents/skills/`, where Codex reads them.
+Claude Code reads `.claude/skills/` instead, so link that path to the same
+folder rather than copying it. On Windows (no administrator rights needed):
+
+```powershell
+New-Item -ItemType Directory -Force .claude
+cmd /c mklink /J .claude\skills .agents\skills
+Add-Content .git\info\exclude ".claude/skills"
+```
+
+On macOS/Linux, use `ln -s ../.agents/skills .claude/skills`. The link is
+excluded locally rather than committed because the repository does not enable
+Git symlinks. Restart Claude Code if the skills do not appear.
 
 ## Acknowledgements
 
