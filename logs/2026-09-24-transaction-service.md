@@ -234,7 +234,22 @@ The branch was pushed and opened as PR #8 against `Offer-Service` (PR #7). The
 description summarises the work and lists five shared changes for the teammate
 to agree on, plus migration, test-speed, and hook notes. While checking the
 stack, the assistant found that the teammate had merged PR #5 into `main`; PR #6
-still targets `Better-Database-Migration` because that branch was not deleted. The teammate should agree to the shared changes: `Transaction`'s
+still targets `Better-Database-Migration` because that branch was not deleted.
+
+> yes switch to main, i think you should do that for 7 and 8 as well, shouldnt everythig merge to main
+
+PR #6 was retargeted to `main` and still showed only its 2 ListingService
+commits. Before touching #7 and #8, the assistant showed that targeting `main`
+now would make #7 include the unmerged ListingService commits, and asked.
+
+> whats the repercussions of mixed diffs
+>
+> ok lets leave 7 and 8 then
+
+The assistant explained that mixed diffs cause review noise and make an
+out-of-order merge easy, but no conflicts or lost work, and that GitHub shrinks
+the diff again once the lower PR merges. #7 and #8 stay stacked; each will be
+retargeted to `main` after the PR below it merges. The teammate should agree to the shared changes: `Transaction`'s
 `cancel` signature, restore, and public state queries; building "My purchases"
 here; and My Listings returning `OwnListing` with the new order. Meetups and
 notifications remain.
