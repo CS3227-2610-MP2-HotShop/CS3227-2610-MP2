@@ -106,6 +106,23 @@ public final class ListingService {
         });
     }
 
+    /** Available listings on a public profile, newest first; private seller counts are excluded. */
+    public CompletableFuture<List<ListingWithSeller>> getPublicListings(UUID sellerId) {
+        return submit(() -> {
+            session.requireUserId();
+            if (sellerId == null) {
+                throw ServiceException.validation("Choose a profile first.");
+            }
+            return transaction(connection -> {
+                PublicProfile seller = PublicProfile.of(users.findById(connection, sellerId)
+                        .orElseThrow(() -> ServiceException.notFound("This profile no longer exists.")));
+                return listings.findBySeller(connection, sellerId).stream()
+                        .filter(listing -> listing.getStatus() == ListingStatus.AVAILABLE)
+                        .map(listing -> new ListingWithSeller(listing, seller)).toList();
+            });
+        });
+    }
+
     /** Returns any existing listing in any status; deleted and unknown listings are not found. */
     public CompletableFuture<ListingWithSeller> getListing(UUID id) {
         return submit(() -> {
