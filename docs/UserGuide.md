@@ -19,7 +19,7 @@ An 800 by 600 window titled **HotShop** displays **Welcome to HotShop**.
 Resize the window as desired and close it with the operating system's close button.
 
 Startup creates or opens a local database and image folder at `.hotshop` in your
-home directory. Accounts, listings, and their images in that folder survive
+home directory. Accounts, listings, offers, and images in that folder survive
 application restarts. Only one HotShop instance may use the same folder at a time.
 Opening an older HotShop data folder upgrades it automatically without removing
 existing accounts.
@@ -43,10 +43,10 @@ include Java itself. The CI artifact targets Linux.
 ## Current scope
 
 The application still has a welcome screen only. Account registration, login,
-profile editing, password changes, and listing management and search are
-implemented at service level for future screen integration; they are not
-accessible from the current window. Offers, meetups, chat, and other buyer/seller
-workflows are not yet available.
+profile editing, password changes, listing management and search, offers, and
+completing or cancelling sales are implemented at service level for future
+screen integration; they are not accessible from the current window. Meetups,
+chat, notifications, and other buyer/seller workflows are not yet available.
 
 The account service enforces these rules:
 
@@ -82,14 +82,66 @@ The listing service enforces these rules. Every listing action requires login.
   wide and high. Photos are not resized. HotShop copies them into its data
   folder, so moving or deleting the original photo does not affect the listing.
   If any photo is rejected, nothing about the listing changes.
-- Sellers see all of their own listings, in every status, newest first.
+- Sellers see all of their own listings, in every status: reserved listings
+  first (they are waiting for a handover), then available, sold, and archived,
+  each newest first. Each listing shows how many pending offers it has; open the
+  listing to see the offers themselves.
 - Only the seller can edit, archive, or delete a listing. Only available
   listings can be edited; saving without any change does not count as an edit.
+- **Editing a listing rejects all of its pending offers**, because the buyers
+  offered on the old details. Saving without any change keeps them.
 - Archiving hides an available or sold listing from search but keeps it, and
-  people with a link to it can still open it. Archived listings cannot be reopened.
+  people with a link to it can still open it. Archived listings cannot be
+  reopened. **Archiving also rejects all pending offers.** A reserved listing
+  cannot be archived.
 - Deleting permanently removes an available or archived listing and its photos.
-  Reserved and sold listings cannot be deleted.
+  Reserved and sold listings cannot be deleted, and neither can any listing that
+  has ever received an offer, even one that was later withdrawn; archive it instead.
 - Search shows only other sellers' available listings. It can match text in the
   title (ignoring upper and lower case), and filter by one category, one or more
   conditions, and a minimum and/or maximum price (both inclusive). Results are
   sorted newest first, or by price from low to high or high to low.
+
+The offer service enforces these rules. Every offer action requires login.
+
+- Buyers can offer from S$0.01 to S$1,000,000.00 on another seller's available
+  listing. Offers may be above the asking price. You cannot offer on your own
+  listing, or on a listing that is reserved, sold, or archived.
+- You can have only one pending offer on each listing. To change the amount,
+  withdraw your offer and make a new one. Only pending offers can be withdrawn.
+- Buyers see all of their own offers, newest first, with each listing's current
+  status. Other buyers never see your offer or its amount.
+- Sellers see every offer on their own listing: the accepted offer first, then
+  the others newest first.
+- Accepting an offer reserves the listing and automatically rejects every other
+  pending offer on it. Only pending offers can be accepted or rejected, and only
+  by the seller.
+- Every refused action explains what went wrong and what to do next, for
+  example: "You already have a pending offer of S$40.00 on this listing.
+  Withdraw it before making a new one."
+
+The sale service enforces these rules. Every sale action requires login, and
+only the sale's buyer and seller can see or act on it.
+
+- Accepting an offer creates an **active sale**: the item is reserved while you
+  meet and hand it over. After the handover, the buyer and seller each confirm
+  completion. When both have confirmed, the sale is complete and the listing is
+  sold. Completed sales are final.
+- Before anyone confirms, either of you can cancel the sale. The listing becomes
+  available again; offers that were rejected when the sale was agreed stay
+  rejected, so buyers make new offers.
+- After one of you has confirmed, cancelling needs agreement: send a
+  cancellation request. While it is pending, neither of you can confirm. The
+  other person can accept it (the sale is cancelled and the listing released) or
+  reject it (the sale continues and earlier confirmations stay). You can
+  withdraw your own request. Only one request can be pending at a time.
+- Sellers see **My Sales** and buyers see **My Purchases**: one entry per agreed
+  sale, with sales waiting for a response to a cancellation request first, then
+  other active sales, completed, and cancelled sales, each newest first. A
+  listing appears twice in My Sales only if an earlier sale of it was cancelled.
+- Each entry says what to do next, such as "Meet to hand over the item, then
+  confirm completion" or "Respond to the other participant's cancellation
+  request", and which actions are available.
+- The sales dashboard shows your pending offers across all your listings, your
+  active and completed sales, and the total value of completed sales. Active
+  sales are not included in the total because they can still be cancelled.

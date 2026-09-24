@@ -21,8 +21,8 @@ class CancellationRequestTest {
 
     private Transaction transaction() {
         Listing listing = new Listing(SELLER, ListingTest.details("Chair", 5000), List.of(), ListingTest.CREATED);
-        Offer offer = new Offer(listing, BUYER, 4500);
-        offer.accept();
+        Offer offer = new Offer(listing, BUYER, 4500, ListingTest.CREATED);
+        offer.accept(ListingTest.CREATED);
         listing.reserve();
         return new Transaction(listing, offer, START);
     }
@@ -47,6 +47,28 @@ class CancellationRequestTest {
         assertEquals(START, transaction.getBuyerConfirmedAt().orElseThrow());
         assertThrows(IllegalStateException.class,
                 () -> transaction.confirmCompletion(SELLER, START.plusSeconds(3)));
+    }
+
+    @Test
+    void acceptCancellation_pendingRequest_recordsRequesterAsCanceller() {
+        Transaction transaction = transaction();
+        transaction.confirmCompletion(BUYER, START);
+        CancellationRequest request = transaction.requestCancellation(SELLER, START.plusSeconds(1));
+        transaction.acceptCancellation(request.getId(), BUYER, START.plusSeconds(2));
+        assertEquals(SELLER, transaction.getCancelledBy().orElseThrow());
+        assertEquals(START.plusSeconds(2), transaction.getCancelledAt().orElseThrow());
+    }
+
+    @Test
+    void restore_pendingRequestWithResolutionTime_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> CancellationRequest.restore(UUID.randomUUID(),
+                UUID.randomUUID(), SELLER, START, CancellationStatus.PENDING, START.plusSeconds(1)));
+    }
+
+    @Test
+    void restore_resolvedRequestWithoutResolutionTime_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> CancellationRequest.restore(UUID.randomUUID(),
+                UUID.randomUUID(), SELLER, START, CancellationStatus.ACCEPTED, null));
     }
 
     @Test

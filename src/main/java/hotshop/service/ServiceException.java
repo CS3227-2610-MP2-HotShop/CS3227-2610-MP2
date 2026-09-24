@@ -24,6 +24,22 @@ public final class ServiceException extends RuntimeException {
         this.code = code;
     }
 
+    static ServiceException validation(String message) {
+        return new ServiceException(Code.VALIDATION, message);
+    }
+
+    static ServiceException notFound(String message) {
+        return new ServiceException(Code.NOT_FOUND, message);
+    }
+
+    static ServiceException permission(String message) {
+        return new ServiceException(Code.PERMISSION, message);
+    }
+
+    static ServiceException invalidState(String message) {
+        return new ServiceException(Code.INVALID_STATE, message);
+    }
+
     public Code getCode() {
         return code;
     }

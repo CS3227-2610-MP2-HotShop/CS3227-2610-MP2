@@ -41,9 +41,17 @@ A photograph or other image associated with a listing for display to potential b
 A buyer's formal proposal to purchase a particular listing at a specified amount.
 _Avoid_: Bid (which implies an auction)
 
+**Withdraw**:
+A buyer's action that takes back their own pending offer. The offer stays in history as withdrawn and the buyer may make a new offer. An accepted offer cannot be withdrawn; if its sale is later cancelled, the offer stays accepted and the sale is cancelled.
+_Avoid_: Retract (ambiguous between a withdrawn offer and a cancelled sale)
+
 **Transaction**:
 An agreed sale between a buyer and seller, formed when the seller accepts an offer.
 _Avoid_: Order, payment (when referring to the agreed sale)
+
+**Active sale**:
+A transaction that has been agreed but not yet completed or cancelled: the participants are still to meet, hand over the item, and both confirm completion. Its listing is reserved.
+_Avoid_: Pending sale, open order
 
 **Completion confirmation**:
 A transaction participant's declaration that the agreed sale is complete. Both participants must confirm for the transaction to be completed.

@@ -2,6 +2,7 @@ package hotshop.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -21,6 +22,7 @@ import hotshop.ApplicationRuntime;
 import hotshop.model.Category;
 import hotshop.model.Condition;
 import hotshop.model.ListingStatus;
+import hotshop.model.OfferStatus;
 
 class ListingServiceTest {
     private static final String PASSWORD = "Sample1!";
@@ -107,8 +109,8 @@ class ListingServiceTest {
             runtime.getAccounts().logout().join();
             runtime.getAccounts().login("alice", PASSWORD).join();
             var mine = listings.getMyListings().join();
-            assertEquals(List.of("Newer", "Older"), titles(mine));
-            assertEquals("alice", mine.get(0).seller().displayName());
+            assertEquals(List.of("Newer", "Older"), ownTitles(mine));
+            assertEquals("alice", mine.get(0).listing().seller().displayName());
         }
     }
 
@@ -230,7 +232,7 @@ class ListingServiceTest {
             UUID id = create(runtime, "Chairs");
             setStatus(directory, id, status);
             assertEquals(ListingStatus.ARCHIVED, runtime.getListings().archiveListing(id).join().listing().getStatus());
-            assertEquals(List.of("Chairs"), titles(runtime.getListings().getMyListings().join()));
+            assertEquals(List.of("Chairs"), ownTitles(runtime.getListings().getMyListings().join()));
             registerAndLogin(runtime, "bobby");
             assertEquals(ListingStatus.ARCHIVED, runtime.getListings().getListing(id).join().listing().getStatus());
         }
@@ -295,6 +297,161 @@ class ListingServiceTest {
         }
     }
 
+    @Test
+    void updateListing_actualChangeWithPendingOffers_rejectsThem() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            UUID offer = offerAs(runtime, "bobby", id);
+            loginAs(runtime, "alice");
+            runtime.getListings().updateListing(id, draft("Chairs", 4000), List.of()).join();
+            assertEquals(OfferStatus.REJECTED, offerStatus(runtime, id, offer));
+        }
+    }
+
+    @Test
+    void updateListing_unchangedValuesWithPendingOffers_keepsThemPending() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            UUID offer = offerAs(runtime, "bobby", id);
+            loginAs(runtime, "alice");
+            runtime.getListings().updateListing(id, draft("Chairs", 5000), List.of()).join();
+            assertEquals(OfferStatus.PENDING, offerStatus(runtime, id, offer));
+        }
+    }
+
+    @Test
+    void archiveListing_pendingOffers_rejectsThem() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            UUID offer = offerAs(runtime, "bobby", id);
+            loginAs(runtime, "alice");
+            runtime.getListings().archiveListing(id).join();
+            assertEquals(OfferStatus.REJECTED, offerStatus(runtime, id, offer));
+        }
+    }
+
+    @Test
+    void deleteListing_withdrawnOfferHistory_reportsInvalidStateSuggestingArchive() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            UUID offer = offerAs(runtime, "bobby", id);
+            runtime.getOffers().withdrawOffer(offer).join();
+            loginAs(runtime, "alice");
+            var failure = assertFailure(ServiceException.Code.INVALID_STATE,
+                    () -> runtime.getListings().deleteListing(id).join());
+            assertTrue(failure.getMessage().contains("Archive"), failure.getMessage());
+            assertEquals(id, runtime.getListings().getListing(id).join().listing().getId());
+        }
+    }
+
+    @Test
+    void createListing_missingCategory_namesTheMissingField() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            var draft = new ListingDraft("Title", "Description", null, 100, Condition.NEW, "Campus");
+            var failure = assertFailure(ServiceException.Code.VALIDATION,
+                    () -> runtime.getListings().createListing(draft, List.of()).join());
+            assertTrue(failure.getMessage().contains("Category"), failure.getMessage());
+        }
+    }
+
+    @Test
+    void createListing_priceAboveMaximum_statesLimits() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            var failure = assertFailure(ServiceException.Code.VALIDATION,
+                    () -> runtime.getListings().createListing(draft("Chairs", 100_000_001), List.of()).join());
+            assertTrue(failure.getMessage().contains("S$1,000,000.00"), failure.getMessage());
+        }
+    }
+
+    @Test
+    void updateListing_reservedListing_namesTheStatus() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            setStatus(directory, id, ListingStatus.RESERVED);
+            var failure = assertFailure(ServiceException.Code.INVALID_STATE,
+                    () -> runtime.getListings().updateListing(id, draft("Chair", 1), List.of()).join());
+            assertTrue(failure.getMessage().contains("reserved"), failure.getMessage());
+        }
+    }
+
+    @Test
+    void updateListing_otherUsersListing_explainsOnlySellerMayChange() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID id = create(runtime, "Chairs");
+            registerAndLogin(runtime, "bobby");
+            var failure = assertFailure(ServiceException.Code.PERMISSION,
+                    () -> runtime.getListings().updateListing(id, draft("Mine", 1), List.of()).join());
+            assertTrue(failure.getMessage().contains("seller"), failure.getMessage());
+        }
+    }
+
+    @Test
+    void getMyListings_everyStatus_ordersReservedAvailableSoldArchived() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID sold = create(runtime, "Sold");
+            clock.advanceSeconds(60);
+            create(runtime, "Older available");
+            clock.advanceSeconds(60);
+            UUID archived = create(runtime, "Archived");
+            clock.advanceSeconds(60);
+            UUID reserved = create(runtime, "Reserved");
+            clock.advanceSeconds(60);
+            create(runtime, "Newer available");
+            setStatus(directory, sold, ListingStatus.SOLD);
+            setStatus(directory, archived, ListingStatus.ARCHIVED);
+            setStatus(directory, reserved, ListingStatus.RESERVED);
+            assertEquals(List.of("Reserved", "Newer available", "Older available", "Sold", "Archived"),
+                    ownTitles(runtime.getListings().getMyListings().join()));
+        }
+    }
+
+    @Test
+    void getMyListings_pendingOffers_countsOnlyPendingOffersPerListing() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            registerAndLogin(runtime, "alice");
+            UUID chairs = create(runtime, "Chairs");
+            clock.advanceSeconds(60);
+            create(runtime, "Desk");
+            offerAs(runtime, "bobby", chairs);
+            UUID withdrawn = offerAs(runtime, "carol", chairs);
+            runtime.getOffers().withdrawOffer(withdrawn).join();
+            offerAs(runtime, "david", chairs);
+            loginAs(runtime, "alice");
+            var mine = runtime.getListings().getMyListings().join();
+            assertEquals(List.of("Desk", "Chairs"), ownTitles(mine));
+            assertEquals(List.of(0, 2), mine.stream().map(OwnListing::pendingOffers).toList());
+        }
+    }
+
+    private static List<String> ownTitles(List<OwnListing> results) {
+        return titles(results.stream().map(OwnListing::listing).toList());
+    }
+
+    private UUID offerAs(ApplicationRuntime runtime, String buyer, UUID listing) {
+        registerAndLogin(runtime, buyer);
+        return runtime.getOffers().submitOffer(listing, 4500).join().offer().getId();
+    }
+
+    static void loginAs(ApplicationRuntime runtime, String username) {
+        runtime.getAccounts().logout().join();
+        runtime.getAccounts().login(username, PASSWORD).join();
+    }
+
+    private static OfferStatus offerStatus(ApplicationRuntime runtime, UUID listing, UUID offer) {
+        return runtime.getOffers().getOffersForListing(listing).join().stream()
+                .filter(result -> result.offer().getId().equals(offer))
+                .findFirst().orElseThrow().offer().getStatus();
+    }
+
     private UUID create(ApplicationRuntime runtime, String title) {
         return runtime.getListings().createListing(draft(title, 5000), List.of()).join().listing().getId();
     }
@@ -329,8 +486,11 @@ class ListingServiceTest {
         return results.stream().map(result -> result.listing().getDetails().title()).toList();
     }
 
-    static void assertFailure(ServiceException.Code code, Runnable action) {
+    /** Returns the failure so tests can also check key values in its message. */
+    static ServiceException assertFailure(ServiceException.Code code, Runnable action) {
         CompletionException failure = assertThrows(CompletionException.class, action::run);
-        assertEquals(code, ((ServiceException) failure.getCause()).getCode());
+        ServiceException cause = (ServiceException) failure.getCause();
+        assertEquals(code, cause.getCode());
+        return cause;
     }
 }

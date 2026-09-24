@@ -109,6 +109,10 @@ commit, with startup retrying pending cleanup.
 
 ## Hooks for later services
 
+Offer-related hooks below are now implemented by OfferService; see
+[OfferService Design](OfferServiceDesign.md). The conversation-history check
+for delete remains for ChatService.
+
 - OfferService must reject pending offers inside the same transaction when an
   edit actually changes a listing or when a listing is archived.
 - OfferService and ChatService must make delete refuse listings with offer or
