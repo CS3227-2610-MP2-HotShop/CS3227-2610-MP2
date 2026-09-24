@@ -22,7 +22,7 @@ jobs:
       - name: Make wrapper executable
         run: chmod +x gradlew
       - name: Test, check style, and build
-        run: ./gradlew test checkstyleMain checkstyleTest check build shadowJar
+        run: xvfb-run -a ./gradlew test checkstyleMain checkstyleTest check build shadowJar
       - uses: actions/upload-artifact@v4
         with:
           name: HotShop-linux

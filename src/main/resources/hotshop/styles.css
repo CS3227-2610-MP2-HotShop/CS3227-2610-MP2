@@ -1,16 +1,111 @@
 .root {
     -fx-font-family: "System";
-    -fx-background-color: #fff8f2;
+    -fx-font-size: 14px;
+    -fx-background-color: #f5f6f8;
+    -fx-text-fill: #243342;
 }
-.welcome {
-    -fx-padding: 32;
+.sidebar {
+    -fx-background-color: #ffffff;
+    -fx-padding: 20 14;
+    -fx-spacing: 4;
+    -fx-border-color: transparent #dce2e8 transparent transparent;
 }
-.title {
-    -fx-font-size: 40px;
+.brand {
+    -fx-font-size: 28px;
     -fx-font-weight: bold;
-    -fx-text-fill: #b83b19;
+    -fx-text-fill: #2458a6;
 }
-.subtitle {
+.nav-heading {
+    -fx-padding: 10 8 2 8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #526273;
+}
+.page {
+    -fx-padding: 24;
+    -fx-spacing: 16;
+}
+.page-title {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+.section-title {
     -fx-font-size: 18px;
-    -fx-text-fill: #423b37;
+    -fx-font-weight: bold;
+}
+.card, .form-panel {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #dce2e8;
+    -fx-padding: 16;
+    -fx-spacing: 10;
+}
+.button {
+    -fx-background-radius: 5;
+    -fx-padding: 9 14;
+    -fx-cursor: hand;
+}
+.primary {
+    -fx-background-color: #2458a6;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.primary:hover {
+    -fx-background-color: #194887;
+}
+.danger {
+    -fx-text-fill: #a32222;
+}
+.nav-button {
+    -fx-alignment: center-left;
+    -fx-background-color: transparent;
+}
+.nav-button:hover {
+    -fx-background-color: #eaf0fa;
+}
+.sidebar .button {
+    -fx-padding: 6 8;
+    -fx-font-size: 13px;
+}
+.button:disabled {
+    -fx-opacity: 0.7;
+}
+.muted, .hint {
+    -fx-text-fill: #526273;
+}
+.hint {
+    -fx-font-size: 12px;
+}
+.error {
+    -fx-text-fill: #a32222;
+}
+.success {
+    -fx-text-fill: #236037;
+}
+.badge {
+    -fx-background-color: #eaf0fa;
+    -fx-background-radius: 4;
+    -fx-padding: 4 8;
+    -fx-text-fill: #24466f;
+}
+.price {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2458a6;
+}
+.image-placeholder {
+    -fx-background-color: #edf0f4;
+    -fx-background-radius: 6;
+    -fx-alignment: center;
+    -fx-text-fill: #526273;
+}
+.scroll-pane, .scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+.text-field, .text-area, .combo-box {
+    -fx-background-radius: 4;
+}
+.button:focused, .text-field:focused, .text-area:focused, .combo-box:focused {
+    -fx-effect: dropshadow(gaussian, #aac3ea, 4, 0.3, 0, 0);
 }
