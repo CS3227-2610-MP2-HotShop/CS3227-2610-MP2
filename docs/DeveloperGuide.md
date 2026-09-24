@@ -16,8 +16,9 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 ## Structure
 
 - `src/main/java/hotshop/Launcher.java`: executable JAR entry point.
-- `src/main/java/hotshop/Main.java`: JavaFX lifecycle and scene loading.
-- `src/main/resources/hotshop/`: FXML welcome view and stylesheet.
+- `src/main/java/hotshop/Main.java`: JavaFX lifecycle and marketplace startup.
+- `src/main/java/hotshop/ui/`: application shell, feature screens, and shared presentation controls.
+- `src/main/resources/hotshop/`: application stylesheet.
 - `src/main/java/hotshop/model/`: shared buyer/seller domain models and supporting types.
 - `src/test/java/hotshop/model/`: JUnit 5 model behaviour and boundary tests.
 - `config/checkstyle/checkstyle.xml`: executable style checks.
@@ -31,9 +32,9 @@ The shared model layer, AccountService, ListingService, OfferService, and
 TransactionService are implemented, including SQLite persistence,
 authentication, profile and listing images, buyer listing search, offers, sale
 completion and cancellation, sales and purchase history, the sales dashboard
-summary, and lifecycle initialization. Other services and
-buyer/seller/account screens remain deferred; the application still opens the
-welcome screen.
+summary, and lifecycle initialization. The account, profile, listing/search,
+offer, sale, and seller-dashboard screens now call those services. Chat, meetups,
+wishlists, and notifications remain deferred; their UI entry points are disabled.
 
 ## Dependencies and checks
 
@@ -46,6 +47,42 @@ Native access is enabled in Gradle launch scripts and the JAR manifest for JavaF
 Model tests cover validation boundaries, lifecycle transitions, immutable
 snapshots, and cancellation permissions/history. For a targeted run, use
 `.\gradlew.bat test --tests hotshop.model.TransactionTest`.
+
+## JavaFX UI
+
+[UI Design Scope](UiDesignScope.md) records the confirmed screen and interaction
+specification. `MarketplaceUi` installs the scene, grouped sidebar, navigation
+history, session reset, and unsaved-change guards. Feature page classes construct
+JavaFX controls programmatically; the old welcome-only FXML resource was removed.
+No new library is required.
+
+`UiPage` owns loading, duplicate-submission protection, retry, and safe error
+display. It uses service futures and `Platform.runLater`; it never blocks the FX
+thread on a service future. Page callbacks verify that their page is still current.
+All database operations continue through the shared service worker. Screens use
+services exclusively, and service permissions remain authoritative. Confirmation
+dialogs are closed before business operations start; no database transaction waits
+for user input.
+
+`SearchState` separates submitted criteria from draft controls and retains raw
+unfinished price text and scroll position across navigation. Sort changes apply
+to submitted results; refresh does not submit draft edits. Session changes clear
+search and navigation history. A collapsible Filters panel keeps results reachable
+at the minimum window size.
+
+`ListingService.getPublicListings(UUID)` requires login and returns only the
+selected user's available listings, newest first, with restricted public-profile
+data. Missing users return NOT_FOUND; null IDs return VALIDATION. It reuses the
+existing seller query, with no schema changes. `ApplicationRuntime` exposes bounded
+image-path resolution for presentation; `ImageStorage.validateImage` lets the
+picker validate without importing, while saving revalidates and imports as before.
+
+UI tests use JUnit 5 and actual JavaFX controls backed by temporary SQLite data.
+They require a graphical desktop; on headless Linux, install Xvfb and JavaFX's GTK
+runtime libraries and run `xvfb-run -a ./gradlew test`. CI uses Xvfb. Run the screen
+journeys alone with `.\gradlew.bat test --tests hotshop.ui.MarketplaceUiTest`.
+The tests also write scene snapshots to ignored `build/ui-checks/` for visual
+inspection. Window defaults are 1100 x 750, minimum 960 x 640, in JavaFX units.
 
 ## Shared models
 
