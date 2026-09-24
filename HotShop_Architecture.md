@@ -190,7 +190,7 @@ Models assign UUIDs at creation and use IDs for references. Store SGD prices as 
 
 The shared `User` model excludes password hashes. AccountService persists credentials in a separate `credentials` table and uses a separate representation. There is no `user_roles` table. Validated `User.restore` preserves UUID identity when loading or replacing profiles.
 
-The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). Other services, their tables, and account/buyer/seller screens remain planned.
+The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). ListingService, including seller listing management, buyer search, listing tables, and listing images, is implemented as described in [ListingService Design](docs/ListingServiceDesign.md). Other services, their tables, and account/buyer/seller screens remain planned.
 
 Listings represent indivisible sales without quantity tracking. Categories are Electronics, Books, Clothing, Furniture, Sports, and Other; conditions are New, Like new, Good, Fair, and Poor. Listing images are optional, with at most ten in explicit display order.
 
@@ -433,11 +433,12 @@ The implemented runtime defaults to `.hotshop` under the user's home directory;
 `hotshop.dataDir` can override this location. Account operations and session changes
 run through one shared service worker. Registration does not log in, and application
 restart always begins logged out. Public-profile reads require login and omit the
-owner's preferred pickup location. ListingService will own seller-listing queries.
+owner's preferred pickup location. ListingService owns seller-listing queries and buyer search.
 
 Profile images use a managed `images/profiles` namespace and a durable cleanup
-queue. JPEG/PNG imports are limited to 5 MiB and 512 pixels in each dimension;
-future listing-image imports can supply their own limits. Startup retries failed
+queue. Profile JPEG/PNG imports are limited to 5 MiB and 512 pixels in each
+dimension; listing photos use `images/listings`, 10 MiB, and 4096 pixels. Each
+namespace has its own cleanup queue rows. Startup retries failed
 cleanup and removes unreferenced generated profile-image files after checking
 persisted references.
 

@@ -14,14 +14,14 @@ public final class AuthenticatedSession {
     /** Returns the acting user on the shared worker, or fails when nobody is logged in. */
     public UUID requireUserId() {
         if (userId == null) {
-            throw new AccountException(AccountException.Code.SESSION, "Login is required");
+            throw new ServiceException(ServiceException.Code.SESSION, "Login is required");
         }
         return userId;
     }
 
     void requireLoggedOut() {
         if (userId != null) {
-            throw new AccountException(AccountException.Code.SESSION, "Log out before switching accounts");
+            throw new ServiceException(ServiceException.Code.SESSION, "Log out before switching accounts");
         }
     }
 

@@ -14,7 +14,9 @@ import java.util.List;
 /** Opens configured connections and groups repository work into one transaction. */
 public final class Database {
     /** Released migrations in order; a migration's version is its one-based position. Append only. */
-    private static final List<String> MIGRATIONS = List.of("/db/migration/001_accounts.sql");
+    private static final List<String> MIGRATIONS = List.of(
+            "/db/migration/001_accounts.sql",
+            "/db/migration/002_listings.sql");
     private final String url;
     private final List<String> migrations;
 

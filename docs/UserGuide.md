@@ -19,8 +19,10 @@ An 800 by 600 window titled **HotShop** displays **Welcome to HotShop**.
 Resize the window as desired and close it with the operating system's close button.
 
 Startup creates or opens a local database and image folder at `.hotshop` in your
-home directory. Accounts and profile images in that folder survive application
-restarts. Only one HotShop instance may use the same folder at a time.
+home directory. Accounts, listings, and their images in that folder survive
+application restarts. Only one HotShop instance may use the same folder at a time.
+Opening an older HotShop data folder upgrades it automatically without removing
+existing accounts.
 
 If startup fails, HotShop displays an error and exits without resetting existing
 data. Check folder permissions and close another running HotShop instance before
@@ -41,9 +43,10 @@ include Java itself. The CI artifact targets Linux.
 ## Current scope
 
 The application still has a welcome screen only. Account registration, login,
-profile editing, and password changes are implemented at service level for future
-screen integration; they are not accessible from the current window. Listings
-and buyer/seller workflows are not yet available.
+profile editing, password changes, and listing management and search are
+implemented at service level for future screen integration; they are not
+accessible from the current window. Offers, meetups, chat, and other buyer/seller
+workflows are not yet available.
 
 The account service enforces these rules:
 
@@ -67,3 +70,26 @@ The account service enforces these rules:
   into its data folder; moving the original photo afterward does not affect the
   saved copy. Replacing or removing an image never deletes the original photo.
   Failed saves preserve the prior image. Failed cleanup is retried at startup.
+
+The listing service enforces these rules. Every listing action requires login.
+
+- A listing needs a title (1-120 characters), description (1-5,000 characters),
+  category, condition, pickup location (1-200 characters), and a price from
+  S$0.01 to S$1,000,000. Categories are Electronics, Books, Clothing, Furniture,
+  Sports, and Other; conditions are New, Like new, Good, Fair, and Poor.
+- A listing may have 0 to 10 photos in a chosen order. Each photo must contain
+  readable JPEG or PNG data, be at most 10 MiB, and measure at most 4096 pixels
+  wide and high. Photos are not resized. HotShop copies them into its data
+  folder, so moving or deleting the original photo does not affect the listing.
+  If any photo is rejected, nothing about the listing changes.
+- Sellers see all of their own listings, in every status, newest first.
+- Only the seller can edit, archive, or delete a listing. Only available
+  listings can be edited; saving without any change does not count as an edit.
+- Archiving hides an available or sold listing from search but keeps it, and
+  people with a link to it can still open it. Archived listings cannot be reopened.
+- Deleting permanently removes an available or archived listing and its photos.
+  Reserved and sold listings cannot be deleted.
+- Search shows only other sellers' available listings. It can match text in the
+  title (ignoring upper and lower case), and filter by one category, one or more
+  conditions, and a minimum and/or maximum price (both inclusive). Results are
+  sorted newest first, or by price from low to high or high to low.

@@ -8,12 +8,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.util.concurrent.CompletionException;
 
 import hotshop.database.Database;
+import hotshop.repository.ListingRepository;
 import hotshop.repository.UserRepository;
 import hotshop.service.AccountService;
 import hotshop.service.AuthenticatedSession;
+import hotshop.service.ListingService;
 import hotshop.service.ServiceWorker;
 import hotshop.storage.ImageStorage;
 
@@ -23,20 +26,34 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final FileLock lock;
     private final ServiceWorker worker = new ServiceWorker();
     private final AccountService accounts;
+    private final ListingService listings;
     private boolean isClosed;
 
-    private ApplicationRuntime(FileChannel lockChannel, FileLock lock, Database database, ImageStorage images) {
+    private ApplicationRuntime(FileChannel lockChannel, FileLock lock, Database database, ImageStorage profileImages,
+            ImageStorage listingImages, Clock clock) {
         this.lockChannel = lockChannel;
         this.lock = lock;
-        accounts = new AccountService(database, new UserRepository(), worker, new AuthenticatedSession(), images);
+        UserRepository users = new UserRepository();
+        AuthenticatedSession session = new AuthenticatedSession();
+        accounts = new AccountService(database, users, worker, session, profileImages);
+        listings = new ListingService(database, new ListingRepository(), users, worker, session, listingImages, clock);
     }
 
     public AccountService getAccounts() {
         return accounts;
     }
 
-    /** Locks and initializes the data directory; failure preserves data and releases acquired resources. */
+    public ListingService getListings() {
+        return listings;
+    }
+
+    /** Locks and initializes the data directory using the system clock. */
     public static ApplicationRuntime open(Path directory) throws IOException, SQLException {
+        return open(directory, Clock.systemUTC());
+    }
+
+    /** Locks and initializes the data directory; failure preserves data and releases acquired resources. */
+    public static ApplicationRuntime open(Path directory, Clock clock) throws IOException, SQLException {
         Files.createDirectories(directory);
         FileChannel channel = FileChannel.open(directory.resolve("application.lock"),
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE);
@@ -52,13 +69,16 @@ public final class ApplicationRuntime implements AutoCloseable {
             }
             Database database = new Database(directory.resolve("marketplace.db"));
             database.migrate();
-            ImageStorage images = new ImageStorage(directory.resolve("images/profiles"));
-            ApplicationRuntime runtime = new ApplicationRuntime(channel, lock, database, images);
+            ImageStorage profileImages = new ImageStorage(directory.resolve("images/profiles"));
+            ImageStorage listingImages = new ImageStorage(directory.resolve("images/listings"));
+            ApplicationRuntime runtime = new ApplicationRuntime(channel, lock, database, profileImages,
+                    listingImages, clock);
             try {
                 runtime.accounts.recoverImages().join();
+                runtime.listings.recoverImages().join();
             } catch (CompletionException exception) {
                 runtime.close();
-                throw new IOException("Unable to initialize profile image storage", exception.getCause());
+                throw new IOException("Unable to initialize image storage", exception.getCause());
             }
             return runtime;
         } catch (IOException | SQLException | RuntimeException failure) {

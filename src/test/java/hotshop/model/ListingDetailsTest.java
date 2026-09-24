@@ -20,11 +20,18 @@ class ListingDetailsTest {
     @Test
     void constructor_upperBoundaries_acceptsValues() {
         ListingDetails details = new ListingDetails("a".repeat(120), "b".repeat(5000),
-                Category.OTHER, Long.MAX_VALUE, Condition.POOR, "c".repeat(200));
+                Category.OTHER, 100_000_000, Condition.POOR, "c".repeat(200));
         assertEquals(120, details.title().length());
         assertEquals(5000, details.description().length());
         assertEquals(200, details.pickupLocation().length());
-        assertEquals(Long.MAX_VALUE, details.priceCents());
+        assertEquals(100_000_000, details.priceCents());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {100_000_001, Long.MAX_VALUE})
+    void constructor_priceAboveMaximum_throwsException(long price) {
+        assertThrows(IllegalArgumentException.class,
+                () -> new ListingDetails("Title", "Description", Category.OTHER, price, Condition.NEW, "Campus"));
     }
 
     @ParameterizedTest

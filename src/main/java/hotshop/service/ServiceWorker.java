@@ -23,7 +23,7 @@ public final class ServiceWorker implements AutoCloseable {
                 }
             });
         } catch (RejectedExecutionException exception) {
-            result.completeExceptionally(new AccountException(AccountException.Code.SESSION,
+            result.completeExceptionally(new ServiceException(ServiceException.Code.SESSION,
                     "HotShop has closed", exception));
         }
         return result;

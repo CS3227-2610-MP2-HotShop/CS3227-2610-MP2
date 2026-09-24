@@ -20,7 +20,7 @@ class CancellationRequestTest {
     private static final Instant START = Instant.parse("2026-09-22T00:00:00Z");
 
     private Transaction transaction() {
-        Listing listing = new Listing(SELLER, ListingTest.details("Chair", 5000), List.of());
+        Listing listing = new Listing(SELLER, ListingTest.details("Chair", 5000), List.of(), ListingTest.CREATED);
         Offer offer = new Offer(listing, BUYER, 4500);
         offer.accept();
         listing.reserve();

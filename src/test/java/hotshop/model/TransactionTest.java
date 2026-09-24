@@ -18,7 +18,7 @@ class TransactionTest {
     private static final Instant START = Instant.parse("2026-09-22T00:00:00Z");
 
     private Listing listing() {
-        return new Listing(SELLER, ListingTest.details("Chair", 5000), List.of());
+        return new Listing(SELLER, ListingTest.details("Chair", 5000), List.of(), ListingTest.CREATED);
     }
 
     private Transaction transaction() {
@@ -39,7 +39,7 @@ class TransactionTest {
         transaction.cancel(BUYER);
         listing.release();
         listing.update(new ListingDetails("Other item", "New description", Category.OTHER,
-                9000, Condition.NEW, "Elsewhere"), List.of());
+                9000, Condition.NEW, "Elsewhere"), List.of(), ListingTest.CREATED);
         assertEquals("Chair", transaction.getListingTitle());
         assertEquals("Three wooden chairs", transaction.getListingDescription());
         assertEquals(Condition.GOOD, transaction.getListingCondition());
