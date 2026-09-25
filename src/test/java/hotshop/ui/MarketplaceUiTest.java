@@ -31,6 +31,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelFormat;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
@@ -374,6 +376,51 @@ class MarketplaceUiTest {
         confirm("nav-search", "Discard Changes");
         awaitText("page-title", "Search");
         assertTrue(runtime.getChats().getConversations().join().isEmpty());
+    }
+
+    @Test
+    void messageInput_enterKey_sendsMessage() throws Exception {
+        openChatWithSellerAsBuyer();
+        type("message-input", "Sent with Enter");
+        press("message-input", KeyCode.ENTER, false, false);
+        awaitText("latest-message", "Sent with Enter");
+        assertEquals("", fx(() -> ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
+    }
+
+    @Test
+    void messageInput_shiftEnter_addsNewLineWithoutSending() throws Exception {
+        openChatWithSellerAsBuyer();
+        type("message-input", "First line");
+        fx(() -> {
+            ((TextInputControl) stage.getScene().lookup("#message-input")).end();
+            return null;
+        });
+        press("message-input", KeyCode.ENTER, true, false);
+        assertEquals("First line\n", fx(() ->
+                ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
+        assertTrue(runtime.getChats().getConversations().join().isEmpty());
+    }
+
+    private void openChatWithSellerAsBuyer() throws Exception {
+        seedListing();
+        login("buyer");
+        click("search-submit");
+        awaitText("results-count", "1 listing");
+        click("listing-card");
+        awaitReady();
+        click("chat-seller");
+        awaitText("page-title", "Desk");
+        awaitReady();
+    }
+
+    private void press(String id, KeyCode key, boolean isShiftDown, boolean isShortcutDown) throws Exception {
+        fx(() -> {
+            var target = stage.getScene().lookup("#" + id);
+            target.requestFocus();
+            target.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", key, isShiftDown, isShortcutDown,
+                    false, false));
+            return null;
+        });
     }
 
     private void seedListing() {

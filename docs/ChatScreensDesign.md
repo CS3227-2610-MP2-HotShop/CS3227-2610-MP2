@@ -78,7 +78,9 @@ conversation, and the send box; the first send creates it.
   the remaining height, at least 200 px (about 250 px at minimum size). This is
   checked with snapshots at 960 x 640 and 1100 x 750.
 - **Send box**: a multi-line box with Send and a "0 / 1,000" counter. Send is
-  disabled while the box is blank; Ctrl+Enter sends and Enter adds a new line.
+  disabled while the box is blank; Enter (or Ctrl+Enter) sends and Shift+Enter
+  adds a new line. This replaced the interview's Ctrl+Enter choice after manual
+  testing (see the implementation notes).
   A refused send shows the service's message beside the box and keeps the text;
   a successful one clears it. When sending is not allowed (sold or archived
   listing), the box stays visible but disabled with the reason.
@@ -121,7 +123,8 @@ minimum.
   the offer bar, and Open Chat from the sale; an offer with a message and a
   withdrawal from the offer bar; a sold listing's read-only conversation with its
   completed sale; Chat with seller disabled on an archived listing; the draft
-  guard. Snapshots of both pages at 960 x 640 and 1100 x 750.
+  guard; Enter sending and Shift+Enter adding a new line. Snapshots of both pages
+  at 960 x 640 and 1100 x 750.
 
 ## Deferred work
 
@@ -147,3 +150,7 @@ sidebar entries, Upcoming meetups on the Dashboard, and live refresh.
   example when the window is resized, not only on opening and sending.
 - The Make Offer dialog checks the message length before submitting, as it already
   does for the amount; the service remains the authority.
+- **Send keys changed after manual testing (2026-09-26).** The interview chose
+  Ctrl+Enter to send and Enter for a new line (Q16). In use, Shift+Enter did
+  nothing, and the user chose the common chat-app convention instead: Enter
+  sends, Shift+Enter adds a new line, and Ctrl+Enter still sends.

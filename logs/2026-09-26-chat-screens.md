@@ -108,6 +108,22 @@ snapshots at 960 x 640 and 1100 x 750), and the offer bar's role and state rules
 as a small pure class tested directly, like `SearchStateTest`. The user invoked
 `/implement` in reply, which was taken as approval of both seams.
 
+### Manual testing follow-up
+
+> right now entr breaks new line, shift enter does nothing ctrl enter sends the message
+
+That matched the agreed Q16 design, except that Shift+Enter did nothing,
+because JavaFX's `TextArea` ignores it. The assistant asked whether to keep
+Ctrl+Enter (and fix only Shift+Enter) or switch to the chat-app convention. The
+user chose **Enter sends (Recommended)**: Enter sends, Shift+Enter adds a new
+line, and Ctrl+Enter still sends. Two journeys were written first
+(`messageInput_enterKey_sendsMessage`,
+`messageInput_shiftEnter_addsNewLineWithoutSending`); both failed, then passed
+after the send box's key filter was changed. `.\gradlew.bat test --tests
+"hotshop.ui.*" checkstyleMain checkstyleTest` then passed with 22 journeys, 12
+offer bar tests, and 3 search state tests. The User Guide and design document
+were updated, and `release/HotShop.jar` was rebuilt for manual testing.
+
 ## Steps Taken
 
 Interview:

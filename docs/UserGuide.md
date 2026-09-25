@@ -148,7 +148,7 @@ Listing** at the top. Below that, the offer bar shows the buyer's latest offer:
   the listing is available.
 
 Messages appear oldest first; yours are on the right. Type in the box at the
-bottom and choose **Send**, or press **Ctrl+Enter**; Enter adds a new line. The
+bottom and press **Enter** or choose **Send**; **Shift+Enter** adds a new line. The
 counter shows how many of the 1,000 characters you've used. If a message can't be
 sent, the reason appears below the box and your text is kept. Leaving the page
 with an unsent message asks whether to discard it.

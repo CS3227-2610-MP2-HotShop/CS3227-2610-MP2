@@ -64,8 +64,13 @@ final class ConversationPage {
         input.setPrefRowCount(SEND_BOX_ROWS);
         input.textProperty().addListener((property, previous, text) -> updateSendBox());
         input.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (event.getCode() == KeyCode.ENTER && event.isShortcutDown()) {
-                event.consume();
+            if (event.getCode() != KeyCode.ENTER) {
+                return;
+            }
+            event.consume();
+            if (event.isShiftDown()) {
+                input.replaceSelection("\n");
+            } else {
                 send();
             }
         });
