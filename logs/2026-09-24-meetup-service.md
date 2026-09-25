@@ -146,6 +146,17 @@ for the remaining work (the user takes meetup screens, the seller side of chat,
 notifications, and later seller screen work; the teammate keeps PR #9's screens
 plus buyer chat and the wishlist) was accepted for now.
 
+### Pull request (2026-09-25)
+
+> ok for now lets get this pr out before working on ChatService
+
+After the full verification passed, the branch was pushed and pull request
+#10 was opened against `main`. Its description summarises the feature and
+lists the shared changes the teammate should agree to: the buyer operations
+built here, arranging meetups in the chat (and the two later changes to the
+PR #9 screens), the new next steps, the new record components, and migration
+005.
+
 ## Steps Taken
 
 - Created the branch and loaded the skills.
