@@ -144,6 +144,21 @@ Decided: **keep the window size unchanged.** The window fits on the user's
 laptop, consistent with its 752 px usable height. No issue was opened; smaller
 or more heavily scaled screens remain untested.
 
+### Pull request
+
+> ok do that as well as a summary of what this milestone accomplished
+
+Because the last full run came before the Enter-key change, the assistant
+reran `.\gradlew.bat test checkstyleMain checkstyleTest check build shadowJar`:
+BUILD SUCCESSFUL in 4 minutes 50 seconds, 621 tests, 0 failures, 0 errors, 0
+skipped. It then opened
+[pull request #13](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/pull/13)
+against `main`. The description, written for the teammate as reviewer,
+summarises the milestone, lists the five shared changes to agree on (building
+the buyer side of chat, the PR #9 screen changes, the `UiPage` and
+`MarketplaceUi` additions, `ConversationSummary.isAboutOfferOrSale`, and the
+updated registration test), and states that Linux CI has not run yet.
+
 ## Steps Taken
 
 Interview:
