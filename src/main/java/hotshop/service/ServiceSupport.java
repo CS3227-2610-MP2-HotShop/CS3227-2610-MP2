@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.UUID;
@@ -14,6 +16,8 @@ import hotshop.repository.UserRepository;
 /** Plumbing shared by the marketplace services: time, transactions, profiles, and price text. */
 final class ServiceSupport {
     private static final int CENTS_PER_DOLLAR = 100;
+    private static final DateTimeFormatter TIME_FORMAT =
+            DateTimeFormatter.ofPattern("EEE d MMM, h:mm a", Locale.ENGLISH);
 
     private ServiceSupport() {
     }
@@ -31,6 +35,11 @@ final class ServiceSupport {
     /** A status as a lowercase word for messages, for example "reserved". */
     static String describe(Enum<?> status) {
         return status.name().toLowerCase(Locale.ROOT);
+    }
+
+    /** Formats a time for messages in the computer's time zone, for example "Thu 25 Sep, 3:00 pm". */
+    static String formatTime(Instant time) {
+        return TIME_FORMAT.format(time.atZone(ZoneId.systemDefault()));
     }
 
     /** Formats SGD cents for messages, for example 4000 as "S$40.00". */

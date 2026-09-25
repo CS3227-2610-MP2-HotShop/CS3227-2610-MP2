@@ -123,9 +123,11 @@ Loading indicators show work in progress and prevent repeat submissions. Routine
 profile and password saves use inline success messages. Empty collections explain
 what to do next, such as creating a listing or searching for items.
 
-Wishlist, meetups/availability, conversations/chat, and notifications are not
-implemented. Their navigation entries and relevant contextual controls are disabled
-and labelled **Coming soon**. They do not open placeholder feature screens.
+Wishlist, meetups/availability, conversations/chat, and notifications have no
+screens yet. Their navigation entries and relevant contextual controls are disabled
+and labelled **Coming soon**. They do not open placeholder feature screens. The
+meetup rules under Marketplace rules are already enforced and will apply once the
+meetup screens are added.
 
 ## Marketplace rules
 
@@ -220,9 +222,40 @@ only the sale's buyer and seller can see or act on it.
   sale, with sales waiting for a response to a cancellation request first, then
   other active sales, completed, and cancelled sales, each newest first. A
   listing appears twice in My Sales only if an earlier sale of it was cancelled.
-- Each entry says what to do next, such as "Meet to hand over the item, then
-  confirm completion" or "Respond to the other participant's cancellation
-  request", and which actions are available.
+- Each entry says what to do next, such as "Offer meetup times" or "Respond to
+  the other participant's cancellation request", and which actions are available.
 - The sales dashboard shows your pending offers across all your listings, your
   active and completed sales, and the total value of completed sales. Active
-  sales are not included in the total because they can still be cancelled.
+  sales are not included in the total because they can still be cancelled. The
+  dashboard also counts your upcoming meetups as a seller; this count is not on
+  the Dashboard screen yet.
+
+The meetup service enforces these rules. Every meetup action requires login, and
+only the sale's buyer and seller can see or act on its meetup.
+
+- Meetups are arranged for an active sale. The seller offers the buyer up to 3
+  meetup times, each with a start, an end, and a pickup location (1-200
+  characters). A time lasts 15 minutes to 4 hours, starts in the future, and
+  starts at most 60 days ahead. A sale's offered times cannot overlap each other,
+  or any meetup the seller already has.
+- Only the buyer books, by choosing one of the offered times. Booking deletes the
+  sale's other offered times. Neither of you can book a time that overlaps
+  another meetup you already have, whether you are buying or selling in it. If
+  the seller offered the same time to two buyers, whoever books first gets it.
+- The seller can withdraw an offered time that nobody has booked. Offered times
+  cannot be edited, and times that have already started are no longer shown.
+- Either of you can propose moving a booked meetup to a new time and place. The
+  other person accepts (the meetup moves) or rejects (it stays as booked), and
+  you can withdraw your own proposal. Only one proposal can be pending at a time.
+- Either of you can cancel a booked meetup. The sale stays active, so the seller
+  offers new times and the buyer books again.
+- Completing the sale completes its meetup, and cancelling the sale cancels it.
+  You can confirm completion with or without a meetup. A meetup whose time has
+  passed stays booked, and the next step becomes "Did the handover happen?
+  Confirm completion".
+- Each sale in My Sales and My Purchases, and each reserved listing, carries the
+  offered times or the booked meetup with any pending proposal, ready for the
+  meetup screens to show.
+- Every refused action explains what went wrong, for example: "The seller
+  already has a meetup from Fri 25 Sep, 3:00 PM to Fri 25 Sep, 3:30 PM. Choose a
+  different time."

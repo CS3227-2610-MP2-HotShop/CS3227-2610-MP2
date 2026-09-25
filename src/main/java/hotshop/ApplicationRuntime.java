@@ -13,12 +13,14 @@ import java.util.concurrent.CompletionException;
 
 import hotshop.database.Database;
 import hotshop.repository.ListingRepository;
+import hotshop.repository.MeetupRepository;
 import hotshop.repository.OfferRepository;
 import hotshop.repository.TransactionRepository;
 import hotshop.repository.UserRepository;
 import hotshop.service.AccountService;
 import hotshop.service.AuthenticatedSession;
 import hotshop.service.ListingService;
+import hotshop.service.MeetupService;
 import hotshop.service.OfferService;
 import hotshop.service.ServiceWorker;
 import hotshop.service.TransactionService;
@@ -33,6 +35,7 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final ListingService listings;
     private final OfferService offers;
     private final TransactionService transactions;
+    private final MeetupService meetups;
     private final ImageStorage profileImages;
     private final ImageStorage listingImages;
     private boolean isClosed;
@@ -48,13 +51,15 @@ public final class ApplicationRuntime implements AutoCloseable {
         accounts = new AccountService(database, users, worker, session, profileImages);
         ListingRepository listingRepository = new ListingRepository();
         OfferRepository offerRepository = new OfferRepository();
-        listings = new ListingService(database, listingRepository, offerRepository, users, worker, session,
-                listingImages, clock);
         TransactionRepository transactionRepository = new TransactionRepository();
+        MeetupRepository meetupRepository = new MeetupRepository();
+        listings = new ListingService(database, listingRepository, offerRepository, transactionRepository,
+                meetupRepository, users, worker, session, listingImages, clock);
         offers = new OfferService(database, offerRepository, listingRepository, transactionRepository,
                 users, worker, session, clock);
         transactions = new TransactionService(database, transactionRepository, listingRepository, offerRepository,
-                users, worker, session, clock);
+                meetupRepository, users, worker, session, clock);
+        meetups = new MeetupService(database, meetupRepository, transactionRepository, worker, session, clock);
     }
 
     public AccountService getAccounts() {
@@ -71,6 +76,10 @@ public final class ApplicationRuntime implements AutoCloseable {
 
     public TransactionService getTransactions() {
         return transactions;
+    }
+
+    public MeetupService getMeetups() {
+        return meetups;
     }
 
     /** Resolves a generated image reference without exposing database or storage mutation to the UI. */

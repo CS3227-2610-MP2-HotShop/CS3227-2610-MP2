@@ -44,7 +44,7 @@ class TransactionServiceTest {
             assertEquals("bobby", entry.otherParticipant().displayName());
             assertEquals(4000, entry.sale().getAgreedPriceCents());
             assertEquals("Chairs", entry.sale().getListingTitle());
-            assertEquals(NextStep.CONFIRM_AFTER_HANDOVER, entry.nextStep());
+            assertEquals(NextStep.OFFER_MEETUP_TIMES, entry.nextStep());
             assertEquals(Set.of(SaleAction.CONFIRM_COMPLETION, SaleAction.CANCEL_SALE), entry.availableActions());
         }
     }
@@ -75,7 +75,7 @@ class TransactionServiceTest {
             loginAs(runtime, "bobby");
             var buyer = runtime.getTransactions().getMyPurchases().join().get(0);
             assertEquals(SaleRole.BUYER, buyer.role());
-            assertEquals(NextStep.CONFIRM_AFTER_HANDOVER, buyer.nextStep());
+            assertEquals(NextStep.WAIT_FOR_MEETUP_TIMES, buyer.nextStep());
             assertEquals(Set.of(SaleAction.CONFIRM_COMPLETION, SaleAction.REQUEST_CANCELLATION),
                     buyer.availableActions());
             assertEquals(ListingStatus.RESERVED, listingStatus(runtime));
@@ -364,7 +364,7 @@ class TransactionServiceTest {
             loginAs(runtime, "bobby");
             var rejected = runtime.getTransactions().rejectCancellation(sale).join();
             assertTrue(rejected.sale().getSellerConfirmedAt().isPresent());
-            assertEquals(NextStep.CONFIRM_AFTER_HANDOVER, rejected.nextStep());
+            assertEquals(NextStep.WAIT_FOR_MEETUP_TIMES, rejected.nextStep());
             runtime.getTransactions().confirmCompletion(sale).join();
             assertEquals(ListingStatus.SOLD, listingStatus(runtime));
         }
@@ -444,7 +444,7 @@ class TransactionServiceTest {
     void getSalesDashboard_newSeller_returnsZeros() throws Exception {
         try (ApplicationRuntime runtime = open()) {
             registerAndLogin(runtime, "alice");
-            assertEquals(new SalesDashboard(0, 0, 0, 0), runtime.getTransactions().getSalesDashboard().join());
+            assertEquals(new SalesDashboard(0, 0, 0, 0, 0), runtime.getTransactions().getSalesDashboard().join());
         }
     }
 
@@ -460,7 +460,7 @@ class TransactionServiceTest {
             offerAs(runtime, "erin", 100);
             offerAs(runtime, "frank", 200);
             loginAs(runtime, "alice");
-            assertEquals(new SalesDashboard(2, 1, 1, 3000), runtime.getTransactions().getSalesDashboard().join());
+            assertEquals(new SalesDashboard(2, 1, 1, 3000, 0), runtime.getTransactions().getSalesDashboard().join());
         }
     }
 
@@ -470,7 +470,7 @@ class TransactionServiceTest {
             UUID sale = agreedSale(runtime, "bobby", 4000);
             complete(runtime, sale);
             loginAs(runtime, "bobby");
-            assertEquals(new SalesDashboard(0, 0, 0, 0), runtime.getTransactions().getSalesDashboard().join());
+            assertEquals(new SalesDashboard(0, 0, 0, 0, 0), runtime.getTransactions().getSalesDashboard().join());
         }
     }
 

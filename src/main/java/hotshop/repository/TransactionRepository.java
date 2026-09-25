@@ -88,6 +88,17 @@ public final class TransactionRepository {
         return findByParticipant(connection, "buyer_id", buyerId);
     }
 
+    /** The ID of the listing's active sale, if it has one; there is at most one. */
+    public Optional<UUID> findActiveIdForListing(Connection connection, UUID listingId) throws SQLException {
+        try (var statement = connection.prepareStatement(
+                "SELECT id FROM transactions WHERE listing_id = ? AND status = 'ACTIVE'")) {
+            statement.setString(1, listingId.toString());
+            try (var rows = statement.executeQuery()) {
+                return rows.next() ? Optional.of(UUID.fromString(rows.getString(1))) : Optional.empty();
+            }
+        }
+    }
+
     /** The status of the sale created from an accepted offer, if there is one. */
     public Optional<TransactionStatus> findStatusByOffer(Connection connection, UUID offerId) throws SQLException {
         try (var statement = connection.prepareStatement(

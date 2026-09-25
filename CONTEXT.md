@@ -53,6 +53,17 @@ _Avoid_: Order, payment (when referring to the agreed sale)
 A transaction that has been agreed but not yet completed or cancelled: the participants are still to meet, hand over the item, and both confirm completion. Its listing is reserved.
 _Avoid_: Pending sale, open order
 
+**Meetup slot**:
+A time and place a seller offers one buyer for handing over the item of one active sale. The buyer books one of the offered slots; the others are then withdrawn.
+_Avoid_: Availability (slots are offered to one buyer, not published to everyone)
+
+**Meetup**:
+The booked meetup slot where an active sale's buyer and seller plan to hand over the item. It completes or is cancelled together with its sale, and can also be cancelled on its own so that new slots can be offered.
+_Avoid_: Appointment, booking (as separate terms)
+
+**Reschedule proposal**:
+A participant's proposal to move a meetup to one new time and place. The other participant accepts or rejects it, and the proposer may withdraw it.
+
 **Completion confirmation**:
 A transaction participant's declaration that the agreed sale is complete. Both participants must confirm for the transaction to be completed.
 
