@@ -93,7 +93,9 @@ also explain their consequences before proceeding.
 ## Offers and sales
 
 On another seller's available listing, choose **Make Offer**, enter an SGD amount
-with at most two decimal places, and choose **Submit Offer**. Your pending offer
+with at most two decimal places, optionally add a message to the seller (up to
+1,000 characters), and choose **Submit Offer**. The message appears in your
+conversation with the seller. Your pending offer
 then appears with **Withdraw Offer**; changing an amount requires withdrawing first.
 **My Offers** contains your offer history and links to listings and accepted purchases.
 
@@ -116,6 +118,49 @@ in confirmation dialogs. Only currently permitted actions are enabled.
 The seller **Dashboard** summarises pending offers, active/completed sales, and
 the total agreed value of completed sales.
 
+## Conversations
+
+A conversation is between one buyer and the seller about one listing. Open one in
+any of these ways:
+
+- **Chat with seller** on another seller's listing. If you haven't talked about
+  that listing yet, the page is empty; your first message starts the conversation.
+- **Chat with buyer** beside an offer in your listing's Incoming Offers.
+- **Open Chat** on a sale's details, for either of you.
+- **Conversations** in the sidebar, which lists every conversation, buying or
+  selling. When you have unread items, the link shows the total, for example
+  **Conversations (2)**.
+
+The Conversations page puts conversations with a pending offer or an active sale
+under **Offers and sales**, and the rest under **Other conversations**. Each card
+shows the listing, the other person, whether you're buying or selling, a preview,
+and how many unread items it has. Choose the listing title to open it, or
+**Refresh** to reload the list.
+
+A conversation page shows the other person, the listing's status, and **View
+Listing** at the top. Below that, the offer bar shows the buyer's latest offer:
+
+- A pending offer: the buyer can **Withdraw Offer**, and the seller can **Accept
+  Offer** (with the same confirmation as Incoming Offers, then Sale Details opens)
+  or **Reject Offer**.
+- An accepted offer: its sale's status and **View Sale**.
+- A rejected or withdrawn offer, or no offer: the buyer can **Make Offer** while
+  the listing is available.
+
+Messages appear oldest first; yours are on the right. Type in the box at the
+bottom and choose **Send**, or press **Ctrl+Enter**; Enter adds a new line. The
+counter shows how many of the 1,000 characters you've used. If a message can't be
+sent, the reason appears below the box and your text is kept. Leaving the page
+with an unsent message asks whether to discard it.
+
+Once a listing is sold or archived, its conversations stay readable but the send
+box is disabled with the reason. On a sold or archived listing you haven't asked
+about, **Chat with seller** is disabled, because conversations can only be started
+about available or reserved listings.
+
+Only one person is logged in at a time, so you see the other person's replies the
+next time you log in.
+
 ## Feedback and unfinished features
 
 Forms retain input after errors and show field-specific validation where possible.
@@ -123,11 +168,11 @@ Loading indicators show work in progress and prevent repeat submissions. Routine
 profile and password saves use inline success messages. Empty collections explain
 what to do next, such as creating a listing or searching for items.
 
-Wishlist, meetups/availability, conversations/chat, and notifications have no
-screens yet. Their navigation entries and relevant contextual controls are disabled
-and labelled **Coming soon**. They do not open placeholder feature screens. The
-meetup and chat rules under Marketplace rules are already enforced and will apply
-once those screens are added.
+Wishlist, meetups/availability, and notifications have no screens yet. Their
+navigation entries and relevant contextual controls, including **Arrange Meetup**
+on a sale, are disabled and labelled **Coming soon**. They do not open placeholder
+feature screens. The meetup rules under Marketplace rules are already enforced and
+will apply once those screens are added.
 
 ## Marketplace rules
 
@@ -204,10 +249,9 @@ The offer service enforces these rules. Every offer action requires login.
   example: "You already have a pending offer of S$40.00 on this listing.
   Withdraw it before making a new one."
 - Making an offer also starts your conversation with the seller about that
-  listing, or continues it, so the seller can always reply to you. The offer
-  service also accepts an optional message with the offer, which becomes a
-  message in that conversation, but the Make Offer dialog has no message box
-  yet.
+  listing, or continues it, so the seller can always reply to you. An optional
+  message written in the Make Offer dialog becomes a message in that
+  conversation.
 
 The sale service enforces these rules. Every sale action requires login, and
 only the sale's buyer and seller can see or act on it.
