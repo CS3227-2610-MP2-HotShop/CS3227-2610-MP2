@@ -8,7 +8,7 @@ This document records the confirmed UI specification. After confirming the conso
 - Defer implementation of chat, meetup, wishlist, and notification screens. Include relevant entry points on first-milestone pages, such as Chat with seller on listing details. Chat screens were later built as specified in [Chat Screens Design](ChatScreensDesign.md), which enables Conversations and Chat with seller. Meetups were then built inside the conversation as specified in [Meetup Screens Design](MeetupScreensDesign.md), which removes the Meetups and Availability & Meetups sidebar entries and the sale page's Arrange Meetup control.
 - Show both future-feature actions and future navigation destinations disabled and labelled "Coming soon" until implemented.
 - Use one application shell with a persistent grouped sidebar. Buying and Selling are non-clickable headings with direct links to individual pages, not role modes or mandatory hub pages.
-- Sidebar layout: Search; Buying (My Offers, My Purchases, Wishlist); Selling (Dashboard, My Listings, My Sales); Conversations; Notifications; My Profile; Log out. The original layout also had Meetups under Buying and Availability & Meetups under Selling; both were removed when meetups moved into the conversation ([Meetup Screens Design](MeetupScreensDesign.md)). Future-feature destinations remain disabled and labelled "Coming soon" as agreed above.
+- Sidebar layout: Search; Buying (My Offers, My Purchases, Wishlist); Selling (Dashboard, My Listings, My Sales); Conversations; My Profile; Log out. Notifications was listed after Conversations until notifications were dropped on 2026-09-25. The original layout also had Meetups under Buying and Availability & Meetups under Selling; both were removed when meetups moved into the conversation ([Meetup Screens Design](MeetupScreensDesign.md)). Future-feature destinations remain disabled and labelled "Coming soon" as agreed above.
 - Require login for marketplace pages, including listing search/details and public profiles. Login and registration are accessible while signed out.
 - Search initially shows its controls and guidance, with no listing cards. Search/Enter submits the query and selected filters; typing alone does not fetch results.
 - An empty submitted query shows all eligible listings, respecting filters. Distinguish the initial guidance from a search yielding no matches.
@@ -80,6 +80,9 @@ Individual recommendations Q1-Q28 and the consolidated scope were confirmed. Imp
 - JUnit tests exercise service boundaries, search state, and actual JavaFX workflows
   using temporary databases. Screenshots are generated under `build/ui-checks/`.
 - Exact branding and unfinished-feature screen internals remain deferred as agreed.
+- 2026-09-25: notifications were dropped from the release, so the disabled
+  Notifications sidebar entry was removed. The other "Coming soon" entries are
+  unchanged.
 
 ## Visual refresh interview (2026-09-26)
 

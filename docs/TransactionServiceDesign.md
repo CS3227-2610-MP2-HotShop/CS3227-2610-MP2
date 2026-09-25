@@ -21,7 +21,8 @@ the notes under [Implementation notes](#implementation-notes). Screens remain de
 - Completing a sale marks its listing sold; cancelling releases it to available.
   Offers rejected when the sale was agreed stay rejected.
 - Cancellation requests carry no written reason; chat is the place to discuss.
-- Notifications and meetups are deferred to their own services.
+- Notifications and meetups are deferred to their own services. (Notifications
+  were later dropped from the release on 2026-09-25.)
 
 ## Model changes
 
@@ -133,8 +134,10 @@ requests, and its listing are saved in one database transaction.
 - MeetupService: cancelling a sale cancels its upcoming meetup and pending
   rescheduling proposals in the same transaction; the next step gains meetup
   details; the dashboard gains upcoming meetups.
-- NotificationService: notify the other participant of confirmations,
-  cancellations, and cancellation requests and responses.
+- ~~NotificationService: notify the other participant of confirmations,
+  cancellations, and cancellation requests and responses.~~ Dropped on
+  2026-09-25 with notifications; the next step on each sale shows these
+  instead.
 
 ## Verification scope
 
@@ -149,7 +152,8 @@ migration `004` on fresh and version-3 databases.
 
 ## Deferred work
 
-Sale screens, meetups, notifications, returns and refunds, and cancellation reasons.
+Sale screens, meetups, returns and refunds, and cancellation reasons.
+(Notifications were also listed here until they were dropped on 2026-09-25.)
 
 ## Implementation notes
 

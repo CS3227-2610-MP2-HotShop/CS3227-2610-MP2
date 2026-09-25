@@ -232,8 +232,13 @@ Loading indicators show work in progress and prevent repeat submissions. Routine
 profile and password saves use inline success messages. Empty collections explain
 what to do next, such as creating a listing or searching for items.
 
-Wishlist and notifications have no screens yet. Their navigation entries and
-relevant contextual controls are disabled and labelled **Coming soon**. They do not
+HotShop does not send notifications. To see what's new, check each sale's next
+step in My Sales or My Purchases, your offers in My Offers, the pending-offer
+counts in My Listings and on the Dashboard, and the unread counts on
+Conversations.
+
+The wishlist has no screens yet. Its navigation entry and the listing page's
+**Save to wishlist** button are disabled and labelled **Coming soon**. They do not
 open placeholder feature screens.
 
 ## Marketplace rules

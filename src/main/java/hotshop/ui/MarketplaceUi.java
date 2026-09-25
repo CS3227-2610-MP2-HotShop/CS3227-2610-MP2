@@ -223,7 +223,6 @@ public final class MarketplaceUi {
                 nav("My Listings", "listings", listings::mine), nav("My Sales", "sales", () -> sales.list(true)));
         conversationsLink = nav("Conversations", "conversations", chats::list);
         links.getChildren().addAll(conversationsLink,
-                UiControls.future("Notifications", "nav-notifications"),
                 nav("My Profile", "profile", () -> accounts.profile(userId)),
                 UiControls.button("Log out", "nav-logout", this::logout));
         ScrollPane sidebar = new ScrollPane(links);

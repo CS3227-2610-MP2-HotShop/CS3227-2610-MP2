@@ -56,7 +56,6 @@ public final class TransactionService {
     /**
      * Records the current user's confirmation that the item changed hands. The second confirmation
      * completes the sale, its meetup, and marks its listing sold in the same database transaction.
-     * NotificationService should notify the other participant inside this transaction when it exists.
      */
     public CompletableFuture<SaleForParticipant> confirmCompletion(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -80,8 +79,7 @@ public final class TransactionService {
 
     /**
      * Cancels an active sale before anyone confirms, releasing its listing for new offers and
-     * cancelling its meetup. NotificationService should notify the other participant inside this
-     * transaction when it exists.
+     * cancelling its meetup.
      */
     public CompletableFuture<SaleForParticipant> cancelSale(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {

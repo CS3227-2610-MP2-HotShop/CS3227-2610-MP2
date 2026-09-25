@@ -35,8 +35,11 @@ search, offers, sale completion and cancellation, sales and purchase history,
 meetup slots and bookings, conversations and messages, the sales dashboard
 summary, and lifecycle initialization. The account, profile, listing/search,
 offer, sale, seller-dashboard, conversation, and meetup screens now call those
-services. Wishlists and notifications remain deferred; their UI entry points are
-disabled.
+services. Wishlists remain deferred; their UI entry points are disabled.
+Notifications were dropped from this release on 2026-09-25, so there is no
+NotificationService and no Notifications sidebar entry. Users learn about
+events from next steps, list ordering, pending-offer counts, and conversation
+unread counts instead.
 
 ## Dependencies and checks
 
@@ -441,9 +444,8 @@ Submitting an offer also starts the buyer's conversation about the listing, or
 reuses it, in the same database transaction (through `Conversations`), so the
 seller always has a conversation with everyone who offered.
 
-Hooks for later services: NotificationService adds notifications inside the
-accept and reject transactions. After TransactionService cancels a sale, the
-released listing can receive offers again.
+After TransactionService cancels a sale, the released listing can receive offers
+again.
 
 ## Chat service
 
@@ -504,8 +506,7 @@ one database transaction (`applyToActiveSale`). `SaleProgress` turns a sale's
 state into the viewer's `NextStep` (with display text), `SaleAction`s, and list
 position, using the same model queries the rules use, so screens never offer an
 action that would be refused. Completing a sale completes its scheduled meetup,
-and cancelling it cancels the meetup, in the same transaction. Hook for later:
-NotificationService notifies the other participant inside these transactions.
+and cancelling it cancels the meetup, in the same transaction.
 
 ## Meetup service
 
@@ -535,8 +536,6 @@ scheduled meetups that have not started). `SaleMeetups` is the package-private
 helper that loads summaries and closes a sale's meetup for TransactionService.
 `SaleProgress` puts cancellation requests and the viewer's own confirmation ahead
 of meetup steps; a meetup counts as past once its end time has passed.
-Hook for later: NotificationService notifies the other participant of offered
-slots, bookings, moves, and cancellations.
 
 The full test suite takes more than ten minutes on a typical laptop, mostly
 because each test account's password is hashed with 600,000 PBKDF2 iterations.
