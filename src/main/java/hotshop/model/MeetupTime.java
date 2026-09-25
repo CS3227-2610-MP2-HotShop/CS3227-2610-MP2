@@ -9,9 +9,10 @@ import java.util.Objects;
  * a time is in the future or too far ahead depends on the clock, so services check that.
  */
 public record MeetupTime(Instant startAt, Instant endAt, String location) {
+    /** The longest meetup place, in Unicode code points. */
+    public static final int MAX_LOCATION_LENGTH = 200;
     private static final Duration MIN_LENGTH = Duration.ofMinutes(15);
     private static final Duration MAX_LENGTH = Duration.ofHours(4);
-    private static final int MAX_LOCATION_LENGTH = 200;
 
     public MeetupTime {
         Objects.requireNonNull(startAt, "Start time");

@@ -28,8 +28,10 @@ import hotshop.repository.TransactionRepository;
  * should notify the other participant inside each change when it exists.
  */
 public final class MeetupService {
-    private static final int MAX_OFFERED_SLOTS = 3;
-    private static final Duration MAX_DAYS_AHEAD = Duration.ofDays(60);
+    /** The most unbooked times a seller can offer for one sale at once. */
+    public static final int MAX_OFFERED_SLOTS = 3;
+    /** How far ahead a meetup may start. */
+    public static final Duration MAX_DAYS_AHEAD = Duration.ofDays(60);
     private static final String STORAGE_FAILURE = "Meetups are unavailable right now. Please try again.";
     private final Database database;
     private final MeetupRepository meetups;
