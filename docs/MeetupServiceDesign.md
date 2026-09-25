@@ -99,8 +99,10 @@ values, following the OfferService standard.
 
 - TransactionService calls MeetupService's completion and cancellation steps
   inside its own database transactions.
-- NotificationService: notify the other participant when slots are offered, a
-  meetup is booked, moved, or cancelled, and when a proposal is made or answered.
+- ~~NotificationService: notify the other participant when slots are offered, a
+  meetup is booked, moved, or cancelled, and when a proposal is made or
+  answered.~~ Dropped on 2026-09-25 with notifications; the sale's next step
+  shows these instead.
 - **Note for ChatService (user suggestion, not yet decided):** list conversations
   with a pending or accepted offer at the top, and general enquiries without
   offers below.
@@ -118,7 +120,8 @@ persistence; migration on fresh and version-4 databases.
 
 ## Deferred work
 
-Meetup screens, notifications, and the chat integration.
+Meetup screens and the chat integration. (Notifications were also listed here
+until they were dropped on 2026-09-25.)
 
 ## Implementation notes
 

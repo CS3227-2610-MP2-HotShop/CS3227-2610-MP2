@@ -24,8 +24,7 @@ import hotshop.repository.TransactionRepository;
  * Planning the handover of an active sale: the seller offers up to three slots to the sale's buyer,
  * the buyer books one, and either participant can later propose a move or cancel the meetup.
  * Serialized with all other application services; every operation requires login and acts as the
- * session's current user. Only the sale's buyer and seller can see or change its meetup. NotificationService
- * should notify the other participant inside each change when it exists.
+ * session's current user. Only the sale's buyer and seller can see or change its meetup.
  */
 public final class MeetupService {
     private static final int MAX_OFFERED_SLOTS = 3;

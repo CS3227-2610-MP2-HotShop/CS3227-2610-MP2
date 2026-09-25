@@ -15,7 +15,8 @@ the notes under [Implementation notes](#implementation-notes). Screens remain de
 - Accepting an offer saves the new transaction. Completion confirmations,
   cancellation, cancellation requests, and purchase/sales history belong to a
   later TransactionService.
-- Notifications are deferred to NotificationService.
+- Notifications are deferred to NotificationService. (Later dropped from the
+  release on 2026-09-25; there is no NotificationService.)
 - Rules already settled by [Buyer Model Design](BuyerModelDesign.md) and the
   architecture still apply: at most one pending offer per buyer and listing; no
   offers on one's own listing or on a listing that is not available; amounts are
@@ -101,8 +102,9 @@ Cancellation requests get their own table when TransactionService is built.
 
 ## Hooks for later services
 
-- NotificationService: add offer accepted and rejected notifications inside the
-  accept and reject transactions.
+- ~~NotificationService: add offer accepted and rejected notifications inside
+  the accept and reject transactions.~~ Dropped on 2026-09-25 with
+  notifications.
 - TransactionService: confirmations, cancellation, and releasing the listing;
   after a cancellation the listing can receive offers again.
 - ChatService: make delete refuse listings with conversation history.
@@ -119,7 +121,8 @@ fresh and version-2 databases.
 
 ## Deferred work
 
-Offer screens, TransactionService, notifications, and counteroffers.
+Offer screens, TransactionService, and counteroffers. (Notifications were also
+listed here until they were dropped on 2026-09-25.)
 
 ## Implementation notes
 

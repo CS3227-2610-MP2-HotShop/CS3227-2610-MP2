@@ -8,7 +8,7 @@ This document records the confirmed UI specification. After confirming the conso
 - Defer implementation of chat, meetup, wishlist, and notification screens. Include relevant entry points on first-milestone pages, such as Chat with seller on listing details.
 - Show both future-feature actions and future navigation destinations disabled and labelled "Coming soon" until implemented.
 - Use one application shell with a persistent grouped sidebar. Buying and Selling are non-clickable headings with direct links to individual pages, not role modes or mandatory hub pages.
-- Sidebar layout: Search; Buying (My Offers, My Purchases, Wishlist, Meetups); Selling (Dashboard, My Listings, My Sales, Availability & Meetups); Conversations; Notifications; My Profile; Log out. Future-feature destinations remain disabled and labelled "Coming soon" as agreed above.
+- Sidebar layout: Search; Buying (My Offers, My Purchases, Wishlist, Meetups); Selling (Dashboard, My Listings, My Sales, Availability & Meetups); Conversations; My Profile; Log out. (Notifications was listed after Conversations until notifications were dropped on 2026-09-25.) Future-feature destinations remain disabled and labelled "Coming soon" as agreed above.
 - Require login for marketplace pages, including listing search/details and public profiles. Login and registration are accessible while signed out.
 - Search initially shows its controls and guidance, with no listing cards. Search/Enter submits the query and selected filters; typing alone does not fetch results.
 - An empty submitted query shows all eligible listings, respecting filters. Distinguish the initial guidance from a search yielding no matches.
@@ -80,3 +80,6 @@ Individual recommendations Q1-Q28 and the consolidated scope were confirmed. Imp
 - JUnit tests exercise service boundaries, search state, and actual JavaFX workflows
   using temporary databases. Screenshots are generated under `build/ui-checks/`.
 - Exact branding and unfinished-feature screen internals remain deferred as agreed.
+- 2026-09-25: notifications were dropped from the release, so the disabled
+  Notifications sidebar entry was removed. The other "Coming soon" entries are
+  unchanged.
