@@ -33,7 +33,7 @@ public final class ChatService {
     private static final String STORAGE_FAILURE = "Conversations are unavailable right now. Please try again.";
     /** Conversations with a pending offer or an active sale come before general enquiries. */
     private static final Comparator<ConversationSummary> LIST_ORDER = Comparator
-            .comparing((ConversationSummary summary) -> !isAboutOfferOrSale(summary))
+            .comparing((ConversationSummary summary) -> !summary.isAboutOfferOrSale())
             .thenComparing(summary -> summary.unreadCount() == 0)
             .thenComparing(ConversationSummary::lastActivityAt, Comparator.reverseOrder())
             .thenComparing(summary -> summary.conversation().getId());
@@ -273,11 +273,6 @@ public final class ChatService {
         }
         var sale = transactions.findById(connection, saleId.orElseThrow());
         return sale.filter(found -> found.getBuyerId().equals(conversation.getBuyerId())).map(found -> found.getId());
-    }
-
-    private static boolean isAboutOfferOrSale(ConversationSummary summary) {
-        return summary.activeSaleId().isPresent() || summary.latestOffer()
-                .filter(offer -> offer.getStatus() == OfferStatus.PENDING).isPresent();
     }
 
     /** Sold and archived listings keep their conversations readable, but nobody can add to them. */
