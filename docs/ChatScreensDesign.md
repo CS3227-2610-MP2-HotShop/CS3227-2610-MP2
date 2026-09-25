@@ -150,6 +150,10 @@ sidebar entries, Upcoming meetups on the Dashboard, and live refresh.
   example when the window is resized, not only on opening and sending.
 - The Make Offer dialog checks the message length before submitting, as it already
   does for the amount; the service remains the authority.
+- **The offer bar gives way to the meetup bar during a sale.** Since the meetup
+  screens ([Meetup Screens Design](MeetupScreensDesign.md)), an active or
+  completed sale shows the meetup bar instead; the "Accepted · Sale <status>" row
+  now appears only for a cancelled sale.
 - **Send keys changed after manual testing (2026-09-26).** The interview chose
   Ctrl+Enter to send and Enter for a new line (Q16). In use, Shift+Enter did
   nothing, and the user chose the common chat-app convention instead: Enter
