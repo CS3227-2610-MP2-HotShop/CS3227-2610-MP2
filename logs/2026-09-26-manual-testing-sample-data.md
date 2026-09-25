@@ -11,6 +11,12 @@ walkthrough of the chat flow.
 
 > can you populate the db for me with some arbitrary data for each feature
 
+> what is bobs login
+
+Answered from the seed: username `bob`, with the shared sample password listed
+under "Seeded data" below. These are throwaway test accounts in
+`%TEMP%\hotshop-manual`, not real credentials.
+
 ## Steps Taken
 
 - Checked the public service signatures the seed needed (accounts, listings,
