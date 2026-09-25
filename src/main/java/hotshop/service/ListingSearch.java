@@ -34,7 +34,7 @@ public record ListingSearch(String titleText, Category category, Set<Condition> 
     }
 
     /** The requested order, with ties broken newest first. */
-    Comparator<Listing> order() {
+    public Comparator<Listing> order() {
         Comparator<Listing> byPrice = Comparator.comparingLong(listing -> listing.getDetails().priceCents());
         return switch (sort == null ? ListingSort.NEWEST : sort) {
             case NEWEST -> NEWEST_FIRST;

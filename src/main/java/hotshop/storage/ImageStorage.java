@@ -43,21 +43,11 @@ public final class ImageStorage {
 
     /** Copies the same bounded bytes that were validated, independent of later source edits. */
     public String importImage(Path source, Limits limits) throws IOException {
-        if (source == null || !Files.isRegularFile(source)) {
-            throw new IllegalArgumentException("Select a readable image file");
-        }
-        byte[] bytes;
-        try (var input = Files.newInputStream(source)) {
-            bytes = input.readNBytes(limits.maximumBytes() + 1);
-        }
-        if (bytes.length > limits.maximumBytes()) {
-            throw new IllegalArgumentException("Image file exceeds the size limit");
-        }
-        String format = validate(bytes, limits);
-        String name = UUID.randomUUID() + "." + format;
+        ValidatedImage image = readValidatedImage(source, limits);
+        String name = UUID.randomUUID() + "." + image.format();
         Path destination = resolve(name);
         try {
-            Files.write(destination, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            Files.write(destination, image.bytes(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
         } catch (IOException failure) {
             try {
                 Files.deleteIfExists(destination);
@@ -69,7 +59,29 @@ public final class ImageStorage {
         return name;
     }
 
-    private String validate(byte[] bytes, Limits limits) {
+    /** Validates a picker selection without importing it; saving validates the file again. */
+    public static void validateImage(Path source, Limits limits) throws IOException {
+        readValidatedImage(source, limits);
+    }
+
+    private record ValidatedImage(byte[] bytes, String format) {
+    }
+
+    private static ValidatedImage readValidatedImage(Path source, Limits limits) throws IOException {
+        if (source == null || !Files.isRegularFile(source)) {
+            throw new IllegalArgumentException("Select a readable image file");
+        }
+        byte[] bytes;
+        try (var input = Files.newInputStream(source)) {
+            bytes = input.readNBytes(limits.maximumBytes() + 1);
+        }
+        if (bytes.length > limits.maximumBytes()) {
+            throw new IllegalArgumentException("Image file exceeds the size limit");
+        }
+        return new ValidatedImage(bytes, validate(bytes, limits));
+    }
+
+    private static String validate(byte[] bytes, Limits limits) {
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
             var readers = ImageIO.getImageReaders(input);
             if (!readers.hasNext()) {

@@ -2,27 +2,23 @@ package hotshop;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Objects;
+
+import hotshop.ui.MarketplaceUi;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 
 /**
- * Displays the HotShop welcome window.
+ * Initializes local storage and displays the authenticated marketplace application.
  */
 public class Main extends Application {
-    private static final int WINDOW_WIDTH = 800;
-    private static final int WINDOW_HEIGHT = 600;
     private static final System.Logger LOGGER = System.getLogger(Main.class.getName());
     private ApplicationRuntime runtime;
     private Exception startupFailure;
 
-    /** JavaFX invokes init off the application thread, before displaying the welcome window. */
+    /** JavaFX invokes init off the application thread, before displaying the login window. */
     @Override
     public void init() {
         try {
@@ -46,14 +42,7 @@ public class Main extends Application {
             Platform.exit();
             return;
         }
-        FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(
-                Main.class.getResource("main.fxml"), "Missing main.fxml"));
-        Parent root = loader.load();
-        Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
-        scene.getStylesheets().add(Objects.requireNonNull(
-                Main.class.getResource("styles.css"), "Missing styles.css").toExternalForm());
-        stage.setTitle("HotShop");
-        stage.setScene(scene);
+        new MarketplaceUi(stage, runtime);
         stage.show();
     }
 

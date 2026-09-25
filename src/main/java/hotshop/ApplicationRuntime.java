@@ -33,12 +33,16 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final ListingService listings;
     private final OfferService offers;
     private final TransactionService transactions;
+    private final ImageStorage profileImages;
+    private final ImageStorage listingImages;
     private boolean isClosed;
 
     private ApplicationRuntime(FileChannel lockChannel, FileLock lock, Database database, ImageStorage profileImages,
             ImageStorage listingImages, Clock clock) {
         this.lockChannel = lockChannel;
         this.lock = lock;
+        this.profileImages = profileImages;
+        this.listingImages = listingImages;
         UserRepository users = new UserRepository();
         AuthenticatedSession session = new AuthenticatedSession();
         accounts = new AccountService(database, users, worker, session, profileImages);
@@ -67,6 +71,16 @@ public final class ApplicationRuntime implements AutoCloseable {
 
     public TransactionService getTransactions() {
         return transactions;
+    }
+
+    /** Resolves a generated image reference without exposing database or storage mutation to the UI. */
+    public Path getProfileImagePath(String filename) {
+        return profileImages.resolve(filename);
+    }
+
+    /** Resolves a generated listing-image reference within the listing namespace. */
+    public Path getListingImagePath(String filename) {
+        return listingImages.resolve(filename);
     }
 
     /** Locks and initializes the data directory using the system clock. */

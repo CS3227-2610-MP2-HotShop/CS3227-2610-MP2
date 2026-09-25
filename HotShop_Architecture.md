@@ -110,7 +110,10 @@ Controllers do not execute SQL. Repositories do not decide whether a business ac
 
 ## 4. Screens and controllers
 
-After login, users enter the appropriate dashboard.
+After login, users enter Search with no results until they submit a query. One
+shared sidebar groups Buying and Selling activities; users do not switch roles.
+The implemented screens and interaction decisions are recorded in
+[UI Design Scope](docs/UiDesignScope.md).
 
 | **Buyer screens**          | **Seller screens**             |
 | -------------------------- | ------------------------------ |
@@ -190,7 +193,7 @@ Models assign UUIDs at creation and use IDs for references. Store SGD prices as 
 
 The shared `User` model excludes password hashes. AccountService persists credentials in a separate `credentials` table and uses a separate representation. There is no `user_roles` table. Validated `User.restore` preserves UUID identity when loading or replacing profiles.
 
-The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). ListingService, including seller listing management, buyer search, listing tables, and listing images, is implemented as described in [ListingService Design](docs/ListingServiceDesign.md). OfferService, including buyer offers, seller acceptance and rejection, and saving the new transaction on acceptance, is implemented as described in [OfferService Design](docs/OfferServiceDesign.md); notification creation on acceptance (step 7 in section 9) is deferred to NotificationService. TransactionService, including completion confirmations, direct and mutually agreed cancellation, sales and purchase history, and the sales dashboard summary, is implemented as described in [TransactionService Design](docs/TransactionServiceDesign.md); cancelling meetups on cancellation is deferred to MeetupService. Other services, their tables, and account/buyer/seller screens remain planned.
+The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). ListingService, including seller listing management, buyer search, listing tables, and listing images, is implemented as described in [ListingService Design](docs/ListingServiceDesign.md). OfferService, including buyer offers, seller acceptance and rejection, and saving the new transaction on acceptance, is implemented as described in [OfferService Design](docs/OfferServiceDesign.md); notification creation on acceptance (step 7 in section 9) is deferred to NotificationService. TransactionService, including completion confirmations, direct and mutually agreed cancellation, sales and purchase history, and the sales dashboard summary, is implemented as described in [TransactionService Design](docs/TransactionServiceDesign.md); cancelling meetups on cancellation is deferred to MeetupService. Account, profile, listing/search, offer, sale, and dashboard screens are implemented as specified in [UI Design Scope](docs/UiDesignScope.md). Other services and their tables remain planned, with disabled UI entry points labelled Coming soon.
 
 Listings represent indivisible sales without quantity tracking. Categories are Electronics, Books, Clothing, Furniture, Sports, and Other; conditions are New, Like new, Good, Fair, and Poor. Listing images are optional, with at most ten in explicit display order.
 
@@ -423,7 +426,7 @@ On startup:
 3. Acquire an application lock to prevent a second instance using the same data directory.
 4. Open or create the SQLite database.
 5. Enable connection settings and apply outstanding migrations.
-6. Display the welcome screen. Displaying an account login screen remains future UI work.
+6. Display the login screen. Successful login opens the shared marketplace shell and Search.
 
 An existing database is preserved. Startup must not recreate tables destructively or reset user data.
 

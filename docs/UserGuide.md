@@ -15,8 +15,9 @@ From the project directory on Windows:
 On macOS/Linux, use `./gradlew run` (run `chmod +x gradlew` first if needed).
 The first build downloads dependencies and requires internet access.
 
-An 800 by 600 window titled **HotShop** displays **Welcome to HotShop**.
-Resize the window as desired and close it with the operating system's close button.
+HotShop opens the **Log in** page in an 1100 by 750 window. The minimum window
+size is 960 by 640 (JavaFX layout units). Pages and the sidebar scroll when
+needed; listing grids wrap to fewer columns in narrower windows.
 
 Startup creates or opens a local database and image folder at `.hotshop` in your
 home directory. Accounts, listings, offers, and images in that folder survive
@@ -40,13 +41,93 @@ java -jar release/HotShop.jar
 The JAR includes JavaFX libraries for the build machine's platform, but does not
 include Java itself. The CI artifact targets Linux.
 
-## Current scope
+## Accounts and navigation
 
-The application still has a welcome screen only. Account registration, login,
-profile editing, password changes, listing management and search, offers, and
-completing or cancelling sales are implemented at service level for future
-screen integration; they are not accessible from the current window. Meetups,
-chat, notifications, and other buyer/seller workflows are not yet available.
+Choose **Create an account** to register with a username, display name, password,
+and password confirmation. Registration returns to login with your username
+filled in. Password visibility checkboxes let you inspect what you typed.
+After login, the Search page opens. Every user can both buy and sell; the sidebar's
+Buying and Selling headings organise pages and do not switch account roles.
+
+Use **My Profile** to save your display name and private preferred pickup location.
+Your username cannot be changed. **Replace Image** and **Remove Image** save
+separately from the text fields. **Change Password** requires your current password
+and matching new passwords; it keeps you logged in. Clicking another participant's
+name/photo opens their public profile with their available listings, newest first.
+Your own identity link opens My Profile instead.
+
+Use **Back** to return through pages and **Log out** to end the session. Leaving a
+listing editor or profile with unsaved text changes asks whether to discard them;
+the same protection applies to logout and closing the window. Wait for an active
+operation to finish before navigating or closing.
+
+## Search and listings
+
+Search starts with guidance and no results. Enter a title query and press Enter
+or **Search**. An empty query searches all eligible listings from other sellers.
+Open **Filters** for category, conditions, and minimum/maximum SGD price. Query
+and filter changes take effect only on submission. Sorting reorders the last
+submitted results immediately. **Clear Filters** does not submit; **Refresh**
+reruns the last submitted search. Back navigation retains draft fields and the
+submitted search, sorting, and scroll position. A new login resets search.
+
+For example, search for `desk`, choose Furniture, and set a maximum price of
+`50.00`. Matching listing cards show a photo or placeholder, title, asking price,
+condition, and status. Open a card to see all photos, the description, category,
+condition, pickup location, and seller profile link. No matches and failed loads
+have different messages; a failed load offers **Retry**.
+
+Under Selling, **My Listings** shows your listings and pending-offer counts.
+Choose **Create Listing**, enter the details, and optionally use **Add Photo**.
+Photo previews have **Move Up**, **Move Down**, and **Remove** controls. New listings
+prefill your preferred pickup location, which you can change for that listing.
+Photos are validated before being added and revalidated when saved; the app
+does not automatically crop or resize images.
+
+Open one of your listings for **Edit Listing**, **Archive Listing**, **Delete
+Listing**, and Incoming Offers. Actions unavailable in the listing's state are
+disabled with an explanation. Saving actual changes with pending offers asks for
+confirmation because those offers will be rejected. Archival and permanent deletion
+also explain their consequences before proceeding.
+
+## Offers and sales
+
+On another seller's available listing, choose **Make Offer**, enter an SGD amount
+with at most two decimal places, and choose **Submit Offer**. Your pending offer
+then appears with **Withdraw Offer**; changing an amount requires withdrawing first.
+**My Offers** contains your offer history and links to listings and accepted purchases.
+
+Sellers accept or reject offers in the listing's Incoming Offers section.
+**Accept Offer** asks for confirmation: it reserves the listing, creates an active
+sale, and rejects competing pending offers. Accepted offers link to their sale.
+
+**My Purchases** and **My Sales** show agreed sales, counterpart profiles, statuses,
+and next steps. Open a sale to see its agreed title, description, condition, price,
+confirmation timestamps, and cancellation history. Both participants must use
+**Confirm Completion** after the handover; the second confirmation completes the
+sale and marks the listing sold.
+
+Before either confirmation, **Cancel Sale** releases the listing. After a
+confirmation, use **Request Cancellation**: the other participant must accept or
+reject it, and the requester can withdraw it. Pending requests block completion.
+Confirmation, direct cancellation, and accepting cancellation explain their effects
+in confirmation dialogs. Only currently permitted actions are enabled.
+
+The seller **Dashboard** summarises pending offers, active/completed sales, and
+the total agreed value of completed sales.
+
+## Feedback and unfinished features
+
+Forms retain input after errors and show field-specific validation where possible.
+Loading indicators show work in progress and prevent repeat submissions. Routine
+profile and password saves use inline success messages. Empty collections explain
+what to do next, such as creating a listing or searching for items.
+
+Wishlist, meetups/availability, conversations/chat, and notifications are not
+implemented. Their navigation entries and relevant contextual controls are disabled
+and labelled **Coming soon**. They do not open placeholder feature screens.
+
+## Marketplace rules
 
 The account service enforces these rules:
 
