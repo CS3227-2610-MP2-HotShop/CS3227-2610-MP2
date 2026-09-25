@@ -1,7 +1,10 @@
 package hotshop.ui;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import hotshop.model.TransactionStatus;
@@ -35,8 +38,9 @@ final class SalePages {
                         UiControls.label(UiControls.money(sale.getAgreedPriceCents()), "price"),
                         app.profileLink(value.otherParticipant(), "sale-counterpart"),
                         UiControls.label(UiControls.title(sale.getStatus()), "badge"),
-                        UiControls.label(value.nextStep().getDescription(), "muted"),
-                        UiControls.label("Agreed " + UiControls.time(sale.getCreatedAt()), "hint"));
+                        UiControls.label(value.nextStep().getDescription(), "muted"));
+                meetupLine(value, "sale-meetup-summary").ifPresent(row.getChildren()::add);
+                row.getChildren().add(UiControls.label("Agreed " + UiControls.time(sale.getCreatedAt()), "hint"));
                 row.getStyleClass().add("card");
                 page.body.getChildren().add(row);
             }
@@ -50,17 +54,45 @@ final class SalePages {
                     summary("Pending offers", Integer.toString(summary.pendingOffers())),
                     summary("Active sales", Integer.toString(summary.activeSales())),
                     summary("Completed sales", Integer.toString(summary.completedSales())),
-                    summary("Completed sales value", UiControls.money(summary.totalSalesValueCents()))),
+                    summary("Completed sales value", UiControls.money(summary.totalSalesValueCents())),
+                    summary("Upcoming meetups", Integer.toString(summary.upcomingMeetups()),
+                            "dashboard-upcoming-meetups")),
                     UiControls.actions(
                             UiControls.button("My Listings", "dashboard-listings",
                                     () -> app.navigate(app.listings::mine)),
-                            UiControls.button("My Sales", "dashboard-sales", () -> app.navigate(() -> list(true)))),
-                    UiControls.future("Upcoming meetups", "dashboard-meetups"));
+                            UiControls.button("My Sales", "dashboard-sales", () -> app.navigate(() -> list(true)))));
         });
     }
 
+    /** A list entry's meetup line: an active sale's state, or a closed sale's meetup; none if it never had one. */
+    private static Optional<Label> meetupLine(SaleForParticipant value, String id) {
+        if (value.sale().getStatus() != TransactionStatus.ACTIVE && value.meetup().meetup().isEmpty()) {
+            return Optional.empty();
+        }
+        Label line = UiControls.label(MeetupBar.summary(value.meetup(), ZoneId.systemDefault()), "muted");
+        line.setId(id);
+        return Optional.of(line);
+    }
+
+    /** On Sale Details an active sale's meetup reads exactly as the conversation's bar does. */
+    private Optional<Label> meetupDetail(SaleForParticipant value) {
+        if (value.sale().getStatus() != TransactionStatus.ACTIVE) {
+            return meetupLine(value, "sale-meetup");
+        }
+        Label line = UiControls.label(MeetupBar.of(value.role(), app.userId(), value.otherParticipant().displayName(),
+                value.meetup(), TransactionStatus.ACTIVE, Instant.now(), ZoneId.systemDefault()).text(), "muted");
+        line.setId("sale-meetup");
+        return Optional.of(line);
+    }
+
     private VBox summary(String title, String value) {
-        VBox card = new VBox(10, UiControls.label(title, "muted"), UiControls.label(value, "price"));
+        return summary(title, value, null);
+    }
+
+    private VBox summary(String title, String value, String valueId) {
+        Label figure = UiControls.label(value, "price");
+        figure.setId(valueId);
+        VBox card = new VBox(10, UiControls.label(title, "muted"), figure);
         card.getStyleClass().add("card");
         card.setPrefWidth(235);
         return card;
@@ -122,9 +154,8 @@ final class SalePages {
             addAction(page, value, sale.hasConfirmation() ? SaleAction.REQUEST_CANCELLATION : SaleAction.CANCEL_SALE,
                     isSeller);
         }
-        if (sale.getStatus() == TransactionStatus.ACTIVE) {
-            page.body.getChildren().add(UiControls.future("Arrange Meetup", "arrange-meetup"));
-        } else {
+        meetupDetail(value).ifPresent(page.body.getChildren()::add);
+        if (sale.getStatus() != TransactionStatus.ACTIVE) {
             page.body.getChildren().add(UiControls.label(
                     "This sale is closed; no further changes are available.", "hint"));
         }

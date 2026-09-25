@@ -107,27 +107,39 @@ final class ConversationPage {
         }
     }
 
+    /**
+     * The one bar shows the latest stage: an active sale's meetup, a completed sale, or otherwise
+     * the offer. A conversation carries only an active sale's ID, so an accepted offer's closed
+     * sale is found in the viewer's sales, as SalePages.forOffer does.
+     */
     private void show(ConversationView view) {
         ConversationSummary summary = view.summary();
         conversationId = summary.conversation().getId();
         Optional<Offer> latest = summary.latestOffer();
         if (summary.activeSaleId().isPresent()) {
-            render(summary, view.messages(), Optional.of(TransactionStatus.ACTIVE));
+            page.load(() -> app.runtime.getMeetups().getMeetupSummary(summary.activeSaleId().orElseThrow()),
+                    meetup -> render(summary, view.messages(), app.meetups.bar(page, summary, meetup,
+                            TransactionStatus.ACTIVE, this::reload)));
         } else if (latest.isPresent() && latest.orElseThrow().getStatus() == OfferStatus.ACCEPTED) {
             UUID offerId = latest.orElseThrow().getId();
-            page.load(() -> sales(summary.role()), sales -> render(summary, view.messages(), sales.stream()
-                    .filter(sale -> sale.sale().getAcceptedOfferId().equals(offerId))
-                    .map(sale -> sale.sale().getStatus()).findFirst()));
+            page.load(() -> sales(summary.role()), sales -> {
+                Optional<SaleForParticipant> sale = sales.stream()
+                        .filter(value -> value.sale().getAcceptedOfferId().equals(offerId)).findFirst();
+                Optional<TransactionStatus> status = sale.map(value -> value.sale().getStatus());
+                render(summary, view.messages(), MeetupBar.replacesOfferBar(status)
+                        ? app.meetups.bar(page, summary, sale.orElseThrow().meetup(), status.orElseThrow(),
+                                this::reload)
+                        : offerBar(summary.listing(), summary.role(), latest, status));
+            });
         } else {
-            render(summary, view.messages(), Optional.empty());
+            render(summary, view.messages(), offerBar(summary.listing(), summary.role(), latest, Optional.empty()));
         }
     }
 
-    private void render(ConversationSummary summary, List<Message> history, Optional<TransactionStatus> saleStatus) {
+    private void render(ConversationSummary summary, List<Message> history, HBox bar) {
         Listing listing = summary.listing();
         header(listing, summary.otherParticipant(), summary.role());
-        showBody(offerBar(listing, summary.role(), summary.latestOffer(), saleStatus), history,
-                summary.otherParticipant(), summary.canSend(),
+        showBody(bar, history, summary.otherParticipant(), summary.canSend(),
                 summary.canSend() ? "" : closedReason(listing.getStatus()));
     }
 
@@ -142,10 +154,10 @@ final class ConversationPage {
                 true, "Send a message to start a conversation with " + value.seller().displayName() + ".");
     }
 
-    private void showBody(HBox offerBar, List<Message> history, PublicProfile other, boolean isOpen,
+    private void showBody(HBox bar, List<Message> history, PublicProfile other, boolean isOpen,
             String hintText) {
         canSend = isOpen;
-        page.body.getChildren().setAll(offerBar, messageScroll, sendBox());
+        page.body.getChildren().setAll(bar, messageScroll, sendBox());
         showMessages(history, other);
         hint.setText(hintText);
         updateSendBox();
@@ -165,17 +177,8 @@ final class ConversationPage {
     private HBox offerBar(Listing listing, SaleRole role, Optional<Offer> latest,
             Optional<TransactionStatus> saleStatus) {
         OfferBar bar = OfferBar.of(role, latest, listing.getStatus(), saleStatus);
-        Label text = UiControls.label(bar.text(), "section-title");
-        text.setId("offer-bar-text");
-        HBox row = new HBox(10, text);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.getStyleClass().add("offer-bar");
-        HBox.setHgrow(text, Priority.ALWAYS);
-        text.setMaxWidth(Double.MAX_VALUE);
-        for (OfferBar.Action action : bar.actions()) {
-            row.getChildren().add(offerAction(action, listing, role, latest));
-        }
-        return row;
+        return UiControls.bar(bar.text(), "offer-bar-text", bar.actions().stream()
+                .map(action -> offerAction(action, listing, role, latest)).toArray(Button[]::new));
     }
 
     private Button offerAction(OfferBar.Action action, Listing listing, SaleRole role, Optional<Offer> latest) {

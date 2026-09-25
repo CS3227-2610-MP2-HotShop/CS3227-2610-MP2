@@ -1,5 +1,6 @@
 package hotshop.ui;
 
+import java.time.ZoneId;
 import java.util.UUID;
 
 import hotshop.model.Conversation;
@@ -29,8 +30,9 @@ final class ListingPages {
                         "muted"));
             } else {
                 var grid = ListingCards.grid();
-                values.forEach(value -> grid.getChildren().add(
-                        ListingCards.card(app, value.listing(), value.pendingOffers())));
+                values.forEach(value -> grid.getChildren().add(ListingCards.card(app, value.listing(),
+                        value.pendingOffers(), value.meetup()
+                                .map(meetup -> MeetupBar.summary(meetup, ZoneId.systemDefault())).orElse(null))));
                 page.body.getChildren().add(grid);
             }
         });
