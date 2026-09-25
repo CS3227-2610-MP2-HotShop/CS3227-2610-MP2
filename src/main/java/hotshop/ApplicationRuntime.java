@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.util.concurrent.CompletionException;
 
 import hotshop.database.Database;
+import hotshop.repository.ChatRepository;
 import hotshop.repository.ListingRepository;
 import hotshop.repository.MeetupRepository;
 import hotshop.repository.OfferRepository;
@@ -19,6 +20,7 @@ import hotshop.repository.TransactionRepository;
 import hotshop.repository.UserRepository;
 import hotshop.service.AccountService;
 import hotshop.service.AuthenticatedSession;
+import hotshop.service.ChatService;
 import hotshop.service.ListingService;
 import hotshop.service.MeetupService;
 import hotshop.service.OfferService;
@@ -36,6 +38,7 @@ public final class ApplicationRuntime implements AutoCloseable {
     private final OfferService offers;
     private final TransactionService transactions;
     private final MeetupService meetups;
+    private final ChatService chats;
     private final ImageStorage profileImages;
     private final ImageStorage listingImages;
     private boolean isClosed;
@@ -51,15 +54,18 @@ public final class ApplicationRuntime implements AutoCloseable {
         accounts = new AccountService(database, users, worker, session, profileImages);
         ListingRepository listingRepository = new ListingRepository();
         OfferRepository offerRepository = new OfferRepository();
+        ChatRepository chatRepository = new ChatRepository();
         TransactionRepository transactionRepository = new TransactionRepository();
         MeetupRepository meetupRepository = new MeetupRepository();
         listings = new ListingService(database, listingRepository, offerRepository, transactionRepository,
-                meetupRepository, users, worker, session, listingImages, clock);
+                meetupRepository, chatRepository, users, worker, session, listingImages, clock);
         offers = new OfferService(database, offerRepository, listingRepository, transactionRepository,
-                users, worker, session, clock);
+                chatRepository, users, worker, session, clock);
         transactions = new TransactionService(database, transactionRepository, listingRepository, offerRepository,
                 meetupRepository, users, worker, session, clock);
         meetups = new MeetupService(database, meetupRepository, transactionRepository, worker, session, clock);
+        chats = new ChatService(database, chatRepository, listingRepository, offerRepository, transactionRepository,
+                users, worker, session, clock);
     }
 
     public AccountService getAccounts() {
@@ -80,6 +86,10 @@ public final class ApplicationRuntime implements AutoCloseable {
 
     public MeetupService getMeetups() {
         return meetups;
+    }
+
+    public ChatService getChats() {
+        return chats;
     }
 
     /** Resolves a generated image reference without exposing database or storage mutation to the UI. */

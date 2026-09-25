@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,7 +37,7 @@ class DatabaseTest {
     void migrate_releasedSchema_createsListingTables() throws Exception {
         Database database = new Database(directory.resolve("test.db"));
         database.migrate();
-        assertEquals(List.of(1, 2, 3, 4, 5), appliedVersions(database));
+        assertEquals(List.of(1, 2, 3, 4, 5, 6), appliedVersions(database));
         assertTrue(tableExists(database, "listings"));
         assertTrue(tableExists(database, "listing_images"));
     }
@@ -138,6 +139,60 @@ class DatabaseTest {
     }
 
     @Test
+    void migrate_releasedSchema_allowsOneConversationPerBuyerAndListing() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, conversation("c1"));
+        assertThrows(SQLException.class, () -> execute(database, conversation("c2")));
+    }
+
+    @Test
+    void migrate_releasedSchema_rejectsRepeatedMessageSequence() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, conversation("c1"));
+        execute(database, message("m1", 1));
+        assertThrows(SQLException.class, () -> execute(database, message("m2", 1)));
+    }
+
+    @Test
+    void migrate_releasedSchema_rejectsBlankMessage() throws Exception {
+        Database database = seededMarketplace();
+        execute(database, conversation("c1"));
+        assertThrows(SQLException.class, () -> execute(database,
+                "INSERT INTO messages VALUES ('m1', 'c1', 'b', 1, '', 0)"));
+    }
+
+    @Test
+    void migrate_saleCompletionDatabaseWithOffers_startsOneReadConversationPerBuyerAndOfferedListing()
+            throws Exception {
+        Path file = directory.resolve("test.db");
+        Database beforeChat = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql",
+                "/db/migration/003_offers.sql", "/db/migration/004_sale_completion.sql"));
+        beforeChat.migrate();
+        execute(beforeChat, "INSERT INTO users(id, username, normalized_username, display_name) VALUES "
+                + "('u', 'alice', 'alice', 'Alice'), ('b', 'bobby', 'bobby', 'Bob'), ('c', 'carol', 'carol', 'Carol')");
+        insertListing(beforeChat, "l1", 100);
+        insertListing(beforeChat, "l2", 100);
+        execute(beforeChat, "INSERT INTO offers VALUES ('o1', 'l1', 'b', 100, 'WITHDRAWN', 5, 6), "
+                + "('o2', 'l1', 'b', 100, 'PENDING', 7, NULL), ('o3', 'l1', 'c', 100, 'PENDING', 9, NULL)");
+        Database upgraded = new Database(file);
+        upgraded.migrate();
+        List<String> rows = upgraded.executeTransaction(connection -> {
+            List<String> result = new ArrayList<>();
+            try (var statement = connection.createStatement();
+                    var found = statement.executeQuery("SELECT id, buyer_id, seller_id, created_at, "
+                            + "buyer_opened_at, seller_opened_at FROM conversations ORDER BY buyer_id")) {
+                while (found.next()) {
+                    UUID.fromString(found.getString(1));
+                    result.add(found.getString(2) + " " + found.getString(3) + " " + found.getLong(4) + " "
+                            + found.getLong(5) + " " + found.getString(6));
+                }
+            }
+            return result;
+        });
+        assertEquals(List.of("b u 5 7 7", "c u 9 9 9"), rows);
+    }
+
+    @Test
     void migrate_offersDatabaseWithSale_keepsSaleWithoutCancellationDetails() throws Exception {
         Path file = directory.resolve("test.db");
         Database offersOnly = new Database(file, List.of(ACCOUNTS, "/db/migration/002_listings.sql",
@@ -171,7 +226,7 @@ class DatabaseTest {
         insertListing(listingsOnly, "l1", 100);
         Database upgraded = new Database(file);
         upgraded.migrate();
-        assertEquals(List.of(1, 2, 3, 4, 5), appliedVersions(upgraded));
+        assertEquals(List.of(1, 2, 3, 4, 5, 6), appliedVersions(upgraded));
         assertEquals(1, countRows(upgraded, "listings"));
     }
 
@@ -357,6 +412,17 @@ class DatabaseTest {
     private static String request(String id, String status, String resolvedAt) {
         return "INSERT INTO cancellation_requests (id, transaction_id, requester_id, created_at, status, "
                 + "resolved_at) VALUES ('" + id + "', 't1', 'b', 2, '" + status + "', " + resolvedAt + ")";
+    }
+
+    /** The conversation between buyer 'b' and seller 'u' about listing 'l1'. */
+    private static String conversation(String id) {
+        return "INSERT INTO conversations (id, listing_id, buyer_id, seller_id, created_at, buyer_opened_at) "
+                + "VALUES ('" + id + "', 'l1', 'b', 'u', 0, 0)";
+    }
+
+    /** A message from buyer 'b' in conversation 'c1'. */
+    private static String message(String id, int sequence) {
+        return "INSERT INTO messages VALUES ('" + id + "', 'c1', 'b', " + sequence + ", 'Hello', 0)";
     }
 
     private static void execute(Database database, String sql) throws SQLException {

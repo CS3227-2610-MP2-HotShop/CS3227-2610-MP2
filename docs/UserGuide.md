@@ -126,8 +126,8 @@ what to do next, such as creating a listing or searching for items.
 Wishlist, meetups/availability, conversations/chat, and notifications have no
 screens yet. Their navigation entries and relevant contextual controls are disabled
 and labelled **Coming soon**. They do not open placeholder feature screens. The
-meetup rules under Marketplace rules are already enforced and will apply once the
-meetup screens are added.
+meetup and chat rules under Marketplace rules are already enforced and will apply
+once those screens are added.
 
 ## Marketplace rules
 
@@ -179,7 +179,8 @@ The listing service enforces these rules. Every listing action requires login.
   cannot be archived.
 - Deleting permanently removes an available or archived listing and its photos.
   Reserved and sold listings cannot be deleted, and neither can any listing that
-  has ever received an offer, even one that was later withdrawn; archive it instead.
+  has ever received an offer, even one that was later withdrawn, or that a buyer
+  has messaged you about; archive it instead.
 - Search shows only other sellers' available listings. It can match text in the
   title (ignoring upper and lower case), and filter by one category, one or more
   conditions, and a minimum and/or maximum price (both inclusive). Results are
@@ -202,6 +203,11 @@ The offer service enforces these rules. Every offer action requires login.
 - Every refused action explains what went wrong and what to do next, for
   example: "You already have a pending offer of S$40.00 on this listing.
   Withdraw it before making a new one."
+- Making an offer also starts your conversation with the seller about that
+  listing, or continues it, so the seller can always reply to you. The offer
+  service also accepts an optional message with the offer, which becomes a
+  message in that conversation, but the Make Offer dialog has no message box
+  yet.
 
 The sale service enforces these rules. Every sale action requires login, and
 only the sale's buyer and seller can see or act on it.
@@ -259,3 +265,34 @@ only the sale's buyer and seller can see or act on its meetup.
 - Every refused action explains what went wrong, for example: "The seller
   already has a meetup from Fri 25 Sep, 3:00 PM to Fri 25 Sep, 3:30 PM. Choose a
   different time."
+
+The chat service enforces these rules. Every chat action requires login, and only
+a conversation's buyer and seller can read it.
+
+- Each buyer has at most one conversation with the seller about each listing.
+  Only the buyer starts it, by sending the first message ("Chat with seller") or
+  by making an offer. You can't message yourself about your own listing.
+- A buyer can start a conversation about an available or reserved listing, for
+  example to ask about a reserved item in case its sale falls through.
+- Sellers can open a conversation with any buyer who has started one, for
+  example from an offer or a sale, but they can't start one themselves.
+- Messages are plain text of 1 to 1,000 characters. They can't be edited or
+  deleted, and a message never accepts or changes an offer, even if it says
+  "I accept".
+- Either of you can send messages while the listing is available or reserved.
+  Once it's sold or archived, the conversation stays readable but no new messages
+  can be sent. If a sale is cancelled, the listing is available again and you
+  can keep messaging.
+- Only one person is logged in to HotShop at a time, so the other person sees
+  your message the next time they log in.
+- Opening a conversation marks it as read. Each conversation shows how many
+  unread items it has, and the total is shown for all your conversations. Unread
+  items are the other person's messages, plus offer news you didn't cause: a new
+  or withdrawn offer for the seller, and an accepted or rejected offer for the
+  buyer (including offers rejected because the listing was edited or archived, or
+  another offer was accepted).
+- Your conversations are listed together, whether you're buying or selling.
+  Conversations with a pending offer or an active sale come first, then the rest.
+  Within each group, unread conversations come first, then the most recent.
+- Each conversation shows the buyer's latest offer and its status, and a preview
+  of the latest message or offer news, such as "Offer of S$40.00 accepted".
