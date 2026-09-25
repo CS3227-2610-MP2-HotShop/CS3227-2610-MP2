@@ -124,6 +124,26 @@ after the send box's key filter was changed. `.\gradlew.bat test --tests
 offer bar tests, and 3 search state tests. The User Guide and design document
 were updated, and `release/HotShop.jar` was rebuilt for manual testing.
 
+### Push and window-size question
+
+> i have installed gh alr, lets lets push this but dont create a pr yet, the issue on screen, how is 750 > 768
+
+The branch was pushed to `origin` (on this laptop, the team repository
+`CS3227-2610-MP2-HotShop/CS3227-2610-MP2`) as `Chat-Screens`, tracking
+`origin/Chat-Screens`; no pull request was opened. The assistant clarified the
+earlier window-size note: 768 is the whole screen, but the taskbar leaves about
+728 px usable on a 1366 x 768 screen at 100% scaling, and the stage's 750 px
+height includes the title bar, so the default window extends under the taskbar.
+Display scaling shrinks the usable height further (about 670 px for 1920 x 1080
+at 150%). Capping the initial size to the screen's visual bounds was suggested
+as a fix for the teammate to consider, outside this branch.
+
+> i think the screen size is fine, when i launched it on my laptop it fits ok with a little bit of extra space before the dashboard
+
+Decided: **keep the window size unchanged.** The window fits on the user's
+laptop, consistent with its 752 px usable height. No issue was opened; smaller
+or more heavily scaled screens remain untested.
+
 ## Steps Taken
 
 Interview:
