@@ -94,6 +94,35 @@
     -fx-font-weight: bold;
     -fx-text-fill: #2458a6;
 }
+.unread {
+    -fx-background-color: #2458a6;
+    -fx-background-radius: 4;
+    -fx-padding: 2 8;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.offer-bar {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #dce2e8;
+    -fx-padding: 8 12;
+}
+.offer-bar .section-title {
+    -fx-font-size: 15px;
+}
+.message-own, .message-other {
+    -fx-background-radius: 8;
+    -fx-padding: 8 12;
+}
+.message-own {
+    -fx-background-color: #dde8f8;
+}
+.message-other {
+    -fx-background-color: white;
+    -fx-border-color: #dce2e8;
+    -fx-border-radius: 8;
+}
 .image-placeholder {
     -fx-background-color: #edf0f4;
     -fx-background-radius: 6;

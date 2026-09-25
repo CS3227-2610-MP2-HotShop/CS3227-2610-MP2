@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Locale;
 
+import hotshop.service.SaleRole;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
@@ -55,6 +56,11 @@ final class UiControls {
     static String title(Enum<?> value) {
         String text = value.name().toLowerCase(Locale.ROOT).replace('_', ' ');
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);
+    }
+
+    /** How a participant's side of a listing reads on a badge: "Buying" or "Selling". */
+    static String role(SaleRole role) {
+        return role == SaleRole.BUYER ? "Buying" : "Selling";
     }
 
     static String time(Instant value) {

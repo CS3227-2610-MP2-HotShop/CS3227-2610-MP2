@@ -101,8 +101,11 @@ final class SalePages {
                         .orElse("Not yet"), "muted"),
                 UiControls.label("Seller confirmed: " + sale.getSellerConfirmedAt().map(UiControls::time)
                         .orElse("Not yet"), "muted"), next,
-                UiControls.button("View Listing", "sale-listing", () ->
-                        app.navigate(() -> app.listings.details(sale.getListingId()))));
+                UiControls.actions(UiControls.button("View Listing", "sale-listing", () ->
+                        app.navigate(() -> app.listings.details(sale.getListingId()))),
+                        UiControls.button("Open Chat", "sale-open-chat", () -> app.navigate(isSeller
+                                ? () -> app.chats.withBuyer(sale.getListingId(), sale.getBuyerId())
+                                : () -> app.chats.withSeller(sale.getListingId())))));
         sale.getCancelledAt().ifPresent(time -> page.body.getChildren().add(UiControls.label(
                 "Cancelled " + UiControls.time(time) + " by "
                         + (sale.getCancelledBy().orElseThrow().equals(app.userId()) ? "you"

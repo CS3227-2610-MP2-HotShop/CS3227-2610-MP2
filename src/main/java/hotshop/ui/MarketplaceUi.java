@@ -8,6 +8,7 @@ import java.util.UUID;
 import hotshop.ApplicationRuntime;
 import hotshop.model.User;
 import hotshop.service.PublicProfile;
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
@@ -30,6 +31,7 @@ public final class MarketplaceUi {
     final ListingPages listings;
     final OfferPages offers;
     final SalePages sales;
+    final ChatPages chats;
     private final BorderPane root = new BorderPane();
     private final Deque<Runnable> history = new ArrayDeque<>();
     private final AccountPages accounts;
@@ -37,6 +39,7 @@ public final class MarketplaceUi {
     private Runnable route;
     private UUID userId;
     private ScrollPane content;
+    private Button conversationsLink;
 
     /** Installs the initial logged-out scene; the caller owns showing and closing the runtime. */
     public MarketplaceUi(Stage stage, ApplicationRuntime runtime) {
@@ -46,6 +49,7 @@ public final class MarketplaceUi {
         listings = new ListingPages(this);
         offers = new OfferPages(this);
         sales = new SalePages(this);
+        chats = new ChatPages(this);
         Scene scene = new Scene(root, INITIAL_WIDTH, INITIAL_HEIGHT);
         scene.getStylesheets().add(Objects.requireNonNull(
                 MarketplaceUi.class.getResource("/hotshop/styles.css")).toExternalForm());
@@ -80,6 +84,15 @@ public final class MarketplaceUi {
         return current;
     }
 
+    /** A page that fills the window without scrolling as a whole; its own parts scroll instead. */
+    UiPage fixedPage(String title) {
+        current = new UiPage(this, title);
+        current.fillHeight();
+        content = null;
+        root.setCenter(current);
+        return current;
+    }
+
     ScrollPane scroll() {
         return content;
     }
@@ -100,6 +113,7 @@ public final class MarketplaceUi {
         }
         route = next;
         next.run();
+        refreshUnreadCount();
     }
 
     void back() {
@@ -107,6 +121,7 @@ public final class MarketplaceUi {
             current.leave();
             route = history.pop();
             route.run();
+            refreshUnreadCount();
         }
     }
 
@@ -117,6 +132,23 @@ public final class MarketplaceUi {
     void replace(Runnable next) {
         route = next;
         next.run();
+        refreshUnreadCount();
+    }
+
+    /**
+     * Shows the unread total on the sidebar's Conversations link. The single service worker runs
+     * this after the page load just queued, so a conversation opened by that load already counts as read.
+     */
+    private void refreshUnreadCount() {
+        Button link = conversationsLink;
+        if (link == null || userId == null) {
+            return;
+        }
+        runtime.getChats().getUnreadCount().whenComplete((count, failure) -> Platform.runLater(() -> {
+            if (failure == null && link == conversationsLink) {
+                link.setText(count > 0 ? "Conversations (" + count + ")" : "Conversations");
+            }
+        }));
     }
 
     Button profileLink(PublicProfile profile, String id) {
@@ -154,10 +186,12 @@ public final class MarketplaceUi {
         root.setLeft(sidebar());
         route = this::search;
         search();
+        refreshUnreadCount();
     }
 
     void login(String username) {
         userId = null;
+        conversationsLink = null;
         searchState.reset();
         history.clear();
         root.setLeft(null);
@@ -185,7 +219,8 @@ public final class MarketplaceUi {
         links.getChildren().addAll(nav("Dashboard", "dashboard", sales::dashboard),
                 nav("My Listings", "listings", listings::mine), nav("My Sales", "sales", () -> sales.list(true)));
         links.getChildren().add(UiControls.future("Availability & Meetups", "nav-availability"));
-        links.getChildren().addAll(UiControls.future("Conversations", "nav-conversations"),
+        conversationsLink = nav("Conversations", "conversations", chats::list);
+        links.getChildren().addAll(conversationsLink,
                 UiControls.future("Notifications", "nav-notifications"),
                 nav("My Profile", "profile", () -> accounts.profile(userId)),
                 UiControls.button("Log out", "nav-logout", this::logout));

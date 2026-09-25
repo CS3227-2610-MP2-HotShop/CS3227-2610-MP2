@@ -2,9 +2,12 @@ package hotshop.ui;
 
 import java.util.UUID;
 
+import hotshop.model.Conversation;
 import hotshop.model.Listing;
 import hotshop.model.ListingStatus;
 import hotshop.service.ListingWithSeller;
+import hotshop.service.SaleRole;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
 
@@ -61,10 +64,32 @@ final class ListingPages {
         if (listing.getSellerId().equals(app.userId())) {
             ownerActions(page, listing);
         } else {
-            page.body.getChildren().add(UiControls.actions(UiControls.future("Chat with seller", "chat-seller"),
-                    UiControls.future("Save to wishlist", "save-wishlist")));
-            app.offers.buyerActions(page, listing);
+            buyerChat(page, listing);
         }
+    }
+
+    /** Buyers can start chats only about open listings, but can always reopen one they started. */
+    private void buyerChat(UiPage page, Listing listing) {
+        Button chat = UiControls.button("Chat with seller", "chat-seller",
+                () -> app.navigate(() -> app.chats.withSeller(listing.getId())));
+        page.body.getChildren().add(UiControls.actions(chat, UiControls.future("Save to wishlist", "save-wishlist")));
+        if (Conversation.isOpenFor(listing)) {
+            app.offers.buyerActions(page, listing);
+            return;
+        }
+        chat.setDisable(true);
+        Label closed = UiControls.label("Conversations can only be started about available or reserved listings.",
+                "hint");
+        closed.setId("chat-seller-hint");
+        page.body.getChildren().add(closed);
+        page.load(app.runtime.getChats()::getConversations, conversations -> {
+            if (conversations.stream().anyMatch(summary -> summary.role() == SaleRole.BUYER
+                    && summary.listing().getId().equals(listing.getId()))) {
+                chat.setDisable(false);
+                page.body.getChildren().remove(closed);
+            }
+            app.offers.buyerActions(page, listing);
+        });
     }
 
     private void ownerActions(UiPage page, Listing listing) {
