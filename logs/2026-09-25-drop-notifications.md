@@ -78,6 +78,16 @@ the feature.
 - The chat note commit on `Chat-Service` changed documentation only, so no
   Gradle tasks were rerun for it.
 
+## Pull Request
+
+> can you push and open a pr
+
+After checking that `main` had not moved, the branch was pushed and pull
+request #12 was opened against `main`. Its description lists where users still
+see each kind of event, asks the teammate to agree to the removed sidebar entry
+and the `UiDesignScope.md` edit, and notes that this PR and #11 change the same
+status paragraphs.
+
 ## Final Output and Conclusion
 
 Notifications are dropped from the release. The teammate should agree to the
@@ -85,3 +95,22 @@ removed sidebar entry and the edit to `docs/UiDesignScope.md`, since both are
 theirs. In-app notifications were one of the user's assigned features, so the
 user should make sure the team's feature list and any grading notes reflect the
 change.
+
+## Rebase onto main (2026-09-27)
+
+> ok awesome lets keep what it is i dont want u to generate them, i want the real screenshots like what we already have other than that we can now proceed /implement
+
+As step 1 of the plan agreed in the docs review, the branch was rebased onto
+`main` after PR #17 merged. Five files conflicted because `main` had gained the
+chat, meetup, and theme work. For each, `main`'s version was kept and the
+notification removal re-applied: the Notifications sidebar entry in
+`MarketplaceUi`, the architecture tables and accept-offer steps, the Developer
+Guide hooks, the User Guide "Coming soon" note (now naming only the wishlist,
+and listing conversation unread counts as a way to see news), and the UI design
+scope's sidebar list and note. A UI test added on `main` asserted that the
+Notifications entry was disabled; it now checks the Wishlist entry and that
+Notifications is absent.
+
+Verification after the rebase: `.\gradlew.bat test checkstyleMain
+checkstyleTest check build shadowJar` passed with 664 tests, 0 failures, 0
+skipped, taking 13 minutes on this machine.
