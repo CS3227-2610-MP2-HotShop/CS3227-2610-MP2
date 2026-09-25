@@ -78,6 +78,16 @@ the feature.
 - The chat note commit on `Chat-Service` changed documentation only, so no
   Gradle tasks were rerun for it.
 
+## Pull Request
+
+> can you push and open a pr
+
+After checking that `main` had not moved, the branch was pushed and pull
+request #12 was opened against `main`. Its description lists where users still
+see each kind of event, asks the teammate to agree to the removed sidebar entry
+and the `UiDesignScope.md` edit, and notes that this PR and #11 change the same
+status paragraphs.
+
 ## Final Output and Conclusion
 
 Notifications are dropped from the release. The teammate should agree to the
