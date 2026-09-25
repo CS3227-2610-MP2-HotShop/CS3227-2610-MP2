@@ -123,8 +123,11 @@ Loading indicators show work in progress and prevent repeat submissions. Routine
 profile and password saves use inline success messages. Empty collections explain
 what to do next, such as creating a listing or searching for items.
 
-Wishlist, meetups/availability, conversations/chat, and notifications have no
-screens yet. Their navigation entries and relevant contextual controls are disabled
+HotShop does not send notifications. To see what's new, check each sale's next
+step in My Sales or My Purchases, your offers in My Offers, and the pending-offer
+counts in My Listings and on the Dashboard.
+
+Wishlist, meetups/availability, and conversations/chat have no screens yet. Their navigation entries and relevant contextual controls are disabled
 and labelled **Coming soon**. They do not open placeholder feature screens. The
 meetup rules under Marketplace rules are already enforced and will apply once the
 meetup screens are added.

@@ -152,8 +152,7 @@ public final class OfferService {
 
     /**
      * Seller only. In one database transaction: reserves the listing, accepts the offer, rejects
-     * every other pending offer on it, and saves the new sale. NotificationService should add its
-     * notifications inside this transaction when it exists.
+     * every other pending offer on it, and saves the new sale.
      */
     public CompletableFuture<AcceptedOffer> acceptOffer(UUID offerId) {
         return worker.submit(() -> {
@@ -184,7 +183,6 @@ public final class OfferService {
 
     /**
      * Seller only; declines one pending offer and leaves the listing available for others.
-     * NotificationService should add its notification inside this transaction when it exists.
      */
     public CompletableFuture<OfferWithBuyer> rejectOffer(UUID offerId) {
         return worker.submit(() -> {

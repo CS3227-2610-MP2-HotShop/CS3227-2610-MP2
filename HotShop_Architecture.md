@@ -124,7 +124,7 @@ The implemented screens and interaction decisions are recorded in
 | Purchases and meetups      | Availability and meetups       |
 | Conversations and chat     | Conversations and chat         |
 
-Shared screens include login, registration, profile management, and notifications.
+Shared screens include login, registration, and profile management.
 
 Each controller reads input, calls a service, and displays success or an appropriate error.
 
@@ -154,7 +154,6 @@ Services organise behaviour around features. Both user roles call the same servi
 | TransactionService  | Record completion confirmations, complete or cancel sales, and retrieve history              |
 | WishlistService     | Add, remove, and retrieve saved listings                                                     |
 | ChatService         | Create or retrieve conversations, send messages, retrieve history, and update read positions |
-| NotificationService | Retrieve notifications and mark them as read                                                 |
 
 Permissions are checked in services, even when the interface already hides unavailable actions.
 
@@ -186,14 +185,13 @@ Java models remain independent of JavaFX and SQL. Repositories translate between
 | WishlistEntry       | wishlist_entries            | Buyer ID and listing ID                                                                            |
 | Conversation        | conversations               | ID, listing ID, buyer ID, seller ID, creation time, each participant’s last-read position          |
 | Message             | messages                    | ID, conversation ID, sender ID, text, sequence number, sent time                                   |
-| Notification        | notifications               | Recipient ID, event type, related record reference, creation time, read time                       |
 | Schema migration    | schema_migrations           | Applied migration version and application time                                                     |
 
 Models assign UUIDs at creation and use IDs for references. Store SGD prices as positive integer cents (`long` in Java); both listing prices and offers must be at least one cent, and offers may exceed asking price. Models use `Instant` for timestamps; persistence can translate them to UTC epoch values. Convert timestamps to local time for display.
 
 The shared `User` model excludes password hashes. AccountService persists credentials in a separate `credentials` table and uses a separate representation. There is no `user_roles` table. Validated `User.restore` preserves UUID identity when loading or replacing profiles.
 
-The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). ListingService, including seller listing management, buyer search, listing tables, and listing images, is implemented as described in [ListingService Design](docs/ListingServiceDesign.md). OfferService, including buyer offers, seller acceptance and rejection, and saving the new transaction on acceptance, is implemented as described in [OfferService Design](docs/OfferServiceDesign.md); notification creation on acceptance (step 7 in section 9) is deferred to NotificationService. TransactionService, including completion confirmations, direct and mutually agreed cancellation, sales and purchase history, and the sales dashboard summary, is implemented as described in [TransactionService Design](docs/TransactionServiceDesign.md). MeetupService, including seller-offered meetup slots, buyer booking, move proposals, cancellation, and closing a sale's meetup when the sale completes or is cancelled, is implemented as described in [MeetupService Design](docs/MeetupServiceDesign.md); slots belong to one sale rather than a seller's general availability, so the meetup tables differ from the table above. Account, profile, listing/search, offer, sale, and dashboard screens are implemented as specified in [UI Design Scope](docs/UiDesignScope.md); meetup screens are not built yet. Other services and their tables remain planned, with disabled UI entry points labelled Coming soon.
+The implemented model milestone and validation rules are described in [Buyer Model Design](docs/BuyerModelDesign.md). AccountService, account persistence, authentication, profile-image storage, and application lifecycle initialization are now implemented as described in [AccountService Design](docs/AccountServiceDesign.md). ListingService, including seller listing management, buyer search, listing tables, and listing images, is implemented as described in [ListingService Design](docs/ListingServiceDesign.md). OfferService, including buyer offers, seller acceptance and rejection, and saving the new transaction on acceptance, is implemented as described in [OfferService Design](docs/OfferServiceDesign.md). TransactionService, including completion confirmations, direct and mutually agreed cancellation, sales and purchase history, and the sales dashboard summary, is implemented as described in [TransactionService Design](docs/TransactionServiceDesign.md). MeetupService, including seller-offered meetup slots, buyer booking, move proposals, cancellation, and closing a sale's meetup when the sale completes or is cancelled, is implemented as described in [MeetupService Design](docs/MeetupServiceDesign.md); slots belong to one sale rather than a seller's general availability, so the meetup tables differ from the table above. Account, profile, listing/search, offer, sale, and dashboard screens are implemented as specified in [UI Design Scope](docs/UiDesignScope.md); meetup screens are not built yet. Other services and their tables remain planned, with disabled UI entry points labelled Coming soon. NotificationService and its table were dropped from this release on 2026-09-25 for time: users learn about offers, sales, and meetups from each sale's next step, list ordering, and pending-offer counts.
 
 Listings represent indivisible sales without quantity tracking. Categories are Electronics, Books, Clothing, Furniture, Sports, and Other; conditions are New, Like new, Good, Fair, and Poor. Listing images are optional, with at most ten in explicit display order.
 
@@ -228,7 +226,6 @@ A transaction is created when an offer is accepted. Buyer purchase history and s
 | MeetupRepository       | Availability, bookings, and rescheduling proposals |
 | WishlistRepository     | Saved listings                                     |
 | ChatRepository         | Conversations, messages, and read positions        |
-| NotificationRepository | Notifications and read status                      |
 
 A shared connection provider opens the database using an absolute path:
 
@@ -289,9 +286,8 @@ When a seller accepts an offer:
 4. It reserves the listing only if it is still available, checking that the update succeeded.
 5. It accepts the selected offer and rejects other pending offers.
 6. It creates the marketplace transaction.
-7. It creates relevant notifications.
-8. It commits the database transaction.
-9. The interface refreshes.
+7. It commits the database transaction.
+8. The interface refreshes.
 
 If a step fails before commit, roll back the operation. Do not use PostgreSQL-specific row-locking statements in SQLite.
 
