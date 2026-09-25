@@ -67,5 +67,12 @@ A participant's proposal to move a meetup to one new time and place. The other p
 **Completion confirmation**:
 A transaction participant's declaration that the agreed sale is complete. Both participants must confirm for the transaction to be completed.
 
+**Conversation**:
+The messages between one buyer and the seller about one listing. There is at most one conversation per buyer and listing. Only the buyer starts it, with their first message or their first offer on the listing. Only its buyer and seller can read it.
+_Avoid_: Chat room, thread
+
+**Message**:
+A piece of text a participant sends in a conversation. Messages cannot be edited or deleted, and a message does not change any offer or sale, even if it says "I accept".
+
 **Cancellation request**:
 A transaction participant's proposal to cancel an active sale after the first completion confirmation, requiring the other participant's agreement. While it awaits a response, the sale remains active and further completion confirmations are blocked.

@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import hotshop.database.Database;
+import hotshop.model.Conversation;
 import hotshop.model.Listing;
 import hotshop.model.ListingDetails;
 import hotshop.model.ListingStatus;
@@ -20,6 +21,7 @@ import hotshop.model.Offer;
 import hotshop.model.OfferStatus;
 import hotshop.model.Transaction;
 import hotshop.model.TransactionStatus;
+import hotshop.repository.ChatRepository;
 import hotshop.repository.ListingRepository;
 import hotshop.repository.OfferRepository;
 import hotshop.repository.TransactionRepository;
@@ -40,6 +42,7 @@ public final class OfferService {
     private final OfferRepository offers;
     private final ListingRepository listings;
     private final TransactionRepository transactions;
+    private final ChatRepository chats;
     private final UserRepository users;
     private final ServiceWorker worker;
     private final AuthenticatedSession session;
@@ -47,23 +50,31 @@ public final class OfferService {
 
     /** Wires the shared database, worker, and session with the repositories offers touch. */
     public OfferService(Database database, OfferRepository offers, ListingRepository listings,
-            TransactionRepository transactions, UserRepository users, ServiceWorker worker,
+            TransactionRepository transactions, ChatRepository chats, UserRepository users, ServiceWorker worker,
             AuthenticatedSession session, Clock clock) {
         this.database = database;
         this.offers = offers;
         this.listings = listings;
         this.transactions = transactions;
+        this.chats = chats;
         this.users = users;
         this.worker = worker;
         this.session = session;
         this.clock = clock;
     }
 
+    /** Makes an offer without a message; see {@link #submitOffer(UUID, long, String)}. */
+    public CompletableFuture<OfferWithListing> submitOffer(UUID listingId, long amountCents) {
+        return submitOffer(listingId, amountCents, null);
+    }
+
     /**
      * Makes a pending offer on another seller's available listing. A buyer may have only one
-     * pending offer per listing; changing the amount means withdrawing and offering again.
+     * pending offer per listing; changing the amount means withdrawing and offering again. The
+     * offer starts the buyer's conversation about the listing, or reuses it, in the same database
+     * transaction. A message, when given, is sent in that conversation; null or blank means none.
      */
-    public CompletableFuture<OfferWithListing> submitOffer(UUID listingId, long amountCents) {
+    public CompletableFuture<OfferWithListing> submitOffer(UUID listingId, long amountCents, String message) {
         return worker.submit(() -> {
             UUID buyerId = session.requireUserId();
             requireId(listingId, "Choose a listing to make an offer on.");
@@ -72,6 +83,7 @@ public final class OfferService {
                         + ServiceSupport.formatPrice(MIN_AMOUNT_CENTS) + " and "
                         + ServiceSupport.formatPrice(ListingDetails.MAX_PRICE_CENTS) + ".");
             }
+            String text = message == null || message.isBlank() ? null : Conversations.requireText(message);
             return transaction(connection -> {
                 Listing listing = requireListing(connection, listingId);
                 if (listing.getSellerId().equals(buyerId)) {
@@ -88,8 +100,13 @@ public final class OfferService {
                             + ServiceSupport.formatPrice(existing.orElseThrow().getAmountCents())
                             + " on this listing. Withdraw it before making a new one.");
                 }
-                Offer offer = new Offer(listing, buyerId, amountCents, ServiceSupport.now(clock));
+                Instant now = ServiceSupport.now(clock);
+                Offer offer = new Offer(listing, buyerId, amountCents, now);
                 offers.insert(connection, offer);
+                Conversation conversation = Conversations.findOrStart(connection, chats, listing, buyerId, now);
+                if (text != null) {
+                    Conversations.append(connection, chats, conversation, buyerId, text, now);
+                }
                 return withListing(connection, offer);
             });
         });

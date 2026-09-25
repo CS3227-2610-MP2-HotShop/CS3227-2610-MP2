@@ -79,6 +79,17 @@ public final class OfferRepository {
         }
     }
 
+    /** Every offer one buyer has made on one listing, in any status, newest first. */
+    public List<Offer> findByListingAndBuyer(Connection connection, UUID listingId, UUID buyerId)
+            throws SQLException {
+        try (var statement = connection.prepareStatement(
+                "SELECT * FROM offers WHERE listing_id = ? AND buyer_id = ? ORDER BY created_at DESC, id")) {
+            statement.setString(1, listingId.toString());
+            statement.setString(2, buyerId.toString());
+            return readAll(statement);
+        }
+    }
+
     /** Every offer a buyer has made in any status, newest first. */
     public List<Offer> findByBuyer(Connection connection, UUID buyerId) throws SQLException {
         try (var statement = connection.prepareStatement(

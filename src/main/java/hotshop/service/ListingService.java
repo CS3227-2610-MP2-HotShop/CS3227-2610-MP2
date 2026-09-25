@@ -22,6 +22,7 @@ import hotshop.model.Listing;
 import hotshop.model.ListingDetails;
 import hotshop.model.ListingImage;
 import hotshop.model.ListingStatus;
+import hotshop.repository.ChatRepository;
 import hotshop.repository.ListingRepository;
 import hotshop.repository.MeetupRepository;
 import hotshop.repository.OfferRepository;
@@ -44,6 +45,7 @@ public final class ListingService {
     private final OfferRepository offers;
     private final TransactionRepository transactions;
     private final MeetupRepository meetups;
+    private final ChatRepository chats;
     private final UserRepository users;
     private final ServiceWorker worker;
     private final AuthenticatedSession session;
@@ -52,13 +54,14 @@ public final class ListingService {
 
     /** Wires the shared database, worker, and session with the listing-specific managed image namespace. */
     public ListingService(Database database, ListingRepository listings, OfferRepository offers,
-            TransactionRepository transactions, MeetupRepository meetups, UserRepository users, ServiceWorker worker,
-            AuthenticatedSession session, ImageStorage storage, Clock clock) {
+            TransactionRepository transactions, MeetupRepository meetups, ChatRepository chats, UserRepository users,
+            ServiceWorker worker, AuthenticatedSession session, ImageStorage storage, Clock clock) {
         this.database = database;
         this.listings = listings;
         this.offers = offers;
         this.transactions = transactions;
         this.meetups = meetups;
+        this.chats = chats;
         this.users = users;
         this.worker = worker;
         this.session = session;
@@ -237,7 +240,7 @@ public final class ListingService {
 
     /**
      * Owner only; permanently removes an available or archived listing that has never received an
-     * offer, and retires its photos. ChatService must also refuse listings with conversation history.
+     * offer or started a conversation, and retires its photos.
      */
     public CompletableFuture<Void> deleteListing(UUID id) {
         return submit(() -> {
@@ -252,6 +255,10 @@ public final class ListingService {
                 if (offers.existsForListing(connection, id)) {
                     throw ServiceException.invalidState(
                             "This listing has offer history, so it can't be deleted. Archive it instead.");
+                }
+                if (chats.existsForListing(connection, id)) {
+                    throw ServiceException.invalidState(
+                            "This listing has conversations, so it can't be deleted. Archive it instead.");
                 }
                 for (ListingImage image : listing.getImages()) {
                     images.schedule(connection, image.filename());

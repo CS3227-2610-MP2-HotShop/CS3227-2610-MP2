@@ -29,14 +29,14 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 This is a single-project, non-modular build. Launcher is separate from the
 Application subclass so the bundled JAR can launch JavaFX from the classpath.
 The shared model layer, AccountService, ListingService, OfferService,
-TransactionService, and MeetupService are implemented, including SQLite
-persistence, authentication, profile and listing images, buyer listing search,
-offers, sale completion and cancellation, sales and purchase history, meetup
-slots and bookings, the sales dashboard summary, and lifecycle initialization.
-The account, profile, listing/search, offer, sale, and seller-dashboard screens
-now call those services. Meetup screens are not built yet. Chat, wishlists, and
-notifications remain deferred; their UI entry points, and the meetup ones, are
-disabled.
+TransactionService, MeetupService, and ChatService are implemented, including
+SQLite persistence, authentication, profile and listing images, buyer listing
+search, offers, sale completion and cancellation, sales and purchase history,
+meetup slots and bookings, conversations and messages, the sales dashboard
+summary, and lifecycle initialization. The account, profile, listing/search,
+offer, sale, and seller-dashboard screens now call those services. Meetup and
+chat screens are not built yet. Wishlists and notifications remain deferred;
+their UI entry points, and the meetup and chat ones, are disabled.
 
 ## Dependencies and checks
 
@@ -159,7 +159,7 @@ Future services must obtain actor IDs from the authenticated session and:
    transaction atomically. Construct `Transaction` after acceptance/reservation.
 4. Reject pending offers after an actual listing edit or archival. Done by
    ListingService through `PendingOffers`; `deleteListing` refuses listings with
-   offer history. ChatService must add the same refusal for conversation history.
+   offer history or any conversation.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
    Done by TransactionService, which also closes the sale's meetup through `SaleMeetups`.
@@ -201,6 +201,13 @@ upsert and read back in the order they were made, so the latest is always last.
 Version 5 (`005_meetups.sql`) adds `meetup_slots`, `meetups`, and
 `meetup_reschedule_proposals`, with partial unique indexes allowing one scheduled
 meetup per sale and one pending move proposal per meetup.
+Version 6 (`006_conversations.sql`) adds `conversations` (unique per listing and
+buyer, with each participant's read position and last-opened time) and
+`messages` (unique per conversation and sequence number). It also creates a
+conversation for every buyer and listing that already had offers, marked as
+opened by both at the latest offer event so old offers don't show as unread.
+Before the Chat-Service branch was rebased onto MeetupService, this migration
+ran as version 5; delete any local database created from that branch then.
 
 ### Schema migrations
 
@@ -321,6 +328,7 @@ session, and database with the other services, and every operation requires logi
 | Operation | Who | Rule |
 | --- | --- | --- |
 | `submitOffer(listingId, amountCents)` | Buyer | Another seller's available listing; one pending offer per buyer and listing. |
+| `submitOffer(listingId, amountCents, message)` | Buyer | As above, with an optional first message (null or blank means none). |
 | `withdrawOffer(offerId)` | The offer's buyer | Pending offers only. |
 | `getMyOffers()` | Buyer | Own offers in every status, newest first, each with listing and seller. |
 | `getOffersForListing(listingId)` | The listing's seller | Every offer; live sale first, then accepted offers whose sale was cancelled, then the rest newest first. |
@@ -340,9 +348,44 @@ its codes. Refusal messages say what is wrong and what to do, using real values,
 and never mention SQL. Tests assert the code and key values in selected
 messages, not exact wording.
 
+Submitting an offer also starts the buyer's conversation about the listing, or
+reuses it, in the same database transaction (through `Conversations`), so the
+seller always has a conversation with everyone who offered.
+
 Hooks for later services: NotificationService adds notifications inside the
 accept and reject transactions. After TransactionService cancels a sale, the
 released listing can receive offers again.
+
+## Chat service
+
+[ChatService Design](ChatServiceDesign.md) records the approved requirements.
+**ChatService covers both participants.** Buyer and seller chat screens should
+call it rather than implementing the rules again.
+
+Access it through `ApplicationRuntime.getChats()`. Every operation requires
+login. Only the buyer starts a conversation, by messaging the seller or by
+making an offer; only the buyer and seller can read it.
+
+| Operation | Who | Rule |
+| --- | --- | --- |
+| `messageSeller(listingId, text)` | Buyer | Another seller's available or reserved listing. Starts the conversation or adds to it. |
+| `sendMessage(conversationId, text)` | Either participant | While the listing is available or reserved; sold and archived listings are read-only. |
+| `openConversation(conversationId)` | Either participant | Returns every message and marks them read. |
+| `openChatWithSeller(listingId)` | Buyer | The existing conversation, opened, or empty when there is none yet. |
+| `openChatWithBuyer(listingId, buyerId)` | The listing's seller | An existing conversation only; sellers never start one. |
+| `getConversations()` | Anyone | `ConversationSummary` list: pending offer or active sale first, then the rest; unread first, then latest activity. |
+| `getUnreadCount()` | Anyone | Total unread items, for the sidebar. |
+
+Messages are 1-1,000 characters after trimming. A conversation's unread count
+is the other participant's messages after the viewer's read position plus
+offer events since the viewer last opened it: new and withdrawn offers for the
+seller, accepted and rejected ones for the buyer, each offer counted once. These
+are worked out from the offers' own times, so no event table is needed.
+`ConversationSummary` also carries the buyer's latest offer, the active sale
+between the two (so the screen can ask MeetupService for the meetup), a preview,
+and whether sending is allowed. `Conversations` is the package-private helper
+that ChatService and OfferService use to start conversations and add messages
+inside their own transactions. There are no automatic messages.
 
 ## Transaction service
 
@@ -420,6 +463,7 @@ Targeted development checks:
 .\gradlew.bat test --tests hotshop.service.OfferServiceTest
 .\gradlew.bat test --tests hotshop.service.TransactionServiceTest
 .\gradlew.bat test --tests hotshop.service.MeetupServiceTest --tests "hotshop.model.Meetup*"
+.\gradlew.bat test --tests hotshop.service.ChatServiceTest --tests hotshop.model.ConversationTest --tests hotshop.model.MessageTest
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```
