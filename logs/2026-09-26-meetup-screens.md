@@ -109,6 +109,23 @@ time format, tested without JavaFX, and screen journeys in `MarketplaceUiTest`
 with snapshots at 960 x 640 and 1100 x 750. The user invoked `/implement` in
 reply, which was taken as confirmation of the design and both seams.
 
+### Pull request
+
+> ok can you push and create a pr, in the pr message include what my teammate needs to know as well as was done in this milestone
+
+The branch was pushed to `origin` and opened as
+[pull request #14](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/pull/14)
+against `Chat-Screens`, stacked on PR #13, so its diff shows only the meetup
+work; it is to be retargeted to `main` after #13 merges. The description,
+written for the teammate as reviewer, summarises the milestone and lists what
+they need to know and agree to: the changed PR #9 screens (removed sidebar
+entries and Arrange Meetup, the new meetup lines and Dashboard card, the
+`ListingCards.card` and `SalePages.summary` overloads), the three public
+constants, the offer bar giving way to the meetup bar during a sale (and the two
+updated #13 journeys), the shared `UiControls.bar`, and meetups living only in
+the chat. It states that manual testing of this milestone and Linux CI have not
+happened yet.
+
 ## Steps Taken
 
 Interview:
