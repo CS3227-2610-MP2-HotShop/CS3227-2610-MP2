@@ -111,10 +111,8 @@ wrong and what to do, following the OfferService standard.
 
 ## Notes
 
-- **Notifications are under review.** The user and teammate may drop
-  NotificationService for time. Offer events were made to count as unread in
-  chat either way, which also covers the most important offer events if
-  notifications are dropped.
+- **Notifications were dropped** from the release on 2026-09-25. Counting offer
+  events as unread in chat covers the most important offer news instead.
 - Migration numbering: MeetupService (PR #10) added migration 005, so the chat
   migration is 006.
 

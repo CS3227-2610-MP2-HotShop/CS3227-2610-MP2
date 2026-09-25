@@ -237,8 +237,10 @@ Kept, with reasons:
 ## Final Output and Conclusion
 
 ChatService is implemented and committed to `Chat-Service`. Chat screens remain
-deferred. Whether NotificationService is dropped is still open; the user is
-checking the rubric with the teammate.
+deferred. Later the same day the user decided to drop notifications ("lets drop
+notification"); that change is on its own branch (see
+`logs/2026-09-25-drop-notifications.md`), and this design document's note was
+updated to match.
 
 ### Rebase onto main after PR #10
 
