@@ -101,6 +101,17 @@ confirmation of the design. The same test seams as MeetupService were used: the
 models directly, the service through `ApplicationRuntime` with a test clock, and
 the migration through `DatabaseTest`.
 
+### Pull request
+
+> yes push and open pr
+
+After checking that `main` had not moved since the rebase, the branch was
+pushed and pull request #11 was opened against `main`. Its description
+summarises the feature and lists the shared changes for the teammate: offers
+starting conversations (with the old `submitOffer` unchanged), the delete
+refusal, the constructor changes, migration 006, and the sidebar entries that
+stay disabled until chat screens exist.
+
 ## Steps Taken
 
 - Created the branch from `origin/main` and loaded the skills.
