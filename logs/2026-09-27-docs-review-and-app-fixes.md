@@ -118,6 +118,30 @@ placeholders instead if manual screenshots were meant.
   it was removed before building, and line endings were checked in every edited
   file.
 
+## Code Review
+
+After PR #19 was opened, a two-axis review (standards, and the agreed
+decisions) ran on it together with the delete change. Fixed on this branch:
+
+- A stale Javadoc line was left stacked on `MAX_DAYS_AHEAD`; removed.
+- `toFutureTime`'s Javadoc still said "within sixty days", and MeetupService
+  Design still said "at most 60 days ahead"; both now describe the calendar day.
+- `OfferBar`'s nested ternary with `orElse(null) ==` became a named
+  `canReofferAfterCancelledSale` check.
+- `ServiceSupport`'s Javadoc claimed the exact format the screens use; it now
+  says "a 24-hour clock, like the screens use" (the patterns differ slightly).
+- A combined `assertTrue(a && b)` was split so a failure shows which part.
+- Added `proposeMove_lateOnSixtiethDay_proposesMove`, since only the day-61
+  refusal was tested for proposals.
+
+Not changed: the finding that no test checks the seller does not get Make Offer
+after a cancelled sale, because `of_sellerAcceptedOfferWithCancelledSale_...`
+already asserts View Sale only; and the UI's own `ZoneId.systemDefault()` calls,
+which match the production clock's zone.
+
+After these fixes, `.\gradlew.bat test checkstyleMain checkstyleTest check
+build shadowJar` passed with 669 tests, 0 failures, 0 skipped, in 13 minutes.
+
 ## Final Output and Conclusion
 
 Step 2 of the plan is done on `Meetup-Chat-Fixes`. Next: the delete change for

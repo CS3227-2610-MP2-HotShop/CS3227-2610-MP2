@@ -28,12 +28,18 @@ record OfferBar(String text, List<OfferBar.Action> actions) {
             case PENDING -> new OfferBar(text, viewer == SaleRole.SELLER
                     ? List.of(Action.ACCEPT, Action.REJECT) : List.of(Action.WITHDRAW));
             case ACCEPTED -> new OfferBar(text + saleStatus.map(status -> " · Sale " + UiControls.title(status))
-                    .orElse(""), saleStatus.orElse(null) == TransactionStatus.CANCELLED
-                            && canMakeOffer(viewer, listingStatus)
+                    .orElse(""), canReofferAfterCancelledSale(viewer, listingStatus, saleStatus)
                             ? List.of(Action.VIEW_SALE, Action.MAKE_OFFER) : List.of(Action.VIEW_SALE));
             default -> new OfferBar(text, canMakeOffer(viewer, listingStatus)
                     ? List.of(Action.MAKE_OFFER) : List.of());
         };
+    }
+
+    /** The buyer's accepted offer led to a sale that was cancelled, and the listing can take offers again. */
+    private static boolean canReofferAfterCancelledSale(SaleRole viewer, ListingStatus listingStatus,
+            Optional<TransactionStatus> saleStatus) {
+        return saleStatus.filter(status -> status == TransactionStatus.CANCELLED).isPresent()
+                && canMakeOffer(viewer, listingStatus);
     }
 
     private static boolean canMakeOffer(SaleRole viewer, ListingStatus listingStatus) {

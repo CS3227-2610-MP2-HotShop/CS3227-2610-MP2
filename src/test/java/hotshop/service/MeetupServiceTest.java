@@ -82,8 +82,18 @@ class MeetupServiceTest {
             UUID sale = agreedSale(runtime, "alice", "bobby", "Chairs");
             Instant tooFar = START.plus(Duration.ofDays(61));
             var failure = assertFailure(ServiceException.Code.VALIDATION, () -> offer(runtime, sale, tooFar, 30));
-            assertTrue(failure.getMessage().contains("60 days") && failure.getMessage().contains("Mon 23 Nov 2026"),
-                    failure.getMessage());
+            assertTrue(failure.getMessage().contains("60 days"), failure.getMessage());
+            assertTrue(failure.getMessage().contains("Mon 23 Nov 2026"), failure.getMessage());
+        }
+    }
+
+    @Test
+    void proposeMove_lateOnSixtiethDay_proposesMove() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            UUID meetup = bookedMeetup(runtime);
+            Instant lastStart = START.plus(Duration.ofDays(60)).plus(Duration.ofHours(23))
+                    .plus(Duration.ofMinutes(45));
+            assertTrue(propose(runtime, meetup, lastStart).meetup().orElseThrow().getPendingProposal().isPresent());
         }
     }
 

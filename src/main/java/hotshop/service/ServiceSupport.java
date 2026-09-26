@@ -17,7 +17,7 @@ import hotshop.repository.UserRepository;
 /** Plumbing shared by the marketplace services: time, transactions, profiles, and price text. */
 final class ServiceSupport {
     private static final int CENTS_PER_DOLLAR = 100;
-    /** The 24-hour clock the screens use, so messages and screens show times the same way. */
+    /** A 24-hour clock, like the screens use, so messages and screens show times the same way. */
     private static final DateTimeFormatter TIME_FORMAT =
             DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_FORMAT =

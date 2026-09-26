@@ -31,8 +31,7 @@ import hotshop.repository.TransactionRepository;
 public final class MeetupService {
     /** The most unbooked times a seller can offer for one sale at once. */
     public static final int MAX_OFFERED_SLOTS = 3;
-    /** How far ahead a meetup may start. */
-    /** Meetups may start on any time of the day this many calendar days after today, in the clock's zone. */
+    /** Meetups may start at any time of the day this many calendar days after today, in the clock's zone. */
     public static final int MAX_DAYS_AHEAD = 60;
     private static final String STORAGE_FAILURE = "Meetups are unavailable right now. Please try again.";
     private final Database database;
@@ -248,7 +247,7 @@ public final class MeetupService {
         return ServiceSupport.latest(now, meetup.getLastEventAt());
     }
 
-    /** Validates length and place, then that the time starts in the future and within sixty days. */
+    /** Validates length and place, then that the time starts in the future and by the last allowed calendar day. */
     private MeetupTime toFutureTime(Instant start, Instant end, String location, Instant now) {
         if (start == null || end == null || location == null) {
             throw ServiceException.validation("Choose a start time, end time, and location.");
