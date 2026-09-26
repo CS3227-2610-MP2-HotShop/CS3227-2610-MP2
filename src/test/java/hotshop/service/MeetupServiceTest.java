@@ -67,21 +67,49 @@ class MeetupServiceTest {
     }
 
     @Test
-    void offerSlot_exactlySixtyDaysAhead_addsSlot() throws Exception {
+    void offerSlot_lateOnSixtiethDay_addsSlotEndingNextDay() throws Exception {
         try (ApplicationRuntime runtime = open()) {
             UUID sale = agreedSale(runtime, "alice", "bobby", "Chairs");
-            Instant limit = clock.instant().plus(Duration.ofDays(60));
-            assertEquals(1, offer(runtime, sale, limit, 30).offeredSlots().size());
+            Instant lastStart = START.plus(Duration.ofDays(60)).plus(Duration.ofHours(23))
+                    .plus(Duration.ofMinutes(45));
+            assertEquals(1, offer(runtime, sale, lastStart, 30).offeredSlots().size());
         }
     }
 
     @Test
-    void offerSlot_moreThanSixtyDaysAhead_reportsValidation() throws Exception {
+    void offerSlot_startOnSixtyFirstDay_reportsValidationWithLastDate() throws Exception {
         try (ApplicationRuntime runtime = open()) {
             UUID sale = agreedSale(runtime, "alice", "bobby", "Chairs");
-            Instant tooFar = clock.instant().plus(Duration.ofDays(60)).plusSeconds(60);
+            Instant tooFar = START.plus(Duration.ofDays(61));
             var failure = assertFailure(ServiceException.Code.VALIDATION, () -> offer(runtime, sale, tooFar, 30));
-            assertTrue(failure.getMessage().contains("60 days"), failure.getMessage());
+            assertTrue(failure.getMessage().contains("60 days") && failure.getMessage().contains("Mon 23 Nov 2026"),
+                    failure.getMessage());
+        }
+    }
+
+    @Test
+    void proposeMove_startOnSixtyFirstDay_reportsValidation() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            UUID meetup = bookedMeetup(runtime);
+            assertFailure(ServiceException.Code.VALIDATION,
+                    () -> propose(runtime, meetup, START.plus(Duration.ofDays(61))));
+        }
+    }
+
+    @Test
+    void bookSlot_overlappingMeetup_namesClashIn24HourTime() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            UUID bobSale = agreedSale(runtime, "alice", "bobby", "Chairs");
+            UUID bobSlot = offer(runtime, bobSale, TOMORROW, 30).offeredSlots().get(0).id();
+            UUID carolSale = agreedSale(runtime, "alice", "carol", "Desk");
+            UUID carolSlot = offer(runtime, carolSale, TOMORROW, 30).offeredSlots().get(0).id();
+            loginAs(runtime, "bobby");
+            runtime.getMeetups().bookSlot(bobSlot).join();
+            loginAs(runtime, "carol");
+            var failure = assertFailure(ServiceException.Code.INVALID_STATE,
+                    () -> runtime.getMeetups().bookSlot(carolSlot).join());
+            assertTrue(failure.getMessage().contains("from Fri 25 Sep, 00:00 to Fri 25 Sep, 00:30"),
+                    failure.getMessage());
         }
     }
 

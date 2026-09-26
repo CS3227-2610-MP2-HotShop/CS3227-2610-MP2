@@ -3,8 +3,9 @@ package hotshop.service;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +32,8 @@ public final class MeetupService {
     /** The most unbooked times a seller can offer for one sale at once. */
     public static final int MAX_OFFERED_SLOTS = 3;
     /** How far ahead a meetup may start. */
-    public static final Duration MAX_DAYS_AHEAD = Duration.ofDays(60);
+    /** Meetups may start on any time of the day this many calendar days after today, in the clock's zone. */
+    public static final int MAX_DAYS_AHEAD = 60;
     private static final String STORAGE_FAILURE = "Meetups are unavailable right now. Please try again.";
     private final Database database;
     private final MeetupRepository meetups;
@@ -247,7 +249,7 @@ public final class MeetupService {
     }
 
     /** Validates length and place, then that the time starts in the future and within sixty days. */
-    private static MeetupTime toFutureTime(Instant start, Instant end, String location, Instant now) {
+    private MeetupTime toFutureTime(Instant start, Instant end, String location, Instant now) {
         if (start == null || end == null || location == null) {
             throw ServiceException.validation("Choose a start time, end time, and location.");
         }
@@ -260,20 +262,23 @@ public final class MeetupService {
         if (!time.startAt().isAfter(now)) {
             throw ServiceException.validation("Meetup times must start in the future.");
         }
-        if (time.startAt().isAfter(now.plus(MAX_DAYS_AHEAD))) {
-            throw ServiceException.validation(
-                    "Meetup times can be at most " + MAX_DAYS_AHEAD.toDays() + " days ahead.");
+        ZoneId zone = clock.getZone();
+        LocalDate lastDay = LocalDate.ofInstant(now, zone).plusDays(MAX_DAYS_AHEAD);
+        if (LocalDate.ofInstant(time.startAt(), zone).isAfter(lastDay)) {
+            throw ServiceException.validation("Meetup times can start at most " + MAX_DAYS_AHEAD
+                    + " days ahead, on or before " + ServiceSupport.formatDate(lastDay) + ".");
         }
         return time;
     }
 
     /** Refuses a time that overlaps one participant's scheduled meetups; alreadyBusy begins the message. */
-    private static void requireFree(List<Meetup> scheduled, MeetupTime time, String alreadyBusy) {
+    private void requireFree(List<Meetup> scheduled, MeetupTime time, String alreadyBusy) {
         for (Meetup other : scheduled) {
             if (other.getTime().overlaps(time)) {
                 throw ServiceException.invalidState(alreadyBusy + " a meetup from "
-                        + ServiceSupport.formatTime(other.getTime().startAt()) + " to "
-                        + ServiceSupport.formatTime(other.getTime().endAt()) + ". Choose a different time.");
+                        + ServiceSupport.formatTime(other.getTime().startAt(), clock.getZone()) + " to "
+                        + ServiceSupport.formatTime(other.getTime().endAt(), clock.getZone())
+                        + ". Choose a different time.");
             }
         }
     }

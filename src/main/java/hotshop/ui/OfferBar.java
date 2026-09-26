@@ -28,7 +28,9 @@ record OfferBar(String text, List<OfferBar.Action> actions) {
             case PENDING -> new OfferBar(text, viewer == SaleRole.SELLER
                     ? List.of(Action.ACCEPT, Action.REJECT) : List.of(Action.WITHDRAW));
             case ACCEPTED -> new OfferBar(text + saleStatus.map(status -> " · Sale " + UiControls.title(status))
-                    .orElse(""), List.of(Action.VIEW_SALE));
+                    .orElse(""), saleStatus.orElse(null) == TransactionStatus.CANCELLED
+                            && canMakeOffer(viewer, listingStatus)
+                            ? List.of(Action.VIEW_SALE, Action.MAKE_OFFER) : List.of(Action.VIEW_SALE));
             default -> new OfferBar(text, canMakeOffer(viewer, listingStatus)
                     ? List.of(Action.MAKE_OFFER) : List.of());
         };

@@ -136,3 +136,4 @@ Meetup screens, notifications, and the chat integration.
   neither upcoming nor past.
 - Withdrawing a slot does not require the sale to be active. Slots of a closed
   sale are already deleted, so this changes nothing in practice.
+- **"60 days ahead" counts calendar days** (decided 2026-09-27): a meetup may start at any time on the 60th day after today, in the services' clock zone (the computer's zone in production), so an evening meetup on day 60 can end on day 61. It was previously 60 x 24 hours from now, which refused late times on day 60 even though the date picker offered that day.

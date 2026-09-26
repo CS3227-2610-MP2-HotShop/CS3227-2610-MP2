@@ -102,9 +102,9 @@ public final class ApplicationRuntime implements AutoCloseable {
         return listingImages.resolve(filename);
     }
 
-    /** Locks and initializes the data directory using the system clock. */
+    /** Locks and initializes the data directory using the system clock in the computer's time zone. */
     public static ApplicationRuntime open(Path directory) throws IOException, SQLException {
-        return open(directory, Clock.systemUTC());
+        return open(directory, Clock.systemDefaultZone());
     }
 
     /** Locks and initializes the data directory; failure preserves data and releases acquired resources. */

@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -16,8 +17,11 @@ import hotshop.repository.UserRepository;
 /** Plumbing shared by the marketplace services: time, transactions, profiles, and price text. */
 final class ServiceSupport {
     private static final int CENTS_PER_DOLLAR = 100;
+    /** The 24-hour clock the screens use, so messages and screens show times the same way. */
     private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("EEE d MMM, h:mm a", Locale.ENGLISH);
+            DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.ENGLISH);
+    private static final DateTimeFormatter DATE_FORMAT =
+            DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.ENGLISH);
 
     private ServiceSupport() {
     }
@@ -37,9 +41,14 @@ final class ServiceSupport {
         return status.name().toLowerCase(Locale.ROOT);
     }
 
-    /** Formats a time for messages in the computer's time zone, for example "Thu 25 Sep, 3:00 pm". */
-    static String formatTime(Instant time) {
-        return TIME_FORMAT.format(time.atZone(ZoneId.systemDefault()));
+    /** Formats a time for messages in the given zone, for example "Fri 25 Sep, 15:00". */
+    static String formatTime(Instant time, ZoneId zone) {
+        return TIME_FORMAT.format(time.atZone(zone));
+    }
+
+    /** Formats a date for messages, for example "Mon 23 Nov 2026". */
+    static String formatDate(LocalDate date) {
+        return DATE_FORMAT.format(date);
     }
 
     /** Formats SGD cents for messages, for example 4000 as "S$40.00". */
