@@ -5,7 +5,7 @@ This document records the confirmed UI specification. After confirming the conso
 ## Agreed decisions
 
 - Map the full application's UI inventory, then specify the first milestone around existing account, listing, offer, and transaction services.
-- Defer implementation of chat, meetup, wishlist, and notification screens. Include relevant entry points on first-milestone pages, such as Chat with seller on listing details.
+- Defer implementation of chat, meetup, wishlist, and notification screens. Include relevant entry points on first-milestone pages, such as Chat with seller on listing details. Chat screens were later built as specified in [Chat Screens Design](ChatScreensDesign.md), which enables Conversations and Chat with seller.
 - Show both future-feature actions and future navigation destinations disabled and labelled "Coming soon" until implemented.
 - Use one application shell with a persistent grouped sidebar. Buying and Selling are non-clickable headings with direct links to individual pages, not role modes or mandatory hub pages.
 - Sidebar layout: Search; Buying (My Offers, My Purchases, Wishlist, Meetups); Selling (Dashboard, My Listings, My Sales, Availability & Meetups); Conversations; Notifications; My Profile; Log out. Future-feature destinations remain disabled and labelled "Coming soon" as agreed above.

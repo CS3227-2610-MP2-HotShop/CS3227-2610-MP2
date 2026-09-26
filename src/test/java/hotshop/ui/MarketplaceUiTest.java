@@ -31,6 +31,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelFormat;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
@@ -40,6 +42,7 @@ class MarketplaceUiTest {
     Path directory;
     private ApplicationRuntime runtime;
     private Stage stage;
+    private MarketplaceUi ui;
 
     @BeforeAll
     static void startToolkit() throws Exception {
@@ -56,7 +59,7 @@ class MarketplaceUiTest {
         runtime = ApplicationRuntime.open(directory);
         fx(() -> {
             stage = new Stage();
-            new MarketplaceUi(stage, runtime);
+            ui = new MarketplaceUi(stage, runtime);
             stage.show();
             return null;
         });
@@ -88,7 +91,7 @@ class MarketplaceUiTest {
         awaitText("page-title", "Search");
         assertEquals("Search for an item, or press Search to browse all listings.",
                 fx(() -> ((Labeled) stage.getScene().lookup("#search-guidance")).getText()));
-        assertTrue(fx(() -> stage.getScene().lookup("#nav-conversations").isDisabled()));
+        assertTrue(fx(() -> stage.getScene().lookup("#nav-notifications").isDisabled()));
         assertEquals(960, fx(() -> stage.getMinWidth()));
         assertEquals(640, fx(() -> stage.getMinHeight()));
     }
@@ -178,6 +181,246 @@ class MarketplaceUiTest {
         awaitText("sale-status", "Completed");
         assertEquals(hotshop.model.TransactionStatus.COMPLETED,
                 runtime.getTransactions().getMyPurchases().join().getFirst().sale().getStatus());
+    }
+
+    @Test
+    void chatWithSeller_firstMessage_startsConversation() throws Exception {
+        seedListing();
+        login("buyer");
+        click("search-submit");
+        awaitText("results-count", "1 listing");
+        click("listing-card");
+        awaitText("listing-title", "Desk");
+        awaitReady();
+        click("chat-seller");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("send-hint", "Send a message to start a conversation with Seller.");
+        type("message-input", "Is it still available?");
+        click("send-message");
+        awaitText("latest-message", "Is it still available?");
+        assertEquals("Is it still available?", runtime.getChats().getConversations().join().getFirst().preview());
+    }
+
+    @Test
+    void conversations_unreadMessage_showsCountUntilSellerOpensAndReplies() throws Exception {
+        seedListing();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
+        runtime.getChats().messageSeller(listing.listing().getId(), "Is it still available?").join();
+        runtime.getAccounts().logout().join();
+        login("seller");
+        awaitText("nav-conversations", "Conversations (1)");
+        click("nav-conversations");
+        awaitText("page-title", "Conversations");
+        awaitReady();
+        awaitText("conversation-unread", "1 unread");
+        snapshot("conversations-minimum", 960, 640);
+        snapshot("conversations-default", 1100, 750);
+        click("conversation-open");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("nav-conversations", "Conversations");
+        awaitText("latest-message", "Is it still available?");
+        type("message-input", "Yes, it is.");
+        click("send-message");
+        awaitText("latest-message", "Yes, it is.");
+        snapshot("conversation-minimum", 960, 640);
+        snapshot("conversation-default", 1100, 750);
+        assertTrue(fx(() -> stage.getScene().lookup("#message-scroll").getLayoutBounds().getHeight() >= 200));
+    }
+
+    @Test
+    void chatWithBuyer_pendingOffer_acceptsFromOfferBarAndOpensSale() throws Exception {
+        seedListing();
+        submitOfferAsBuyer();
+        login("seller");
+        click("nav-listings");
+        awaitReady();
+        click("listing-card");
+        awaitReady();
+        click("chat-buyer");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("offer-bar-text", "Offer of S$40.00 · Pending");
+        confirm("offer-bar-accept", "Accept Offer");
+        awaitText("page-title", "Sale Details");
+        awaitReady();
+        awaitText("sale-status", "Active");
+    }
+
+    @Test
+    void openChat_activeSale_showsAcceptedOfferInConversation() throws Exception {
+        seedListing();
+        var offer = submitOfferAsBuyer();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        runtime.getOffers().acceptOffer(offer.getId()).join();
+        runtime.getAccounts().logout().join();
+        login("seller");
+        click("nav-sales");
+        awaitReady();
+        click("sale-detail");
+        awaitReady();
+        click("sale-open-chat");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("offer-bar-text", "Offer of S$40.00 · Accepted · Sale Active");
+    }
+
+    private hotshop.model.Offer submitOfferAsBuyer() {
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
+        var offer = runtime.getOffers().submitOffer(listing.listing().getId(), 4000).join().offer();
+        runtime.getAccounts().logout().join();
+        return offer;
+    }
+
+    @Test
+    void makeOffer_withMessage_showsMessageInConversation() throws Exception {
+        seedListing();
+        login("buyer");
+        click("search-submit");
+        awaitText("results-count", "1 listing");
+        click("listing-card");
+        awaitText("listing-title", "Desk");
+        awaitReady();
+        click("make-offer");
+        dialogType("offer-amount", "40.00");
+        dialogType("offer-message", "Could you do S$40?");
+        dialogClick("dialog-submit");
+        awaitText("pending-offer", "Your pending offer: S$40.00");
+        awaitReady();
+        click("chat-seller");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("latest-message", "Could you do S$40?");
+        awaitText("offer-bar-text", "Offer of S$40.00 · Pending");
+    }
+
+    @Test
+    void withdrawOffer_fromOfferBar_showsWithdrawnAndOffersMakeOffer() throws Exception {
+        seedListing();
+        submitOfferAsBuyer();
+        login("buyer");
+        click("nav-conversations");
+        awaitReady();
+        click("conversation-open");
+        awaitText("offer-bar-text", "Offer of S$40.00 · Pending");
+        awaitReady();
+        click("offer-bar-withdraw");
+        awaitText("offer-bar-text", "Offer of S$40.00 · Withdrawn");
+        awaitReady();
+        assertTrue(fx(() -> stage.getScene().lookup("#offer-bar-make-offer") != null));
+    }
+
+    @Test
+    void openConversation_soldListing_showsCompletedSaleAndDisablesSending() throws Exception {
+        seedListing();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
+        var offer = runtime.getOffers().submitOffer(listing.listing().getId(), 4000).join().offer();
+        runtime.getAccounts().logout().join();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        var sale = runtime.getOffers().acceptOffer(offer.getId()).join().transactionId();
+        runtime.getTransactions().confirmCompletion(sale).join();
+        runtime.getAccounts().logout().join();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        runtime.getTransactions().confirmCompletion(sale).join();
+        runtime.getAccounts().logout().join();
+        login("buyer");
+        click("nav-conversations");
+        awaitReady();
+        click("conversation-open");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        awaitText("offer-bar-text", "Offer of S$40.00 · Accepted · Sale Completed");
+        awaitText("send-hint", "This listing is sold, so no new messages can be sent.");
+        assertTrue(fx(() -> stage.getScene().lookup("#message-input").isDisabled()));
+        assertTrue(fx(() -> stage.getScene().lookup("#send-message").isDisabled()));
+    }
+
+    @Test
+    void listingDetails_archivedListingWithoutConversation_disablesChatWithSeller() throws Exception {
+        seedListing();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        var listing = runtime.getListings().getMyListings().join().getFirst().listing().listing();
+        runtime.getListings().archiveListing(listing.getId()).join();
+        runtime.getAccounts().logout().join();
+        login("buyer");
+        fx(() -> {
+            ui.navigate(() -> ui.listings.details(listing.getId()));
+            return null;
+        });
+        awaitText("listing-title", "Desk");
+        awaitReady();
+        awaitText("chat-seller-hint", "Conversations can only be started about available or reserved listings.");
+        assertTrue(fx(() -> stage.getScene().lookup("#chat-seller").isDisabled()));
+    }
+
+    @Test
+    void navigate_unsentMessage_cancelKeepsDraftAndDiscardLeaves() throws Exception {
+        seedListing();
+        login("buyer");
+        click("search-submit");
+        awaitText("results-count", "1 listing");
+        click("listing-card");
+        awaitReady();
+        click("chat-seller");
+        awaitText("page-title", "Desk");
+        awaitReady();
+        type("message-input", "Draft question");
+        confirm("nav-search", "Cancel");
+        awaitText("page-title", "Desk");
+        assertEquals("Draft question", fx(() ->
+                ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
+        confirm("nav-search", "Discard Changes");
+        awaitText("page-title", "Search");
+        assertTrue(runtime.getChats().getConversations().join().isEmpty());
+    }
+
+    @Test
+    void messageInput_enterKey_sendsMessage() throws Exception {
+        openChatWithSellerAsBuyer();
+        type("message-input", "Sent with Enter");
+        press("message-input", KeyCode.ENTER, false, false);
+        awaitText("latest-message", "Sent with Enter");
+        assertEquals("", fx(() -> ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
+    }
+
+    @Test
+    void messageInput_shiftEnter_addsNewLineWithoutSending() throws Exception {
+        openChatWithSellerAsBuyer();
+        type("message-input", "First line");
+        fx(() -> {
+            ((TextInputControl) stage.getScene().lookup("#message-input")).end();
+            return null;
+        });
+        press("message-input", KeyCode.ENTER, true, false);
+        assertEquals("First line\n", fx(() ->
+                ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
+        assertTrue(runtime.getChats().getConversations().join().isEmpty());
+    }
+
+    private void openChatWithSellerAsBuyer() throws Exception {
+        seedListing();
+        login("buyer");
+        click("search-submit");
+        awaitText("results-count", "1 listing");
+        click("listing-card");
+        awaitReady();
+        click("chat-seller");
+        awaitText("page-title", "Desk");
+        awaitReady();
+    }
+
+    private void press(String id, KeyCode key, boolean isShiftDown, boolean isShortcutDown) throws Exception {
+        fx(() -> {
+            var target = stage.getScene().lookup("#" + id);
+            target.requestFocus();
+            target.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", key, isShiftDown, isShortcutDown,
+                    false, false));
+            return null;
+        });
     }
 
     private void seedListing() {

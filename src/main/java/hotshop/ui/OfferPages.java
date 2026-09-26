@@ -1,9 +1,14 @@
 package hotshop.ui;
 
+import java.util.function.Consumer;
+
 import hotshop.model.Listing;
 import hotshop.model.ListingDetails;
 import hotshop.model.ListingStatus;
+import hotshop.model.Message;
+import hotshop.model.Offer;
 import hotshop.model.OfferStatus;
+import hotshop.service.AcceptedOffer;
 import hotshop.service.OfferWithBuyer;
 import javafx.scene.control.Button;
 import javafx.scene.layout.VBox;
@@ -63,7 +68,8 @@ final class OfferPages {
                                 page.perform(() -> app.runtime.getOffers().withdrawOffer(offer.getId()),
                                         ignored -> app.listings.details(listing.getId()))));
             } else {
-                Button makeOffer = UiControls.primary("Make Offer", "make-offer", () -> makeOffer(page, listing));
+                Button makeOffer = UiControls.primary("Make Offer", "make-offer", () -> makeOffer(page, listing,
+                        () -> app.listings.details(listing.getId())));
                 makeOffer.setDisable(listing.getStatus() != ListingStatus.AVAILABLE);
                 page.body.getChildren().add(makeOffer);
                 if (makeOffer.isDisabled()) {
@@ -74,11 +80,13 @@ final class OfferPages {
         });
     }
 
-    private void makeOffer(UiPage page, Listing listing) {
+    /** Opens the Make Offer dialog; after a successful submission, {@code done} redisplays the caller's page. */
+    void makeOffer(UiPage page, Listing listing, Runnable done) {
         UiForm form = new UiForm();
         form.getChildren().addAll(UiControls.label(listing.getDetails().title(), "section-title"),
                 UiControls.label("Asking price: " + UiControls.money(listing.getDetails().priceCents()), "price"));
         form.text("offer-amount", "Your offer (SGD)", "");
+        form.area("offer-message", "Message to the seller (optional)", "");
         long[] amount = new long[1];
         UiDialogs.form(app, page, "Make Offer", "Submit Offer", form, () -> {
             form.clearErrors();
@@ -86,12 +94,22 @@ final class OfferPages {
             if (cents != null && (cents < 1 || cents > ListingDetails.MAX_PRICE_CENTS)) {
                 form.reject("offer-amount", "Enter S$0.01 to S$1,000,000.00.");
             }
+            form.textLength("offer-message", Message.MAX_LENGTH, false);
             if (form.isValid()) {
                 amount[0] = cents;
             }
             return form.isValid();
-        }, () -> app.runtime.getOffers().submitOffer(listing.getId(), amount[0]),
-                ignored -> app.listings.details(listing.getId()));
+        }, () -> app.runtime.getOffers().submitOffer(listing.getId(), amount[0], form.value("offer-message")),
+                ignored -> done.run());
+    }
+
+    /** Confirms and accepts a pending offer; {@code accepted} shows what follows the new sale. */
+    void accept(UiPage page, Offer offer, Consumer<AcceptedOffer> accepted) {
+        if (app.confirm("Accept Offer", "Accept " + UiControls.money(offer.getAmountCents())
+                + "? This reserves the listing, creates a sale "
+                + "and rejects all other pending offers.")) {
+            page.perform(() -> app.runtime.getOffers().acceptOffer(offer.getId()), accepted);
+        }
     }
 
     void incoming(UiPage page, Listing listing, Button delete) {
@@ -103,21 +121,18 @@ final class OfferPages {
             }
             for (OfferWithBuyer value : offers) {
                 var offer = value.offer();
-                VBox row = new VBox(10, app.profileLink(value.buyer(), "offer-buyer"),
+                VBox row = new VBox(10, UiControls.actions(app.profileLink(value.buyer(), "offer-buyer"),
+                        UiControls.button("Chat with buyer", "chat-buyer", () ->
+                                app.navigate(() -> app.chats.withBuyer(listing.getId(), offer.getBuyerId())))),
                         UiControls.label(UiControls.money(offer.getAmountCents()), "price"),
                         UiControls.label(UiControls.title(offer.getStatus()) + value.saleStatus()
                                 .map(status -> " · Sale " + UiControls.title(status)).orElse(""), "badge"),
                         UiControls.label(UiControls.time(offer.getCreatedAt()), "muted"));
                 row.getStyleClass().add("card");
                 if (offer.getStatus() == OfferStatus.PENDING) {
-                    Button accept = UiControls.primary("Accept Offer", "accept-offer", () -> {
-                        if (app.confirm("Accept Offer", "Accept " + UiControls.money(offer.getAmountCents())
-                                + "? This reserves the listing, creates a sale "
-                                + "and rejects all other pending offers.")) {
-                            page.perform(() -> app.runtime.getOffers().acceptOffer(offer.getId()), accepted ->
-                                    app.replace(() -> app.sales.details(accepted.transactionId(), true)));
-                        }
-                    });
+                    Button accept = UiControls.primary("Accept Offer", "accept-offer", () ->
+                            accept(page, offer, accepted ->
+                                    app.replace(() -> app.sales.details(accepted.transactionId(), true))));
                     accept.setDisable(listing.getStatus() != ListingStatus.AVAILABLE);
                     row.getChildren().add(UiControls.actions(accept,
                             UiControls.button("Reject Offer", "reject-offer", () ->

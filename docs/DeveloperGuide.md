@@ -34,9 +34,9 @@ SQLite persistence, authentication, profile and listing images, buyer listing
 search, offers, sale completion and cancellation, sales and purchase history,
 meetup slots and bookings, conversations and messages, the sales dashboard
 summary, and lifecycle initialization. The account, profile, listing/search,
-offer, sale, and seller-dashboard screens now call those services. Meetup and
-chat screens are not built yet. Wishlists and notifications remain deferred;
-their UI entry points, and the meetup and chat ones, are disabled.
+offer, sale, seller-dashboard, and conversation screens now call those services.
+Meetup screens are not built yet. Wishlists and notifications remain deferred;
+their UI entry points, and the meetup ones, are disabled.
 
 ## Dependencies and checks
 
@@ -72,6 +72,36 @@ to submitted results; refresh does not submit draft edits. Session changes clear
 search and navigation history. A collapsible Filters panel keeps results reachable
 at the minimum window size.
 
+### Chat screens
+
+[Chat Screens Design](ChatScreensDesign.md) records the agreed layout and
+behaviour. `ChatPages` holds the Conversations list and the entry points
+(`withSeller`, `withBuyer`, and opening from the list). `ConversationPage` is one
+conversation: header, offer bar, messages, and send box. It keeps its `TextArea`
+across reloads, so a draft survives offer actions, and marks itself dirty while
+the draft is not blank. It is the only page built with `MarketplaceUi.fixedPage`,
+which is not wrapped in the page scroll pane: `UiPage.fillHeight` lets the body
+take the remaining height, and only the message list scrolls, with a 200 px
+minimum. `UiPage.setHeadingExtras` places controls on the title's row.
+
+`OfferBar` is a pure record that maps the viewer's role, the latest offer, the
+listing status, and the sale status to the bar's text and `OfferBar.Action`s, so
+its rules are tested without JavaFX (`OfferBarTest`). The actions call
+OfferService through `OfferPages.makeOffer` and `OfferPages.accept`, which the
+listing page also uses. `ConversationSummary` carries only an active sale's ID,
+so for an accepted offer without one the page finds the sale's status in
+`getMySales` or `getMyPurchases`, as `SalePages.forOffer` does. The list's two
+groups use `ConversationSummary.isAboutOfferOrSale`, which ChatService also
+orders by, so the screen never restates that rule.
+
+`UiPage.load` ignores a call while another load runs, so a page that needs two
+loads chains the second inside the first's success callback. Listing details
+does this when "Chat with seller" must check `getConversations` for a closed
+listing; it deliberately avoids `openChatWithSeller`, which marks a conversation
+read. `MarketplaceUi` refreshes the sidebar's unread total after every
+navigation. The single service worker runs that count after the page load just
+queued, so a conversation the new page opens is already counted as read.
+
 `ListingService.getPublicListings(UUID)` requires login and returns only the
 selected user's available listings, newest first, with restricted public-profile
 data. Missing users return NOT_FOUND; null IDs return VALIDATION. It reuses the
@@ -82,7 +112,8 @@ picker validate without importing, while saving revalidates and imports as befor
 UI tests use JUnit 5 and actual JavaFX controls backed by temporary SQLite data.
 They require a graphical desktop; on headless Linux, install Xvfb and JavaFX's GTK
 runtime libraries and run `xvfb-run -a ./gradlew test`. CI uses Xvfb. Run the screen
-journeys alone with `.\gradlew.bat test --tests hotshop.ui.MarketplaceUiTest`.
+journeys alone with `.\gradlew.bat test --tests hotshop.ui.MarketplaceUiTest`, or
+the offer bar rules with `--tests hotshop.ui.OfferBarTest`.
 The tests also write scene snapshots to ignored `build/ui-checks/` for visual
 inspection. Window defaults are 1100 x 750, minimum 960 x 640, in JavaFX units.
 
