@@ -53,8 +53,18 @@ final class MeetupPages {
             Runnable reload) {
         MeetupBar bar = MeetupBar.of(conversation.role(), app.userId(), conversation.otherParticipant().displayName(),
                 meetup, saleStatus, Instant.now(), ZoneId.systemDefault());
-        return UiControls.bar(bar.text(), "meetup-bar-text", bar.actions().stream()
+        Label text = UiControls.label(bar.text(), "section-title");
+        text.setId("meetup-bar-text");
+        text.setMinHeight(VBox.USE_PREF_SIZE);
+        var actions = UiControls.actions(bar.actions().stream()
                 .map(action -> action(action, page, conversation, meetup, reload)).toArray(Button[]::new));
+        VBox details = new VBox(8, text, actions);
+        details.setMinWidth(0);
+        HBox.setHgrow(details, Priority.ALWAYS);
+        HBox panel = new HBox(details);
+        panel.setMinHeight(HBox.USE_PREF_SIZE);
+        panel.getStyleClass().add("offer-bar");
+        return panel;
     }
 
     private Button action(MeetupBar.Action action, UiPage page, ConversationSummary conversation,
@@ -147,6 +157,7 @@ final class MeetupPages {
         dialog.setTitle(title);
         dialog.setHeaderText(title);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        UiDialogs.theme(app, dialog);
         VBox rows = new VBox(10);
         rows.getStyleClass().add("form-panel");
         for (MeetupSlot slot : slots) {

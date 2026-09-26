@@ -7,10 +7,12 @@ import java.util.function.Supplier;
 
 import javafx.event.ActionEvent;
 import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.Region;
 
 /** Modal forms stay open on validation/storage errors and cannot double-submit. */
 final class UiDialogs {
@@ -25,6 +27,7 @@ final class UiDialogs {
         dialog.setHeaderText(title);
         ButtonType submit = new ButtonType(submitText, ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, submit);
+        theme(app, dialog);
         Label status = UiControls.label("", "error");
         status.setId("dialog-status");
         form.getChildren().add(status);
@@ -35,6 +38,7 @@ final class UiDialogs {
         dialog.getDialogPane().setContent(scroll);
         dialog.setResizable(true);
         var submitButton = dialog.getDialogPane().lookupButton(submit);
+        submitButton.getStyleClass().add("primary");
         submitButton.setId("dialog-submit");
         dialog.setOnCloseRequest(event -> {
             if (page.isBusy()) {
@@ -64,5 +68,16 @@ final class UiDialogs {
             });
         });
         dialog.show();
+    }
+
+    /** Sizes themed dialogs to keep consequence text and action labels fully readable. */
+    static void theme(MarketplaceUi app, Dialog<?> dialog) {
+        var pane = dialog.getDialogPane();
+        pane.getStylesheets().addAll(app.stage.getScene().getStylesheets());
+        pane.setPrefWidth(540);
+        pane.setMinHeight(Region.USE_PREF_SIZE);
+        for (ButtonType type : pane.getButtonTypes()) {
+            ((Button) pane.lookupButton(type)).setMinWidth(Region.USE_PREF_SIZE);
+        }
     }
 }

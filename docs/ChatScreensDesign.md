@@ -41,10 +41,13 @@ conversation, and the send box; the first send creates it.
 
 ## Conversations list
 
-- One card per conversation: the listing title (opens the conversation), a
+- One card per conversation: a plain listing title, a separate View Listing button, a
   profile link to the other participant, a Buying or Selling badge, the
   preview, an unread badge when there are unread items, and the last-activity
   time.
+- The card body opens the conversation with a click, Enter, or Space. View
+  Listing and the profile link are independent keyboard targets and do not
+  trigger the conversation. This implements the navigation revision in issue #16.
 - Two headed groups in the service's order: **Offers and sales** (pending offer
   or active sale), then **Other conversations**.
 - Empty state: "No conversations yet" with Search Listings.

@@ -11,10 +11,13 @@ import hotshop.model.TransactionStatus;
 import hotshop.service.SaleAction;
 import hotshop.service.SaleForParticipant;
 import javafx.scene.control.Label;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 
 /** Purchase/sale history, seller summary, and participant-specific sale actions. */
 final class SalePages {
+    private static final double TWO_COLUMN_WIDTH = 720;
     private final MarketplaceUi app;
 
     SalePages(MarketplaceUi app) {
@@ -124,11 +127,12 @@ final class SalePages {
         status.setId("sale-status");
         Label next = UiControls.label(value.nextStep().getDescription(), "section-title");
         next.setId("sale-next-step");
-        page.body.getChildren().addAll(UiControls.label(sale.getListingTitle(), "section-title"), status,
+        VBox item = new VBox(16, UiControls.label(sale.getListingTitle(), "section-title"),
                 UiControls.label("Agreed price: " + UiControls.money(sale.getAgreedPriceCents()), "price"),
                 UiControls.label(sale.getListingDescription(), "description"),
                 UiControls.label("Agreed condition: " + UiControls.title(sale.getListingCondition()), "muted"),
-                app.profileLink(value.otherParticipant(), "sale-counterpart"),
+                app.profileLink(value.otherParticipant(), "sale-counterpart"));
+        VBox progress = new VBox(16, status,
                 UiControls.label("Buyer confirmed: " + sale.getBuyerConfirmedAt().map(UiControls::time)
                         .orElse("Not yet"), "muted"),
                 UiControls.label("Seller confirmed: " + sale.getSellerConfirmedAt().map(UiControls::time)
@@ -138,39 +142,69 @@ final class SalePages {
                         UiControls.button("Open Chat", "sale-open-chat", () -> app.navigate(isSeller
                                 ? () -> app.chats.withBuyer(sale.getListingId(), sale.getBuyerId())
                                 : () -> app.chats.withSeller(sale.getListingId())))));
-        sale.getCancelledAt().ifPresent(time -> page.body.getChildren().add(UiControls.label(
+        sale.getCancelledAt().ifPresent(time -> progress.getChildren().add(UiControls.label(
                 "Cancelled " + UiControls.time(time) + " by "
                         + (sale.getCancelledBy().orElseThrow().equals(app.userId()) ? "you"
                                 : value.otherParticipant().displayName()), "muted")));
-        addAction(page, value, SaleAction.CONFIRM_COMPLETION, isSeller);
+        meetupDetail(value).ifPresent(progress.getChildren()::add);
+        addAction(page, progress, value, SaleAction.CONFIRM_COMPLETION, isSeller);
         if (sale.getPendingCancellation().isPresent()) {
             if (sale.getPendingCancellation().orElseThrow().getRequesterId().equals(app.userId())) {
-                addAction(page, value, SaleAction.WITHDRAW_CANCELLATION, isSeller);
+                addAction(page, progress, value, SaleAction.WITHDRAW_CANCELLATION, isSeller);
             } else {
-                addAction(page, value, SaleAction.ACCEPT_CANCELLATION, isSeller);
-                addAction(page, value, SaleAction.REJECT_CANCELLATION, isSeller);
+                addAction(page, progress, value, SaleAction.ACCEPT_CANCELLATION, isSeller);
+                addAction(page, progress, value, SaleAction.REJECT_CANCELLATION, isSeller);
             }
         } else {
-            addAction(page, value, sale.hasConfirmation() ? SaleAction.REQUEST_CANCELLATION : SaleAction.CANCEL_SALE,
-                    isSeller);
+            addAction(page, progress, value,
+                    sale.hasConfirmation() ? SaleAction.REQUEST_CANCELLATION : SaleAction.CANCEL_SALE, isSeller);
         }
-        meetupDetail(value).ifPresent(page.body.getChildren()::add);
         if (sale.getStatus() != TransactionStatus.ACTIVE) {
-            page.body.getChildren().add(UiControls.label(
+            progress.getChildren().add(UiControls.label(
                     "This sale is closed; no further changes are available.", "hint"));
         }
-        page.body.getChildren().add(UiControls.label("Cancellation history", "section-title"));
+        progress.getChildren().add(UiControls.label("Cancellation history", "section-title"));
         if (sale.getCancellationRequests().isEmpty()) {
-            page.body.getChildren().add(UiControls.label("No cancellation requests.", "muted"));
+            progress.getChildren().add(UiControls.label("No cancellation requests.", "muted"));
         }
-        sale.getCancellationRequests().forEach(request -> page.body.getChildren().add(UiControls.label(
+        sale.getCancellationRequests().forEach(request -> progress.getChildren().add(UiControls.label(
                 (request.getRequesterId().equals(app.userId()) ? "You" : value.otherParticipant().displayName())
                         + " requested cancellation " + UiControls.time(request.getCreatedAt()) + " · "
                         + UiControls.title(request.getStatus()) + request.getResolvedAt()
                                 .map(time -> " · Resolved " + UiControls.time(time)).orElse(""), "muted")));
+        page.body.getChildren().add(detailColumns(page, item, progress));
     }
 
-    private void addAction(UiPage page, SaleForParticipant value, SaleAction action, boolean isSeller) {
+    private GridPane detailColumns(UiPage page, VBox item, VBox progress) {
+        GridPane columns = new GridPane();
+        columns.setMinHeight(GridPane.USE_PREF_SIZE);
+        columns.setHgap(24);
+        columns.setVgap(24);
+        item.setMinWidth(0);
+        progress.setMinWidth(0);
+        item.setMinHeight(VBox.USE_PREF_SIZE);
+        progress.setMinHeight(VBox.USE_PREF_SIZE);
+        columns.add(item, 0, 0);
+        columns.add(progress, 0, 1);
+        ColumnConstraints left = new ColumnConstraints();
+        ColumnConstraints right = new ColumnConstraints();
+        left.setPercentWidth(100);
+        columns.getColumnConstraints().setAll(left);
+        columns.widthProperty().addListener((observable, oldWidth, width) -> {
+            boolean wide = width.doubleValue() >= TWO_COLUMN_WIDTH;
+            left.setPercentWidth(wide ? 50 : 100);
+            right.setPercentWidth(50);
+            columns.getColumnConstraints().setAll(wide ? List.of(left, right) : List.of(left));
+            GridPane.setConstraints(progress, wide ? 1 : 0, wide ? 0 : 1);
+            // Recompute the scroll content height after changing rows during a resize layout pass.
+            javafx.application.Platform.runLater(page::requestLayout);
+        });
+        GridPane.setValignment(item, javafx.geometry.VPos.TOP);
+        GridPane.setValignment(progress, javafx.geometry.VPos.TOP);
+        return columns;
+    }
+
+    private void addAction(UiPage page, VBox progress, SaleForParticipant value, SaleAction action, boolean isSeller) {
         String title = switch (action) {
             case CONFIRM_COMPLETION -> "Confirm Completion";
             case CANCEL_SALE -> "Cancel Sale";
@@ -196,7 +230,7 @@ final class SalePages {
                     }
                 });
         button.setDisable(!value.availableActions().contains(action));
-        page.body.getChildren().add(button);
+        progress.getChildren().add(button);
     }
 
     private CompletableFuture<SaleForParticipant> execute(SaleAction action, UUID id) {

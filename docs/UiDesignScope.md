@@ -80,3 +80,72 @@ Individual recommendations Q1-Q28 and the consolidated scope were confirmed. Imp
 - JUnit tests exercise service boundaries, search state, and actual JavaFX workflows
   using temporary databases. Screenshots are generated under `build/ui-checks/`.
 - Exact branding and unfinished-feature screen internals remain deferred as agreed.
+
+## Visual refresh interview (2026-09-26)
+
+The user confirmed this specification by requesting `$implement this` after the
+consolidated design. The visual refresh implements the following decisions:
+
+- Use warm minimalism and a light-only theme.
+- Apply the theme across all implemented pages.
+- Preserve the current navigation structure and project functionality.
+- Use ivory backgrounds, white cards, charcoal text, burnt-orange accents,
+  subtle borders, and gently rounded corners. Do not use shadows.
+- Listing cards have fixed dimensions and uniform heights with aligned rows.
+  Resizing the window changes how many cards fit in a row, not card dimensions.
+  Cards must not stretch vertically to fill available page space.
+- Show the listing image followed by its title and price. Reserve two lines for
+  titles; truncate with an ellipsis only when the title exceeds that space.
+- Preserve the entire listing image's aspect ratio within a consistent frame,
+  using a soft neutral background for unused space rather than cropping.
+- Keep cards 240 JavaFX layout units wide.
+- When viewing their own listing cards, sellers see listing status and the
+  pending-offer count; condition need not be shown on these cards.
+- Buyers see condition on other sellers' listing cards. Condition is the buyer
+  card footer; status and pending offers form the owner's card footer.
+
+Cards are 240 x 304 JavaFX layout units, including a 208 x 130 image frame and a
+52-unit title area. Existing dialogs and interaction states use the shared theme.
+These card presentation decisions supersede the original summary-card styling
+above; existing workflow decisions remain in effect.
+
+## Post-merge layout interview (2026-09-26, not yet implemented)
+
+The following decisions were agreed across interview questions Q1-Q5 and saved
+at the user's request for later implementation. The complete
+[layout refinement specification](UiLayoutRefinementSpec.md) is published as
+[issue #16](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/issues/16).
+Implementation is explicitly deferred.
+
+- Seller listing cards gain a dedicated meetup area below the status and
+  pending-offer footer, with more height to accommodate date, time, and place.
+  All cards in My Listings use the same taller height, including cards without
+  a meetup, to keep rows aligned. Search and public-profile cards retain their
+  compact 240 x 304 dimensions. Card widths, image sizing, and two-line title
+  areas remain unchanged. The taller height is determined from the required
+  content and padding rather than stretching cards to fill the window.
+- The meetup area shows separate date and time lines, followed by up to two
+  lines for the place. Only an oversized place is truncated with an ellipsis;
+  full dates and times remain visible, including both dates for overnight
+  meetups. An unbooked sale shows "No meetup times yet" or the offered-time
+  count in the same reserved area. Listings without a meetup summary leave
+  that area empty. Full meetup details remain available in the sale and chat.
+- Conversation cards open the conversation when clicked outside their separate
+  View Listing and participant-profile buttons. Each button opens its own
+  destination without also opening the conversation. Apply this to both
+  conversation groups and preserve keyboard access.
+- Sale Details uses two columns when space permits: item, price, and participant
+  information on the left; sale status, meetup, and available actions on the
+  right. Narrow windows stack these sections vertically.
+- The navigation column has a white background for the full window height,
+  including below its links, while retaining scrolling when needed.
+
+These are planned revisions to the implemented behavior documented above and
+in Chat Screens Design and Meetup Screens Design, not claims about current UI.
+
+Verification should cover mixed listing states with uniform seller-card heights,
+full date/time rendering (including overnight meetups), two-line place overflow,
+unchanged compact buyer cards, independent conversation/listing/profile click
+targets and keyboard access, stacked and two-column sale layouts, and sidebar
+background coverage with short and scrollable navigation content. Inspect
+rendered content, not just underlying label text or containment bounds.

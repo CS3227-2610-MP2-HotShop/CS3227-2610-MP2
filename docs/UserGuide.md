@@ -19,6 +19,11 @@ HotShop opens the **Log in** page in an 1100 by 750 window. The minimum window
 size is 960 by 640 (JavaFX layout units). Pages and the sidebar scroll when
 needed; listing grids wrap to fewer columns in narrower windows.
 
+Pages and dialogs use a warm light theme with ivory backgrounds, white panels,
+burnt-orange accents, and no shadows. Keyboard focus is shown with an outline.
+Conversations use the same theme: unread badges use the orange accent, and your
+own messages have a soft warm background to distinguish them from replies.
+
 Startup creates or opens a local database and image folder at `.hotshop` in your
 home directory. Accounts, listings, offers, and images in that folder survive
 application restarts. Only one HotShop instance may use the same folder at a time.
@@ -48,6 +53,8 @@ and password confirmation. Registration returns to login with your username
 filled in. Password visibility checkboxes let you inspect what you typed.
 After login, the Search page opens. Every user can both buy and sell; the sidebar's
 Buying and Selling headings organise pages and do not switch account roles.
+The white navigation column fills the window height. In shorter windows, scroll
+within it to reach the remaining links.
 
 Use **My Profile** to save your display name and private preferred pickup location.
 Your username cannot be changed. **Replace Image** and **Remove Image** save
@@ -73,11 +80,17 @@ submitted search, sorting, and scroll position. A new login resets search.
 
 For example, search for `desk`, choose Furniture, and set a maximum price of
 `50.00`. Matching listing cards show a photo or placeholder, title, asking price,
-condition, and status. Open a card to see all photos, the description, category,
+and condition. Open a card to see all photos, the description, status, category,
 condition, pickup location, and seller profile link. No matches and failed loads
 have different messages; a failed load offers **Retry**.
 
-Under Selling, **My Listings** shows your listings and pending-offer counts.
+Listing cards stay the same size when the window is resized: wider windows fit
+more cards per row. Cards have aligned rows and prices, with two lines reserved
+for the title. Titles that exceed two lines end with an ellipsis; open the card
+to read the full title. Photos fit completely inside their frames without cropping.
+
+Under Selling, **My Listings** shows your listings, status, and pending-offer counts;
+condition is available on the detail page instead of these owner cards.
 Choose **Create Listing**, enter the details, and optionally use **Add Photo**.
 Photo previews have **Move Up**, **Move Down**, and **Remove** controls. New listings
 prefill your preferred pickup location, which you can change for that listing.
@@ -134,7 +147,10 @@ any of these ways:
 The Conversations page puts conversations with a pending offer or an active sale
 under **Offers and sales**, and the rest under **Other conversations**. Each card
 shows the listing, the other person, whether you're buying or selling, a preview,
-and how many unread items it has. Choose the listing title to open it, or
+and how many unread items it has. Click the card body, including its title, to
+open the conversation. **View Listing** opens the item; the other person's
+name/photo opens their profile. These are separate keyboard targets: Tab between
+them and use Enter or Space on the card, or Space on either button. Choose
 **Refresh** to reload the list.
 
 A conversation page shows the other person, the listing's status, and **View
@@ -193,11 +209,21 @@ sale if the handover happened. Completing the sale shows "Sale completed · Met 
 started or overlaps another of your meetups), the reason appears and nothing
 changes.
 
-The meetup also appears as one line on each active sale in **My Sales** and **My
+The meetup also appears on each active sale in **My Sales** and **My
 Purchases**, and on reserved listings in **My Listings**, for example "2 times
 offered" or "No meetup times yet". A sale's **Sale Details** page shows the same
 text as the conversation's bar. Completed sales that had a meetup show where you
 met ("Met on ...").
+Every **My Listings** card has the same taller height, reserving a meetup area
+below its status and pending-offer count even when there is no summary. Booked
+meetups show the date and time separately, including both dates for an overnight
+meetup. Places use up to two lines; only oversized places end with an ellipsis.
+Open the sale or its conversation for full details. Search and public-profile
+cards keep their compact size.
+
+**Sale Details** groups the item, agreed price, and other participant on the left
+and status, meetup, and actions on the right. Narrow windows stack these sections;
+scroll down to reach all information and actions.
 
 ## Feedback and unfinished features
 
@@ -339,8 +365,9 @@ only the sale's buyer and seller can see or act on its meetup.
   You can confirm completion with or without a meetup. A meetup whose time has
   passed stays booked, and the next step becomes "Did the handover happen?
   Confirm completion".
-- Each sale in My Sales and My Purchases, and each reserved listing, shows its
-  offered times or booked meetup as one line.
+- Each sale in My Sales and My Purchases shows a meetup summary. Reserved
+  listings show offered-time counts or booked dates, times, and place in their
+  dedicated meetup area.
 - Every refused action explains what went wrong, for example: "The seller
   already has a meetup from Fri 25 Sep, 3:00 PM to Fri 25 Sep, 3:30 PM. Choose a
   different time."

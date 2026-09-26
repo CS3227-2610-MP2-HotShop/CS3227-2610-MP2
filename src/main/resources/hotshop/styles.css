@@ -1,101 +1,98 @@
+/* Warm, shadow-free palette shared by pages, dialogs, and popup controls. */
 .root {
+    -hotshop-ink: #302c28;
+    -hotshop-muted: #6b6259;
+    -hotshop-accent: #a9431e;
+    -hotshop-border: #ddd5cb;
+    -hotshop-soft: #f5eee5;
     -fx-font-family: "System";
     -fx-font-size: 14px;
-    -fx-background-color: #f5f6f8;
-    -fx-text-fill: #243342;
+    -fx-base: #ffffff;
+    -fx-background: #faf7f2;
+    -fx-background-color: -fx-background;
+    -fx-control-inner-background: #ffffff;
+    -fx-text-base-color: -hotshop-ink;
+    -fx-text-background-color: -hotshop-ink;
+    -fx-accent: -hotshop-accent;
+    -fx-focus-color: -hotshop-accent;
+    -fx-faint-focus-color: transparent;
+    -fx-selection-bar: -hotshop-accent;
+    -fx-selection-bar-non-focused: #eee1d4;
 }
+.label { -fx-text-fill: -hotshop-ink; }
 .sidebar {
     -fx-background-color: #ffffff;
     -fx-padding: 20 14;
     -fx-spacing: 4;
-    -fx-border-color: transparent #dce2e8 transparent transparent;
+    -fx-border-color: transparent -hotshop-border transparent transparent;
 }
 .brand {
     -fx-font-size: 28px;
     -fx-font-weight: bold;
-    -fx-text-fill: #2458a6;
+    -fx-text-fill: -hotshop-accent;
+    -fx-padding: 0 8 12 8;
 }
 .nav-heading {
-    -fx-padding: 10 8 2 8;
+    -fx-padding: 12 8 4 8;
     -fx-font-size: 11px;
     -fx-font-weight: bold;
-    -fx-text-fill: #526273;
+    -fx-text-fill: -hotshop-muted;
 }
-.page {
-    -fx-padding: 24;
-    -fx-spacing: 16;
-}
-.page-title {
-    -fx-font-size: 26px;
-    -fx-font-weight: bold;
-}
-.section-title {
-    -fx-font-size: 18px;
-    -fx-font-weight: bold;
-}
+.page { -fx-padding: 24; -fx-spacing: 16; }
+.page-title { -fx-font-size: 26px; -fx-font-weight: bold; }
+.section-title { -fx-font-size: 18px; -fx-font-weight: bold; }
 .card, .form-panel {
-    -fx-background-color: white;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
-    -fx-border-color: #dce2e8;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -hotshop-border;
     -fx-padding: 16;
     -fx-spacing: 10;
 }
-.button {
-    -fx-background-radius: 5;
-    -fx-padding: 9 14;
+.button, .combo-box-base {
+    -fx-background-color: #ffffff;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-border-color: -hotshop-border;
+    -fx-border-radius: 6;
+    -fx-padding: 8 13;
+    -fx-text-fill: -hotshop-ink;
     -fx-cursor: hand;
+    -fx-effect: null;
 }
-.primary {
-    -fx-background-color: #2458a6;
-    -fx-text-fill: white;
+.button:hover, .combo-box-base:hover { -fx-background-color: -hotshop-soft; }
+.button:armed { -fx-background-color: #eee1d4; }
+.primary, .button:default {
+    -fx-background-color: -hotshop-accent;
+    -fx-border-color: -hotshop-accent;
+    -fx-text-fill: #ffffff;
     -fx-font-weight: bold;
 }
-.primary:hover {
-    -fx-background-color: #194887;
-}
-.danger {
-    -fx-text-fill: #a32222;
-}
+.primary:hover, .button:default:hover { -fx-background-color: #8c3516; }
+.primary:armed, .button:default:armed { -fx-background-color: #752c13; }
+.danger { -fx-text-fill: #a12d2d; }
 .nav-button {
     -fx-alignment: center-left;
     -fx-background-color: transparent;
+    -fx-border-color: transparent;
 }
-.nav-button:hover {
-    -fx-background-color: #eaf0fa;
-}
-.sidebar .button {
-    -fx-padding: 6 8;
-    -fx-font-size: 13px;
-}
-.button:disabled {
-    -fx-opacity: 0.7;
-}
-.muted, .hint {
-    -fx-text-fill: #526273;
-}
-.hint {
+.nav-button:hover { -fx-background-color: -hotshop-soft; }
+.sidebar .button { -fx-padding: 6 8; -fx-font-size: 13px; }
+.button:disabled { -fx-opacity: 0.65; }
+.muted, .hint { -fx-text-fill: -hotshop-muted; }
+.hint { -fx-font-size: 12px; }
+.error { -fx-text-fill: #a12d2d; }
+.success { -fx-text-fill: #32633d; }
+.badge {
+    -fx-background-color: -hotshop-soft;
+    -fx-background-radius: 5;
+    -fx-padding: 4 8;
+    -fx-text-fill: #754326;
     -fx-font-size: 12px;
 }
-.error {
-    -fx-text-fill: #a32222;
-}
-.success {
-    -fx-text-fill: #236037;
-}
-.badge {
-    -fx-background-color: #eaf0fa;
-    -fx-background-radius: 4;
-    -fx-padding: 4 8;
-    -fx-text-fill: #24466f;
-}
-.price {
-    -fx-font-size: 18px;
-    -fx-font-weight: bold;
-    -fx-text-fill: #2458a6;
-}
+.price { -fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: -hotshop-accent; }
 .unread {
-    -fx-background-color: #2458a6;
+    -fx-background-color: -hotshop-accent;
     -fx-background-radius: 4;
     -fx-padding: 2 8;
     -fx-text-fill: white;
@@ -105,7 +102,7 @@
     -fx-background-color: white;
     -fx-background-radius: 8;
     -fx-border-radius: 8;
-    -fx-border-color: #dce2e8;
+    -fx-border-color: -hotshop-border;
     -fx-padding: 8 12;
 }
 .offer-bar .section-title {
@@ -116,25 +113,103 @@
     -fx-padding: 8 12;
 }
 .message-own {
-    -fx-background-color: #dde8f8;
+    -fx-background-color: -hotshop-soft;
 }
 .message-other {
     -fx-background-color: white;
-    -fx-border-color: #dce2e8;
+    -fx-border-color: -hotshop-border;
     -fx-border-radius: 8;
 }
 .image-placeholder {
-    -fx-background-color: #edf0f4;
+    -fx-background-color: #f1ece5;
     -fx-background-radius: 6;
     -fx-alignment: center;
-    -fx-text-fill: #526273;
+    -fx-text-fill: -hotshop-muted;
 }
-.scroll-pane, .scroll-pane > .viewport {
-    -fx-background-color: transparent;
+.listing-card {
+    -fx-padding: 15;
+    -fx-alignment: top-left;
+    -fx-graphic-text-gap: 0;
+    -fx-content-display: graphic-only;
 }
+.listing-card:hover { -fx-background-color: #ffffff; -fx-border-color: -hotshop-accent; }
+.listing-card:armed { -fx-background-color: -hotshop-soft; }
+.conversation-card { -fx-cursor: hand; }
+.conversation-card:hover { -fx-border-color: -hotshop-accent; }
+.conversation-card:focused {
+    -fx-border-color: -hotshop-accent;
+    -fx-border-style: segments(3, 2);
+}
+.listing-card-title { -fx-font-size: 16px; -fx-font-weight: bold; }
+.listing-card-footer { -fx-font-size: 12px; -fx-text-fill: -hotshop-muted; }
+.scroll-pane, .scroll-pane > .viewport { -fx-background-color: transparent; }
+.navigation, .navigation > .viewport { -fx-background-color: #ffffff; }
 .text-field, .text-area, .combo-box {
-    -fx-background-radius: 4;
+    -fx-background-color: #ffffff;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-border-color: -hotshop-border;
+    -fx-border-radius: 6;
+    -fx-text-fill: -hotshop-ink;
+    -fx-prompt-text-fill: -hotshop-muted;
+    -fx-highlight-fill: -hotshop-accent;
+    -fx-highlight-text-fill: #ffffff;
+    -fx-effect: null;
 }
+.text-field { -fx-padding: 9 10; }
+.text-area { -fx-padding: 3; }
+.text-area .content { -fx-background-color: #ffffff; -fx-background-radius: 4; }
+.combo-box { -fx-padding: 3; }
+.combo-box .list-cell { -fx-text-fill: -hotshop-ink; }
+.combo-box-popup .list-view, .context-menu {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -hotshop-border;
+    -fx-background-insets: 0;
+    -fx-effect: null;
+}
+.combo-box-popup .list-cell:filled:hover,
+.combo-box-popup .list-cell:filled:selected {
+    -fx-background-color: -hotshop-soft;
+    -fx-text-fill: -hotshop-ink;
+}
+.check-box .box {
+    -fx-background-color: #ffffff;
+    -fx-background-insets: 0;
+    -fx-border-color: -hotshop-border;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-padding: 4;
+}
+.check-box:selected .box { -fx-background-color: -hotshop-accent; -fx-border-color: -hotshop-accent; }
+.check-box:selected .mark { -fx-background-color: #ffffff; }
+.titled-pane > .title {
+    -fx-background-color: -hotshop-soft;
+    -fx-background-radius: 6;
+    -fx-padding: 9 10;
+}
+.titled-pane > .content {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -hotshop-border;
+    -fx-padding: 12;
+}
+.titled-pane > .title > .arrow-button .arrow { -fx-background-color: -hotshop-muted; }
+.scroll-bar { -fx-background-color: transparent; -fx-pref-width: 12; -fx-pref-height: 12; }
+.scroll-bar .track { -fx-background-color: transparent; -fx-border-color: transparent; }
+.scroll-bar .thumb { -fx-background-color: #c8beb1; -fx-background-radius: 6; }
+.scroll-bar .thumb:hover { -fx-background-color: #aa9b89; }
+.scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-background-color: transparent; }
+.progress-indicator { -fx-progress-color: -hotshop-accent; }
+.dialog-pane { -fx-background-color: #faf7f2; -fx-padding: 20; }
+.dialog-pane > .header-panel { -fx-background-color: #faf7f2; -fx-padding: 0 0 16 0; }
+.dialog-pane > .header-panel .label { -fx-font-size: 20px; -fx-font-weight: bold; }
+.dialog-pane > .button-bar > .container { -fx-padding: 16 0 0 0; }
+/* Border-based keyboard focus keeps every surface shadow-free. */
 .button:focused, .text-field:focused, .text-area:focused, .combo-box:focused {
-    -fx-effect: dropshadow(gaussian, #aac3ea, 4, 0.3, 0, 0);
+    -fx-border-color: -hotshop-accent;
+    -fx-border-style: segments(3, 2);
+    -fx-border-width: 1;
+    -fx-effect: null;
 }
+.check-box:focused .box { -fx-border-color: -hotshop-accent; }
+.primary:focused, .button:default:focused { -fx-border-color: -hotshop-ink; }
+.titled-pane:focused > .title { -fx-border-color: -hotshop-accent; -fx-border-radius: 6; }

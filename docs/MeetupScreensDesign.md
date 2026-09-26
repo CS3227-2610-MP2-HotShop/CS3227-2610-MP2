@@ -63,9 +63,14 @@ overlaps) stay in the dialog.
 
 - **Sale Details:** the disabled "Arrange Meetup" is removed. A **Meetup** line
   shows the same summary as the bar, and Open Chat is the way to arrange it.
-- **My Sales, My Purchases, and reserved My Listings entries:** a one-line
+- **My Sales and My Purchases entries:** a one-line
   meetup summary ("Meetup: Fri 2 Oct 2026, 14:00 to 14:30 · Library lobby",
   "2 times offered", "No meetup times yet").
+- **My Listings:** uniform 240 x 432 cards reserve a meetup area below the
+  status/offer footer. Booked dates and times use separate lines, with both dates
+  for overnight meetups. Places use two lines and ellipses only when oversized.
+  Unbooked sales show the offered count or "No meetup times yet"; cards without
+  summaries reserve empty space. This implements the card revision in issue #16.
 - **Dashboard:** a fifth summary card, "Upcoming meetups", counting the seller's
   scheduled meetups that have not started.
 - **Sidebar:** the disabled "Meetups" and "Availability & Meetups" entries are
@@ -105,6 +110,8 @@ but not shown), live refresh, and reminders.
 
 ## Implementation notes
 
+- Issue #16: the conversation's meetup bar wraps the full summary above its
+  action row so long places and action labels remain readable at minimum width.
 - Stage choice is `MeetupBar.replacesOfferBar`; a completed sale's meetup comes
   from its `SaleForParticipant`, because a conversation only carries an active
   sale's ID.
