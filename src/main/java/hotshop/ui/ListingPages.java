@@ -105,16 +105,27 @@ final class ListingPages {
         });
         archive.setDisable(listing.getStatus() != ListingStatus.AVAILABLE
                 && listing.getStatus() != ListingStatus.SOLD);
-        var delete = UiControls.button("Delete Listing", "delete-listing", () -> {
-            if (app.confirm("Delete Listing", "Permanently remove this listing and its managed photos?")) {
-                page.perform(() -> app.runtime.getListings().deleteListing(listing.getId()),
-                        ignored -> app.replace(this::mine));
-            }
-        });
+        var delete = UiControls.button("Delete Listing", "delete-listing", () -> page.perform(
+                () -> app.runtime.getChats().getConversations(),
+                conversations -> confirmDelete(page, listing, conversations.stream()
+                        .filter(summary -> summary.listing().getId().equals(listing.getId())).count())));
         delete.setDisable(!listing.isDeletable());
         page.body.getChildren().add(UiControls.actions(edit, archive, delete));
         page.body.getChildren().add(UiControls.label("Only available listings can be edited. Reserved listings cannot "
                 + "be archived. Deletion requires an available/archived listing without offer history.", "hint"));
         app.offers.incoming(page, listing, delete);
+    }
+
+    /** Warns that deleting also deletes the buyers' enquiry conversations, which are lost for them too. */
+    private void confirmDelete(UiPage page, Listing listing, long conversations) {
+        String consequence = "Permanently remove this listing and its managed photos?";
+        if (conversations > 0) {
+            consequence += " " + conversations + (conversations == 1 ? " conversation" : " conversations")
+                    + " about this listing will also be deleted, for you and the buyers.";
+        }
+        if (app.confirm("Delete Listing", consequence)) {
+            page.perform(() -> app.runtime.getListings().deleteListing(listing.getId()),
+                    ignored -> app.replace(this::mine));
+        }
     }
 }

@@ -510,14 +510,34 @@ class ChatServiceTest {
     }
 
     @Test
-    void deleteListing_enquiryConversation_reportsInvalidState() throws Exception {
+    void deleteListing_enquiryConversations_deletesThemWithTheListing() throws Exception {
         try (ApplicationRuntime runtime = open()) {
             UUID conversation = enquiry(runtime, "Chairs", "Hi");
             UUID listing = listingOf(runtime, conversation);
+            signIn(runtime, "carol");
+            runtime.getChats().messageSeller(listing, "Is it still here?").join();
             signIn(runtime, "alice");
-            var failure = assertFailure(ServiceException.Code.INVALID_STATE,
-                    () -> runtime.getListings().deleteListing(listing).join());
-            assertTrue(failure.getMessage().contains("Archive"), failure.getMessage());
+            runtime.getListings().deleteListing(listing).join();
+            assertEquals(List.of(), runtime.getChats().getConversations().join());
+            assertFailure(ServiceException.Code.NOT_FOUND, () -> runtime.getListings().getListing(listing).join());
+            signIn(runtime, "bobby");
+            assertEquals(List.of(), runtime.getChats().getConversations().join());
+            assertFailure(ServiceException.Code.NOT_FOUND,
+                    () -> runtime.getChats().openConversation(conversation).join());
+        }
+    }
+
+    @Test
+    void deleteListing_otherListingsConversation_keepsIt() throws Exception {
+        try (ApplicationRuntime runtime = open()) {
+            UUID kept = enquiry(runtime, "Chairs", "Hi");
+            UUID lamp = listing(runtime, "alice", "Lamp");
+            signIn(runtime, "bobby");
+            runtime.getChats().messageSeller(lamp, "Lamp?").join();
+            signIn(runtime, "alice");
+            runtime.getListings().deleteListing(lamp).join();
+            assertEquals(List.of(kept), runtime.getChats().getConversations().join().stream()
+                    .map(summary -> summary.conversation().getId()).toList());
         }
     }
 

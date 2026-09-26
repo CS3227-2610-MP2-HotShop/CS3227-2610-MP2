@@ -248,7 +248,7 @@ Future services must obtain actor IDs from the authenticated session and:
    transaction atomically. Construct `Transaction` after acceptance/reservation.
 4. Reject pending offers after an actual listing edit or archival. Done by
    ListingService through `PendingOffers`; `deleteListing` refuses listings with
-   offer history or any conversation.
+   offer history and deletes their enquiry conversations in the same transaction.
 5. Mark the listing sold after transaction completion, or release it after
    direct/mutually agreed cancellation, in the same persistence transaction.
    Done by TransactionService, which also closes the sale's meetup through `SaleMeetups`.

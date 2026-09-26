@@ -240,7 +240,8 @@ public final class ListingService {
 
     /**
      * Owner only; permanently removes an available or archived listing that has never received an
-     * offer or started a conversation, and retires its photos.
+     * offer, together with its enquiry conversations and their messages, and retires its photos.
+     * Every offer starts a conversation, so only enquiries without offers can be deleted this way.
      */
     public CompletableFuture<Void> deleteListing(UUID id) {
         return submit(() -> {
@@ -256,10 +257,7 @@ public final class ListingService {
                     throw ServiceException.invalidState(
                             "This listing has offer history, so it can't be deleted. Archive it instead.");
                 }
-                if (chats.existsForListing(connection, id)) {
-                    throw ServiceException.invalidState(
-                            "This listing has conversations, so it can't be deleted. Archive it instead.");
-                }
+                chats.deleteForListing(connection, id);
                 for (ListingImage image : listing.getImages()) {
                     images.schedule(connection, image.filename());
                 }

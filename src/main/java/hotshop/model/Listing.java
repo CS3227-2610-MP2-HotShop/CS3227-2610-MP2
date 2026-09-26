@@ -95,7 +95,7 @@ public final class Listing {
 
     /**
      * True for available or archived listings; reserved and sold listings always have a transaction.
-     * Services must also refuse listings with offer or conversation history.
+     * Services must also refuse listings with offer history.
      */
     public boolean isDeletable() {
         return status == ListingStatus.AVAILABLE || status == ListingStatus.ARCHIVED;

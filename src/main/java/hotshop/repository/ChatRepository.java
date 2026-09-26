@@ -75,14 +75,16 @@ public final class ChatRepository {
         }
     }
 
-    /** True when any buyer has a conversation about the listing. */
-    public boolean existsForListing(Connection connection, UUID listingId) throws SQLException {
-        try (var statement = connection.prepareStatement(
-                "SELECT 1 FROM conversations WHERE listing_id = ? LIMIT 1")) {
+    /** Deletes every conversation about the listing and all their messages, messages first for the foreign key. */
+    public void deleteForListing(Connection connection, UUID listingId) throws SQLException {
+        try (var statement = connection.prepareStatement("DELETE FROM messages WHERE conversation_id IN "
+                + "(SELECT id FROM conversations WHERE listing_id = ?)")) {
             statement.setString(1, listingId.toString());
-            try (var rows = statement.executeQuery()) {
-                return rows.next();
-            }
+            statement.executeUpdate();
+        }
+        try (var statement = connection.prepareStatement("DELETE FROM conversations WHERE listing_id = ?")) {
+            statement.setString(1, listingId.toString());
+            statement.executeUpdate();
         }
     }
 
