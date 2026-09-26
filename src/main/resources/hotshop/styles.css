@@ -5,6 +5,11 @@
     -hotshop-accent: #a9431e;
     -hotshop-border: #ddd5cb;
     -hotshop-soft: #f5eee5;
+    -hotshop-surface: #ffffff;
+    -hotshop-on-accent: #ffffff;
+    -hotshop-page: #faf7f2;
+    -hotshop-pressed: #eee1d4;
+    -hotshop-danger: #a12d2d;
     -fx-font-family: "System";
     -fx-font-size: 14px;
     -fx-base: #ffffff;
@@ -21,7 +26,7 @@
 }
 .label { -fx-text-fill: -hotshop-ink; }
 .sidebar {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-padding: 20 14;
     -fx-spacing: 4;
     -fx-border-color: transparent -hotshop-border transparent transparent;
@@ -42,7 +47,7 @@
 .page-title { -fx-font-size: 26px; -fx-font-weight: bold; }
 .section-title { -fx-font-size: 18px; -fx-font-weight: bold; }
 .card, .form-panel {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-background-radius: 10;
     -fx-border-radius: 10;
     -fx-border-color: -hotshop-border;
@@ -50,7 +55,7 @@
     -fx-spacing: 10;
 }
 .button, .combo-box-base {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-background-insets: 0;
     -fx-background-radius: 6;
     -fx-border-color: -hotshop-border;
@@ -61,16 +66,16 @@
     -fx-effect: null;
 }
 .button:hover, .combo-box-base:hover { -fx-background-color: -hotshop-soft; }
-.button:armed { -fx-background-color: #eee1d4; }
+.button:armed { -fx-background-color: -hotshop-pressed; }
 .primary, .button:default {
     -fx-background-color: -hotshop-accent;
     -fx-border-color: -hotshop-accent;
-    -fx-text-fill: #ffffff;
+    -fx-text-fill: -hotshop-on-accent;
     -fx-font-weight: bold;
 }
 .primary:hover, .button:default:hover { -fx-background-color: #8c3516; }
 .primary:armed, .button:default:armed { -fx-background-color: #752c13; }
-.danger { -fx-text-fill: #a12d2d; }
+.danger { -fx-text-fill: -hotshop-danger; }
 .nav-button {
     -fx-alignment: center-left;
     -fx-background-color: transparent;
@@ -81,7 +86,7 @@
 .button:disabled { -fx-opacity: 0.65; }
 .muted, .hint { -fx-text-fill: -hotshop-muted; }
 .hint { -fx-font-size: 12px; }
-.error { -fx-text-fill: #a12d2d; }
+.error { -fx-text-fill: -hotshop-danger; }
 .success { -fx-text-fill: #32633d; }
 .badge {
     -fx-background-color: -hotshop-soft;
@@ -95,11 +100,11 @@
     -fx-background-color: -hotshop-accent;
     -fx-background-radius: 4;
     -fx-padding: 2 8;
-    -fx-text-fill: white;
+    -fx-text-fill: -hotshop-on-accent;
     -fx-font-weight: bold;
 }
 .offer-bar {
-    -fx-background-color: white;
+    -fx-background-color: -hotshop-surface;
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-border-color: -hotshop-border;
@@ -116,7 +121,7 @@
     -fx-background-color: -hotshop-soft;
 }
 .message-other {
-    -fx-background-color: white;
+    -fx-background-color: -hotshop-surface;
     -fx-border-color: -hotshop-border;
     -fx-border-radius: 8;
 }
@@ -132,7 +137,7 @@
     -fx-graphic-text-gap: 0;
     -fx-content-display: graphic-only;
 }
-.listing-card:hover { -fx-background-color: #ffffff; -fx-border-color: -hotshop-accent; }
+.listing-card:hover { -fx-background-color: -hotshop-surface; -fx-border-color: -hotshop-accent; }
 .listing-card:armed { -fx-background-color: -hotshop-soft; }
 .conversation-card { -fx-cursor: hand; }
 .conversation-card:hover { -fx-border-color: -hotshop-accent; }
@@ -143,9 +148,9 @@
 .listing-card-title { -fx-font-size: 16px; -fx-font-weight: bold; }
 .listing-card-footer { -fx-font-size: 12px; -fx-text-fill: -hotshop-muted; }
 .scroll-pane, .scroll-pane > .viewport { -fx-background-color: transparent; }
-.navigation, .navigation > .viewport { -fx-background-color: #ffffff; }
+.navigation, .navigation > .viewport { -fx-background-color: -hotshop-surface; }
 .text-field, .text-area, .combo-box {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-background-insets: 0;
     -fx-background-radius: 6;
     -fx-border-color: -hotshop-border;
@@ -153,16 +158,16 @@
     -fx-text-fill: -hotshop-ink;
     -fx-prompt-text-fill: -hotshop-muted;
     -fx-highlight-fill: -hotshop-accent;
-    -fx-highlight-text-fill: #ffffff;
+    -fx-highlight-text-fill: -hotshop-on-accent;
     -fx-effect: null;
 }
 .text-field { -fx-padding: 9 10; }
 .text-area { -fx-padding: 3; }
-.text-area .content { -fx-background-color: #ffffff; -fx-background-radius: 4; }
+.text-area .content { -fx-background-color: -hotshop-surface; -fx-background-radius: 4; }
 .combo-box { -fx-padding: 3; }
 .combo-box .list-cell { -fx-text-fill: -hotshop-ink; }
 .combo-box-popup .list-view, .context-menu {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-border-color: -hotshop-border;
     -fx-background-insets: 0;
     -fx-effect: null;
@@ -173,7 +178,7 @@
     -fx-text-fill: -hotshop-ink;
 }
 .check-box .box {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-background-insets: 0;
     -fx-border-color: -hotshop-border;
     -fx-border-radius: 3;
@@ -181,14 +186,14 @@
     -fx-padding: 4;
 }
 .check-box:selected .box { -fx-background-color: -hotshop-accent; -fx-border-color: -hotshop-accent; }
-.check-box:selected .mark { -fx-background-color: #ffffff; }
+.check-box:selected .mark { -fx-background-color: -hotshop-on-accent; }
 .titled-pane > .title {
     -fx-background-color: -hotshop-soft;
     -fx-background-radius: 6;
     -fx-padding: 9 10;
 }
 .titled-pane > .content {
-    -fx-background-color: #ffffff;
+    -fx-background-color: -hotshop-surface;
     -fx-border-color: -hotshop-border;
     -fx-padding: 12;
 }
@@ -199,8 +204,8 @@
 .scroll-bar .thumb:hover { -fx-background-color: #aa9b89; }
 .scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-background-color: transparent; }
 .progress-indicator { -fx-progress-color: -hotshop-accent; }
-.dialog-pane { -fx-background-color: #faf7f2; -fx-padding: 20; }
-.dialog-pane > .header-panel { -fx-background-color: #faf7f2; -fx-padding: 0 0 16 0; }
+.dialog-pane { -fx-background-color: -hotshop-page; -fx-padding: 20; }
+.dialog-pane > .header-panel { -fx-background-color: -hotshop-page; -fx-padding: 0 0 16 0; }
 .dialog-pane > .header-panel .label { -fx-font-size: 20px; -fx-font-weight: bold; }
 .dialog-pane > .button-bar > .container { -fx-padding: 16 0 0 0; }
 /* Border-based keyboard focus keeps every surface shadow-free. */

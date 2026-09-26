@@ -16,6 +16,9 @@ import javafx.scene.layout.Region;
 
 /** Modal forms stay open on validation/storage errors and cannot double-submit. */
 final class UiDialogs {
+    /** Wide enough for a consequence sentence and "Accept Cancellation"-length button labels. */
+    private static final double DIALOG_WIDTH = 540;
+
     private UiDialogs() {
     }
 
@@ -74,7 +77,7 @@ final class UiDialogs {
     static void theme(MarketplaceUi app, Dialog<?> dialog) {
         var pane = dialog.getDialogPane();
         pane.getStylesheets().addAll(app.stage.getScene().getStylesheets());
-        pane.setPrefWidth(540);
+        pane.setPrefWidth(DIALOG_WIDTH);
         pane.setMinHeight(Region.USE_PREF_SIZE);
         for (ButtonType type : pane.getButtonTypes()) {
             ((Button) pane.lookupButton(type)).setMinWidth(Region.USE_PREF_SIZE);

@@ -77,7 +77,7 @@ final class ChatPages {
         card.setAccessibleRole(AccessibleRole.BUTTON);
         card.setAccessibleText("Open conversation about " + summary.listing().getDetails().title());
         card.setOnMouseClicked(event -> {
-            if (event.getButton() == MouseButton.PRIMARY && !isSecondaryTarget((Node) event.getTarget(), card)) {
+            if (event.getButton() == MouseButton.PRIMARY && !isInsideButton((Node) event.getTarget(), card)) {
                 app.navigate(() -> open(summary));
                 event.consume();
             }
@@ -98,7 +98,8 @@ final class ChatPages {
         return card;
     }
 
-    private static boolean isSecondaryTarget(Node target, VBox card) {
+    /** True when the click landed on View Listing or the profile link, which handle their own clicks. */
+    private static boolean isInsideButton(Node target, VBox card) {
         for (Node node = target; node != null && node != card; node = node.getParent()) {
             if (node instanceof ButtonBase) {
                 return true;

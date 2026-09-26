@@ -2,7 +2,6 @@ package hotshop;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Objects;
 
 import hotshop.ui.MarketplaceUi;
 
@@ -35,8 +34,7 @@ public class Main extends Application {
     public void start(Stage stage) throws IOException {
         if (startupFailure != null) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.getDialogPane().getStylesheets().add(Objects.requireNonNull(
-                    Main.class.getResource("/hotshop/styles.css")).toExternalForm());
+            alert.getDialogPane().getStylesheets().add(MarketplaceUi.stylesheet());
             alert.setTitle("HotShop startup failed");
             alert.setHeaderText("Unable to open HotShop data");
             alert.setContentText("Check that the data folder is writable and no other HotShop instance is using it. "
