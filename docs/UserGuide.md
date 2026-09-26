@@ -115,8 +115,8 @@ reject it, and the requester can withdraw it. Pending requests block completion.
 Confirmation, direct cancellation, and accepting cancellation explain their effects
 in confirmation dialogs. Only currently permitted actions are enabled.
 
-The seller **Dashboard** summarises pending offers, active/completed sales, and
-the total agreed value of completed sales.
+The seller **Dashboard** summarises pending offers, active/completed sales, the
+total agreed value of completed sales, and your upcoming meetups as a seller.
 
 ## Conversations
 
@@ -138,14 +138,19 @@ and how many unread items it has. Choose the listing title to open it, or
 **Refresh** to reload the list.
 
 A conversation page shows the other person, the listing's status, and **View
-Listing** at the top. Below that, the offer bar shows the buyer's latest offer:
+Listing** at the top. Below that, one bar shows the latest stage of the deal.
+Until the two of you have a sale, it shows the buyer's latest offer:
 
 - A pending offer: the buyer can **Withdraw Offer**, and the seller can **Accept
   Offer** (with the same confirmation as Incoming Offers, then Sale Details opens)
   or **Reject Offer**.
-- An accepted offer: its sale's status and **View Sale**.
 - A rejected or withdrawn offer, or no offer: the buyer can **Make Offer** while
-  the listing is available.
+  the listing is available. After a cancelled sale, the bar shows the offer again
+  ("Accepted · Sale Cancelled").
+
+During an active sale the bar shows the meetup instead (see Meetups below), and
+after a completed sale it shows "Sale completed" and where you met. **View Sale**
+is always there once you have a sale.
 
 Messages appear oldest first; yours are on the right. Type in the box at the
 bottom and press **Enter** or choose **Send**; **Shift+Enter** adds a new line. The
@@ -161,6 +166,39 @@ about available or reserved listings.
 Only one person is logged in at a time, so you see the other person's replies the
 next time you log in.
 
+## Meetups
+
+You arrange where and when to hand over the item inside the sale's conversation;
+there is no separate meetup page. Open the conversation with **Open Chat** on the
+sale, or from **Conversations**. During an active sale, the bar at the top of the
+conversation shows the meetup:
+
+1. **The seller offers times.** Choose **Offer Time**, pick a date (today to 60
+   days ahead), a start time, a length (15 minutes to 4 hours), and a place, which
+   starts as the listing's pickup location. Each **Offer Time** adds one time; you
+   can offer up to 3. **View Times** lists them, each with **Withdraw**.
+2. **The buyer chooses one.** The buyer sees "n times offered" and **Choose Time**,
+   which lists the times, each with **Book**. Booking removes the other times.
+3. **Once booked**, the bar shows the time and place, for example "Meetup: Fri 2 Oct
+   2026, 14:00 to 14:30 · Library lobby". Either of you can:
+   - **Propose Move**: the same form, starting from the current meetup. The other
+     person sees your proposal with **Accept Move** and **Reject Move**; you see it
+     with **Withdraw Proposal**.
+   - **Cancel Meetup**: asks you to confirm. The sale stays active, and the seller
+     can offer new times.
+
+When the booked time has passed, the bar asks you to confirm completion on the
+sale if the handover happened. Completing the sale shows "Sale completed · Met on
+..." in the bar. If a time can't be offered or booked (for example, it has already
+started or overlaps another of your meetups), the reason appears and nothing
+changes.
+
+The meetup also appears as one line on each active sale in **My Sales** and **My
+Purchases**, and on reserved listings in **My Listings**, for example "2 times
+offered" or "No meetup times yet". A sale's **Sale Details** page shows the same
+text as the conversation's bar. Completed sales that had a meetup show where you
+met ("Met on ...").
+
 ## Feedback and unfinished features
 
 Forms retain input after errors and show field-specific validation where possible.
@@ -168,11 +206,9 @@ Loading indicators show work in progress and prevent repeat submissions. Routine
 profile and password saves use inline success messages. Empty collections explain
 what to do next, such as creating a listing or searching for items.
 
-Wishlist, meetups/availability, and notifications have no screens yet. Their
-navigation entries and relevant contextual controls, including **Arrange Meetup**
-on a sale, are disabled and labelled **Coming soon**. They do not open placeholder
-feature screens. The meetup rules under Marketplace rules are already enforced and
-will apply once those screens are added.
+Wishlist and notifications have no screens yet. Their navigation entries and
+relevant contextual controls are disabled and labelled **Coming soon**. They do not
+open placeholder feature screens.
 
 ## Marketplace rules
 
@@ -277,8 +313,8 @@ only the sale's buyer and seller can see or act on it.
 - The sales dashboard shows your pending offers across all your listings, your
   active and completed sales, and the total value of completed sales. Active
   sales are not included in the total because they can still be cancelled. The
-  dashboard also counts your upcoming meetups as a seller; this count is not on
-  the Dashboard screen yet.
+  dashboard also counts your upcoming meetups as a seller: booked meetups that
+  have not started yet.
 
 The meetup service enforces these rules. Every meetup action requires login, and
 only the sale's buyer and seller can see or act on its meetup.
@@ -303,9 +339,8 @@ only the sale's buyer and seller can see or act on its meetup.
   You can confirm completion with or without a meetup. A meetup whose time has
   passed stays booked, and the next step becomes "Did the handover happen?
   Confirm completion".
-- Each sale in My Sales and My Purchases, and each reserved listing, carries the
-  offered times or the booked meetup with any pending proposal, ready for the
-  meetup screens to show.
+- Each sale in My Sales and My Purchases, and each reserved listing, shows its
+  offered times or booked meetup as one line.
 - Every refused action explains what went wrong, for example: "The seller
   already has a meetup from Fri 25 Sep, 3:00 PM to Fri 25 Sep, 3:30 PM. Choose a
   different time."

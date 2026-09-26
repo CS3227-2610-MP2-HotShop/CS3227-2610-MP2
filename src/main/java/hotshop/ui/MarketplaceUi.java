@@ -32,6 +32,7 @@ public final class MarketplaceUi {
     final OfferPages offers;
     final SalePages sales;
     final ChatPages chats;
+    final MeetupPages meetups;
     private final BorderPane root = new BorderPane();
     private final Deque<Runnable> history = new ArrayDeque<>();
     private final AccountPages accounts;
@@ -50,6 +51,7 @@ public final class MarketplaceUi {
         offers = new OfferPages(this);
         sales = new SalePages(this);
         chats = new ChatPages(this);
+        meetups = new MeetupPages(this);
         Scene scene = new Scene(root, INITIAL_WIDTH, INITIAL_HEIGHT);
         scene.getStylesheets().add(Objects.requireNonNull(
                 MarketplaceUi.class.getResource("/hotshop/styles.css")).toExternalForm());
@@ -213,12 +215,10 @@ public final class MarketplaceUi {
         links.getChildren().add(UiControls.label("BUYING", "nav-heading"));
         links.getChildren().addAll(nav("My Offers", "offers", offers::mine),
                 nav("My Purchases", "purchases", () -> sales.list(false)));
-        links.getChildren().addAll(UiControls.future("Wishlist", "nav-wishlist"),
-                UiControls.future("Meetups", "nav-meetups"));
+        links.getChildren().add(UiControls.future("Wishlist", "nav-wishlist"));
         links.getChildren().add(UiControls.label("SELLING", "nav-heading"));
         links.getChildren().addAll(nav("Dashboard", "dashboard", sales::dashboard),
                 nav("My Listings", "listings", listings::mine), nav("My Sales", "sales", () -> sales.list(true)));
-        links.getChildren().add(UiControls.future("Availability & Meetups", "nav-availability"));
         conversationsLink = nav("Conversations", "conversations", chats::list);
         links.getChildren().addAll(conversationsLink,
                 UiControls.future("Notifications", "nav-notifications"),
