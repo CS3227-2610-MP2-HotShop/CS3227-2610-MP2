@@ -6,11 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.List;
+import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
@@ -23,21 +31,25 @@ import org.junit.jupiter.api.Test;
 import hotshop.ApplicationRuntime;
 import hotshop.model.Category;
 import hotshop.model.Condition;
+import hotshop.model.Meetup;
 import hotshop.service.ListingDraft;
 import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.Node;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
 /** Exercises real JavaFX controls against temporary SQLite data, without mocking services. */
 class MarketplaceUiTest {
+    private static final Duration MEETUP_LENGTH = Duration.ofMinutes(30);
     @TempDir
     Path directory;
     private ApplicationRuntime runtime;
@@ -250,7 +262,7 @@ class MarketplaceUiTest {
     }
 
     @Test
-    void openChat_activeSale_showsAcceptedOfferInConversation() throws Exception {
+    void openChat_activeSale_showsSaleMeetupInConversation() throws Exception {
         seedListing();
         var offer = submitOfferAsBuyer();
         runtime.getAccounts().login("seller", "Sample1!").join();
@@ -264,7 +276,7 @@ class MarketplaceUiTest {
         click("sale-open-chat");
         awaitText("page-title", "Desk");
         awaitReady();
-        awaitText("offer-bar-text", "Offer of S$40.00 · Accepted · Sale Active");
+        awaitText("meetup-bar-text", "No meetup times offered yet");
     }
 
     private hotshop.model.Offer submitOfferAsBuyer() {
@@ -333,7 +345,7 @@ class MarketplaceUiTest {
         click("conversation-open");
         awaitText("page-title", "Desk");
         awaitReady();
-        awaitText("offer-bar-text", "Offer of S$40.00 · Accepted · Sale Completed");
+        awaitText("meetup-bar-text", "Sale completed");
         awaitText("send-hint", "This listing is sold, so no new messages can be sent.");
         assertTrue(fx(() -> stage.getScene().lookup("#message-input").isDisabled()));
         assertTrue(fx(() -> stage.getScene().lookup("#send-message").isDisabled()));
@@ -399,6 +411,200 @@ class MarketplaceUiTest {
         assertEquals("First line\n", fx(() ->
                 ((TextInputControl) stage.getScene().lookup("#message-input")).getText()));
         assertTrue(runtime.getChats().getConversations().join().isEmpty());
+    }
+
+    @Test
+    void offerTime_activeSale_addsOfferedTimeToMeetupBar() throws Exception {
+        UUID sale = activeSale();
+        login("seller");
+        openFirstConversation();
+        awaitText("meetup-bar-text", "No meetup times offered yet");
+        snapshot("conversation-meetup-minimum", 960, 640);
+        click("meetup-offer-time");
+        dialogSet("meetup-date", node -> ((DatePicker) node).setValue(LocalDate.now().plusDays(2)));
+        dialogClick("dialog-submit");
+        awaitText("meetup-bar-text", "1 time offered");
+        snapshot("conversation-meetup-default", 1100, 750);
+        var slot = runtime.getMeetups().getMeetupSummary(sale).join().offeredSlots().getFirst();
+        assertEquals("Campus", slot.time().location());
+        assertEquals(LocalDate.now().plusDays(2).atTime(LocalTime.NOON),
+                LocalDateTime.ofInstant(slot.time().startAt(), ZoneId.systemDefault()));
+        assertEquals(MEETUP_LENGTH, slot.time().length());
+    }
+
+    @Test
+    void chooseTime_offeredTime_booksMeetup() throws Exception {
+        UUID sale = activeSale();
+        offerSlotAsSeller(sale, 2);
+        login("buyer");
+        openFirstConversation();
+        awaitText("meetup-bar-text", "1 time offered");
+        click("meetup-choose-time");
+        dialogClick("meetup-book");
+        var meetup = awaitMeetup(sale);
+        awaitText("meetup-bar-text", "Meetup: " + MeetupBar.format(meetup.getTime(), ZoneId.systemDefault()));
+    }
+
+    @Test
+    void proposeMove_bookedMeetup_showsOwnProposal() throws Exception {
+        UUID sale = bookedSale();
+        login("buyer");
+        openFirstConversation();
+        click("meetup-propose-move");
+        dialogSet("meetup-date", node -> ((DatePicker) node).setValue(LocalDate.now().plusDays(3)));
+        dialogType("meetup-place", "Campus gate");
+        dialogClick("dialog-submit");
+        awaitText("meetup-withdraw-move", "Withdraw Proposal");
+        var proposal = runtime.getMeetups().getMeetupSummary(sale).join().meetup().orElseThrow()
+                .getPendingProposal().orElseThrow();
+        assertEquals("Campus gate", proposal.getTime().location());
+        assertEquals(LocalDate.now().plusDays(3),
+                LocalDateTime.ofInstant(proposal.getTime().startAt(), ZoneId.systemDefault()).toLocalDate());
+    }
+
+    @Test
+    void acceptMove_proposalFromOtherParticipant_movesMeetup() throws Exception {
+        UUID sale = bookedSale();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var meetupId = runtime.getMeetups().getMeetupSummary(sale).join().meetup().orElseThrow().getId();
+        Instant moved = LocalDate.now().plusDays(4).atTime(15, 0).atZone(ZoneId.systemDefault()).toInstant();
+        runtime.getMeetups().proposeMove(meetupId, moved, moved.plus(MEETUP_LENGTH), "Campus gate").join();
+        runtime.getAccounts().logout().join();
+        login("seller");
+        openFirstConversation();
+        click("meetup-accept-move");
+        awaitText("meetup-propose-move", "Propose Move");
+        assertEquals(moved, runtime.getMeetups().getMeetupSummary(sale).join().meetup().orElseThrow()
+                .getTime().startAt());
+    }
+
+    @Test
+    void cancelMeetup_confirmed_letsSellerOfferNewTimes() throws Exception {
+        UUID sale = bookedSale();
+        login("seller");
+        openFirstConversation();
+        confirm("meetup-cancel", "Cancel Meetup");
+        awaitText("meetup-bar-text", "No meetup times offered yet");
+        assertTrue(runtime.getMeetups().getMeetupSummary(sale).join().meetup().isEmpty());
+    }
+
+    @Test
+    void saleDetails_bookedMeetup_showsMeetupInsteadOfArrangeMeetup() throws Exception {
+        UUID sale = bookedSale();
+        login("seller");
+        click("nav-sales");
+        awaitReady();
+        click("sale-detail");
+        awaitReady();
+        var time = runtime.getMeetups().getMeetupSummary(sale).join().meetup().orElseThrow().getTime();
+        awaitText("sale-meetup", "Meetup: " + MeetupBar.format(time, ZoneId.systemDefault()));
+        assertTrue(fx(() -> stage.getScene().lookup("#arrange-meetup") == null));
+    }
+
+    @Test
+    void mySales_activeSaleWithOfferedTime_showsMeetupSummary() throws Exception {
+        UUID sale = activeSale();
+        offerSlotAsSeller(sale, 2);
+        login("seller");
+        click("nav-sales");
+        awaitReady();
+        awaitText("sale-meetup-summary", "1 time offered");
+    }
+
+    @Test
+    void myListings_reservedListing_showsMeetupSummary() throws Exception {
+        activeSale();
+        login("seller");
+        click("nav-listings");
+        awaitReady();
+        awaitText("listing-meetup-summary", "No meetup times yet");
+    }
+
+    @Test
+    void dashboard_bookedMeetup_countsUpcomingMeetup() throws Exception {
+        bookedSale();
+        login("seller");
+        click("nav-dashboard");
+        awaitReady();
+        awaitText("dashboard-upcoming-meetups", "1");
+    }
+
+    @Test
+    void sidebar_loggedIn_hasNoSeparateMeetupPages() throws Exception {
+        runtime.getAccounts().register("alice", "Sample1!", "Alice").join();
+        login("alice");
+        assertTrue(fx(() -> stage.getScene().lookup("#nav-meetups") == null));
+        assertTrue(fx(() -> stage.getScene().lookup("#nav-availability") == null));
+    }
+
+    private UUID bookedSale() throws Exception {
+        UUID sale = activeSale();
+        UUID slot = offerSlotAsSeller(sale, 2);
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        runtime.getMeetups().bookSlot(slot).join();
+        runtime.getAccounts().logout().join();
+        return sale;
+    }
+
+    private UUID offerSlotAsSeller(UUID sale, int daysAhead) {
+        Instant start = LocalDate.now().plusDays(daysAhead).atTime(14, 0).atZone(ZoneId.systemDefault()).toInstant();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        var summary = runtime.getMeetups().offerSlot(sale, start, start.plus(MEETUP_LENGTH), "Campus").join();
+        runtime.getAccounts().logout().join();
+        return summary.offeredSlots().getLast().id();
+    }
+
+    private Meetup awaitMeetup(UUID sale) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (System.nanoTime() < deadline) {
+            var meetup = runtime.getMeetups().getMeetupSummary(sale).join().meetup();
+            if (meetup.isPresent()) {
+                return meetup.orElseThrow();
+            }
+            Thread.sleep(25);
+        }
+        throw new AssertionError("Meetup was not booked");
+    }
+
+    private UUID activeSale() {
+        seedListing();
+        var offer = submitOfferAsBuyer();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        UUID sale = runtime.getOffers().acceptOffer(offer.getId()).join().transactionId();
+        runtime.getAccounts().logout().join();
+        return sale;
+    }
+
+    private void openFirstConversation() throws Exception {
+        click("nav-conversations");
+        awaitReady();
+        click("conversation-open");
+        awaitText("page-title", "Desk");
+        awaitReady();
+    }
+
+    private void dialogSet(String id, Consumer<Node> change) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (System.nanoTime() < deadline) {
+            boolean isDone = fx(() -> {
+                for (Window window : List.copyOf(Window.getWindows())) {
+                    if (window != stage && window.isShowing()) {
+                        window.getScene().getRoot().applyCss();
+                        var node = window.getScene().lookup("#" + id);
+                        if (node != null) {
+                            change.accept(node);
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+            if (isDone) {
+                return;
+            }
+            Thread.sleep(25);
+        }
+        throw new AssertionError("Dialog control not shown: " + id);
     }
 
     private void openChatWithSellerAsBuyer() throws Exception {

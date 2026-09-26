@@ -34,9 +34,9 @@ SQLite persistence, authentication, profile and listing images, buyer listing
 search, offers, sale completion and cancellation, sales and purchase history,
 meetup slots and bookings, conversations and messages, the sales dashboard
 summary, and lifecycle initialization. The account, profile, listing/search,
-offer, sale, seller-dashboard, and conversation screens now call those services.
-Meetup screens are not built yet. Wishlists and notifications remain deferred;
-their UI entry points, and the meetup ones, are disabled.
+offer, sale, seller-dashboard, conversation, and meetup screens now call those
+services. Wishlists and notifications remain deferred; their UI entry points are
+disabled.
 
 ## Dependencies and checks
 
@@ -102,6 +102,34 @@ read. `MarketplaceUi` refreshes the sidebar's unread total after every
 navigation. The single service worker runs that count after the page load just
 queued, so a conversation the new page opens is already counted as read.
 
+### Meetup screens
+
+[Meetup Screens Design](MeetupScreensDesign.md) records the agreed behaviour.
+The conversation keeps one fixed bar for the latest stage of the deal:
+`MeetupBar.replacesOfferBar` decides that an active or completed sale shows the
+meetup bar instead of the offer bar. `MeetupBar` is a pure record, like
+`OfferBar`: it maps the viewer's role, the `MeetupSummary`, the sale status, and
+the current time to the bar's text and `MeetupBar.Action`s, and provides
+`summary` (the one line on sale and listing entries) and `format` (weekday,
+24-hour clock). A meetup counts as past once its end is no longer after now,
+matching `SaleProgress`. Both take a `ZoneId`, so `MeetupBarTest` does not depend
+on the machine's time zone.
+
+The screens read the meetup limits from their owners rather than copying them:
+`MeetupService.MAX_OFFERED_SLOTS`, `MeetupService.MAX_DAYS_AHEAD`, and
+`MeetupTime.MAX_LOCATION_LENGTH`. Both bars are built with `UiControls.bar`.
+
+`MeetupPages` builds the bar and owns the dialogs: the time dialog (date picker
+limited to today through 60 days ahead, 15-minute start times, fixed lengths,
+place) and the offered-times list with Book or Withdraw. Every action calls
+MeetupService and then reloads the conversation. For an active sale the page
+loads `getMeetupSummary`; for a completed sale it uses the `MeetupSummary` on the
+matching `SaleForParticipant`. Sale Details shows the bar's text for an active
+sale; My Sales, My Purchases, and reserved My Listings cards show
+`MeetupBar.summary`; and the Dashboard shows
+`SalesDashboard.upcomingMeetups`. There is no separate meetup page, so the old
+"Meetups" and "Availability & Meetups" sidebar entries are gone.
+
 `ListingService.getPublicListings(UUID)` requires login and returns only the
 selected user's available listings, newest first, with restricted public-profile
 data. Missing users return NOT_FOUND; null IDs return VALIDATION. It reuses the
@@ -113,7 +141,8 @@ UI tests use JUnit 5 and actual JavaFX controls backed by temporary SQLite data.
 They require a graphical desktop; on headless Linux, install Xvfb and JavaFX's GTK
 runtime libraries and run `xvfb-run -a ./gradlew test`. CI uses Xvfb. Run the screen
 journeys alone with `.\gradlew.bat test --tests hotshop.ui.MarketplaceUiTest`, or
-the offer bar rules with `--tests hotshop.ui.OfferBarTest`.
+the offer and meetup bar rules with `--tests hotshop.ui.OfferBarTest --tests
+hotshop.ui.MeetupBarTest`.
 The tests also write scene snapshots to ignored `build/ui-checks/` for visual
 inspection. Window defaults are 1100 x 750, minimum 960 x 640, in JavaFX units.
 

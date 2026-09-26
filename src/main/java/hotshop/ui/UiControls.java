@@ -7,9 +7,12 @@ import java.time.ZoneId;
 import java.util.Locale;
 
 import hotshop.service.SaleRole;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.Node;
 
 /** Small presentation building blocks shared by the feature screens. */
@@ -43,6 +46,19 @@ final class UiControls {
         button.setDisable(true);
         button.setWrapText(true);
         return button;
+    }
+
+    /** A conversation's one-row status bar: the text takes the spare width, then the given buttons. */
+    static HBox bar(String text, String textId, Node... buttons) {
+        Label label = label(text, "section-title");
+        label.setId(textId);
+        label.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(label, Priority.ALWAYS);
+        HBox row = new HBox(10, label);
+        row.getChildren().addAll(buttons);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.getStyleClass().add("offer-bar");
+        return row;
     }
 
     static FlowPane actions(Node... nodes) {
