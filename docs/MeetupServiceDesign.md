@@ -20,8 +20,8 @@ implementation and review.
 - Slots are **offered by the seller to one buyer for one sale**, not published
   as general availability. Only that sale's buyer sees them.
 - Each slot has a start, an end, and a pickup location (1-200 characters). It
-  lasts **15 minutes to 4 hours**, starts in the future, and starts at most
-  **60 days** ahead.
+  lasts **15 minutes to 4 hours**, starts in the future, and starts on or before
+  the **60th calendar day** after today (see the implementation notes).
 - **Up to 3** unbooked slots per sale at once; slots offered for the same sale
   cannot overlap.
 - The seller cannot offer a slot that overlaps one of their own scheduled meetups.
@@ -139,3 +139,8 @@ until they were dropped on 2026-09-25.)
   neither upcoming nor past.
 - Withdrawing a slot does not require the sale to be active. Slots of a closed
   sale are already deleted, so this changes nothing in practice.
+- **"60 days ahead" counts calendar days** (decided 2026-09-27): a meetup may
+  start at any time on the 60th day after today, in the services' clock zone
+  (the computer's zone in production), so an evening meetup on day 60 can end
+  on day 61. It was previously 60 x 24 hours from now, which refused late times
+  on day 60 even though the date picker offered that day.

@@ -162,7 +162,8 @@ Until the two of you have a sale, it shows the buyer's latest offer:
   or **Reject Offer**.
 - A rejected or withdrawn offer, or no offer: the buyer can **Make Offer** while
   the listing is available. After a cancelled sale, the bar shows the offer again
-  ("Accepted · Sale Cancelled").
+  ("Accepted · Sale Cancelled") with **View Sale**, and the buyer can also **Make
+  Offer** once the listing is available again.
 
 During an active sale the bar shows the meetup instead (see Meetups below), and
 after a completed sale it shows "Sale completed" and where you met. **View Sale**
@@ -353,7 +354,8 @@ only the sale's buyer and seller can see or act on its meetup.
 - Meetups are arranged for an active sale. The seller offers the buyer up to 3
   meetup times, each with a start, an end, and a pickup location (1-200
   characters). A time lasts 15 minutes to 4 hours, starts in the future, and
-  starts at most 60 days ahead. A sale's offered times cannot overlap each other,
+  starts on or before the 60th day after today (at any time that day, so an
+  evening meetup on day 60 may end on day 61). A sale's offered times cannot overlap each other,
   or any meetup the seller already has.
 - Only the buyer books, by choosing one of the offered times. Booking deletes the
   sale's other offered times. Neither of you can book a time that overlaps
@@ -374,8 +376,8 @@ only the sale's buyer and seller can see or act on its meetup.
   listings show offered-time counts or booked dates, times, and place in their
   dedicated meetup area.
 - Every refused action explains what went wrong, for example: "The seller
-  already has a meetup from Fri 25 Sep, 3:00 PM to Fri 25 Sep, 3:30 PM. Choose a
-  different time."
+  already has a meetup from Fri 25 Sep, 15:00 to Fri 25 Sep, 15:30. Choose a
+  different time." Times in messages use the same 24-hour clock as the screens.
 
 The chat service enforces these rules. Every chat action requires login, and only
 a conversation's buyer and seller can read it.

@@ -522,7 +522,10 @@ Buyer screens should call them rather than implementing them again.
 Access it through `ApplicationRuntime.getMeetups()`. Every operation requires
 login and only the sale's participants may act. Times are `MeetupTime` values:
 15 minutes to 4 hours long, a 1-200 character location, starting in the future
-and at most 60 days ahead.
+and on or before the 60th calendar day after today (`MAX_DAYS_AHEAD`). Calendar
+days and the times in refusal messages use the services' clock zone; the
+production clock is `Clock.systemDefaultZone()`, so they match the screens, and
+tests use a fixed UTC `TestClock`.
 
 | Operation | Rule |
 | --- | --- |

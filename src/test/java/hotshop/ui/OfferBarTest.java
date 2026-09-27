@@ -111,6 +111,20 @@ class OfferBarTest {
         assertEquals(List.of(OfferBar.Action.VIEW_SALE), bar.actions());
     }
 
+    @Test
+    void of_buyerAcceptedOfferWithCancelledSaleOnAvailableListing_offersViewSaleAndMakeOffer() {
+        OfferBar bar = OfferBar.of(SaleRole.BUYER, Optional.of(offer(OfferStatus.ACCEPTED)),
+                ListingStatus.AVAILABLE, Optional.of(TransactionStatus.CANCELLED));
+        assertEquals(List.of(OfferBar.Action.VIEW_SALE, OfferBar.Action.MAKE_OFFER), bar.actions());
+    }
+
+    @Test
+    void of_buyerAcceptedOfferWithCancelledSaleOnReservedListing_offersOnlyViewSale() {
+        OfferBar bar = OfferBar.of(SaleRole.BUYER, Optional.of(offer(OfferStatus.ACCEPTED)),
+                ListingStatus.RESERVED, Optional.of(TransactionStatus.CANCELLED));
+        assertEquals(List.of(OfferBar.Action.VIEW_SALE), bar.actions());
+    }
+
     private static Offer offer(OfferStatus status) {
         return Offer.restore(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 4000, status, MADE,
                 status == OfferStatus.PENDING ? null : CLOSED);

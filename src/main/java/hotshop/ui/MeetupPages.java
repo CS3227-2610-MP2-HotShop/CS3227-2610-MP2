@@ -115,7 +115,7 @@ final class MeetupPages {
             public void updateItem(LocalDate day, boolean isEmpty) {
                 super.updateItem(day, isEmpty);
                 setDisable(isEmpty || day.isBefore(today)
-                        || day.isAfter(today.plusDays(MeetupService.MAX_DAYS_AHEAD.toDays())));
+                        || day.isAfter(today.plusDays(MeetupService.MAX_DAYS_AHEAD)));
             }
         });
         ComboBox<LocalTime> startTime = new ComboBox<>();

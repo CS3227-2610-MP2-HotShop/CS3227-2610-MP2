@@ -24,7 +24,7 @@ the latest stage of the deal, so the message area keeps its space at 960 x 640:
 | No offer, an offer made, or an offer closed | The offer bar from [Chat Screens Design](ChatScreensDesign.md) |
 | Active sale | The meetup state below and its buttons, plus View Sale |
 | Completed sale | "Sale completed", with "Met on <time> · <place>" when it had a meetup, plus View Sale |
-| Cancelled sale | The offer bar again ("Accepted · Sale Cancelled"), so the buyer can make a new offer on an available listing |
+| Cancelled sale | The offer bar again ("Accepted · Sale Cancelled") with View Sale, plus Make Offer for the buyer once the listing is available |
 
 Longer interactions open dialogs.
 
