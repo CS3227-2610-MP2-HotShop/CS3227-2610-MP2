@@ -272,7 +272,7 @@ Database constraints reinforce service rules:
 
 Services also check overlapping appointments across different slots for both participants.
 
-Listings with transaction or conversation history are archived rather than permanently deleted.
+Listings with offer or transaction history are archived rather than permanently deleted. Deleting a listing also deletes its enquiry conversations.
 
 ## 9. Offer acceptance and transaction completion
 

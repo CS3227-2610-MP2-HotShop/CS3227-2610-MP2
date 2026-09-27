@@ -45,7 +45,7 @@ user ID supplied by a screen. Results that show a listing include the seller's
 | Create listing | Validate details and 0 to 10 new photos; save the listing as available with the current user as seller. |
 | Edit listing | Owner only; listing must be available. Replace details and the complete ordered photo list together. |
 | Archive listing | Owner only; listing must be available or sold. |
-| Delete listing | Owner only; listing must be available or archived and have no offer, transaction, or conversation history. Removes the listing and queues its photos for cleanup. |
+| Delete listing | Owner only; listing must be available or archived and have no offer or transaction history. Removes the listing and its enquiry conversations, and queues its photos for cleanup. (Until 2026-09-27, any conversation also blocked deletion.) |
 | My listings | The current user's listings in every status, newest first by creation time. |
 | Get listing by ID | Any logged-in user; any status except deleted. Unknown or deleted IDs are not found. |
 | Search listings | Available listings only, excluding the current user's own listings. Filters and sorting below. |
@@ -115,8 +115,9 @@ for delete remains for ChatService.
 
 - OfferService must reject pending offers inside the same transaction when an
   edit actually changes a listing or when a listing is archived.
-- OfferService and ChatService must make delete refuse listings with offer or
-  conversation history.
+- OfferService must make delete refuse listings with offer history, and
+  ChatService's enquiry conversations are deleted with the listing. (Until
+  2026-09-27, conversations also blocked deletion.)
 - OfferService and TransactionService reserve, release, and mark listings sold;
   ListingService does not expose those transitions.
 

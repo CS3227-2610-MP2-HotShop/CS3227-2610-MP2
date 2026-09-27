@@ -31,7 +31,7 @@ A seller's action that withdraws a listing from browsing and search while keepin
 _Avoid_: Delete (when history is kept)
 
 **Delete**:
-A seller's action that permanently removes a listing and its images. Only possible for a listing with no offer, transaction, or conversation history; otherwise the seller archives it.
+A seller's action that permanently removes a listing and its images. Only possible for a listing with no offer or transaction history; otherwise the seller archives it. Buyers' enquiry conversations about the listing are deleted with it.
 _Avoid_: Archive, remove
 
 **Listing image**:
@@ -72,7 +72,7 @@ The messages between one buyer and the seller about one listing. There is at mos
 _Avoid_: Chat room, thread
 
 **Message**:
-A piece of text a participant sends in a conversation. Messages cannot be edited or deleted, and a message does not change any offer or sale, even if it says "I accept".
+A piece of text a participant sends in a conversation. Participants cannot edit or delete messages; they are deleted only when the seller deletes the listing an enquiry was about. A message does not change any offer or sale, even if it says "I accept".
 
 **Cancellation request**:
 A transaction participant's proposal to cancel an active sale after the first completion confirmation, requiring the other participant's agreement. While it awaits a response, the sale remains active and further completion confirmations are blocked.

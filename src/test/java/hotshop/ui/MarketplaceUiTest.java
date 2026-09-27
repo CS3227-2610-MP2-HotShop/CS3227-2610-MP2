@@ -1307,6 +1307,39 @@ class MarketplaceUiTest {
                         .getFirst().offer().getStatus());
     }
 
+    @ParameterizedTest(name = "{0} enquiries")
+    @CsvSource({"0, ''", "1, 1 conversation about this listing will also be deleted",
+            "2, 2 conversations about this listing will also be deleted"})
+    void deleteListing_enquiryConversations_warnsWithCountAndDeletesThem(int enquiries, String warning)
+            throws Exception {
+        seedListing();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
+        runtime.getAccounts().logout().join();
+        for (int i = 1; i <= enquiries; i++) {
+            String buyer = "enquirer" + i;
+            runtime.getAccounts().register(buyer, "Sample1!", "Enquirer " + i).join();
+            runtime.getAccounts().login(buyer, "Sample1!").join();
+            runtime.getChats().messageSeller(listing.listing().getId(), "Is it still available?").join();
+            runtime.getAccounts().logout().join();
+        }
+        login("seller");
+        click("nav-listings");
+        awaitReady();
+        click("listing-card");
+        awaitReady();
+        assertFalse(fx(() -> stage.getScene().lookup("#delete-listing").isDisabled()));
+        String consequence = confirm("delete-listing", "Delete Listing");
+        if (enquiries == 0) {
+            assertEquals("Permanently remove this listing and its managed photos?", consequence);
+        } else {
+            assertTrue(consequence.contains(warning), consequence);
+        }
+        awaitText("page-title", "My Listings");
+        awaitReady();
+        assertEquals(List.of(), runtime.getChats().getConversations().join());
+    }
+
     @Test
     void changePassword_wrongCurrentPassword_showsErrorBesideCurrentPassword() throws Exception {
         runtime.getAccounts().register("alice", "Sample1!", "Alice").join();
@@ -1470,11 +1503,12 @@ class MarketplaceUiTest {
         });
     }
 
-    private void confirm(String id, String action) throws Exception {
+    /** Fires the button, confirms the dialog with the named action, and returns the dialog's consequence text. */
+    private String confirm(String id, String action) throws Exception {
         Platform.runLater(() -> ((Button) stage.getScene().lookup("#" + id)).fire());
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
         while (System.nanoTime() < deadline) {
-            boolean handled = fx(() -> {
+            String consequence = fx(() -> {
                 for (Window window : List.copyOf(Window.getWindows())) {
                     if (window != stage && window.isShowing()) {
                         window.getScene().getRoot().applyCss();
@@ -1485,16 +1519,18 @@ class MarketplaceUiTest {
                                     assertEquals(action, ((Text) button.lookup(".text")).getText());
                                     saveSnapshot("confirmation-dialog", window.getScene());
                                 }
+                                String text = ((javafx.scene.control.DialogPane) window.getScene().getRoot())
+                                        .getContentText();
                                 button.fire();
-                                return true;
+                                return text == null ? "" : text;
                             }
                         }
                     }
                 }
-                return false;
+                return null;
             });
-            if (handled) {
-                return;
+            if (consequence != null) {
+                return consequence;
             }
             Thread.sleep(25);
         }

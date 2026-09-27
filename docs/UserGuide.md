@@ -176,7 +176,9 @@ sent, the reason appears below the box and your text is kept. Leaving the page
 with an unsent message asks whether to discard it.
 
 Once a listing is sold or archived, its conversations stay readable but the send
-box is disabled with the reason. On a sold or archived listing you haven't asked
+box is disabled with the reason. The exception is a listing that only ever had
+enquiries (no offers): its seller can delete it, and its conversations are
+deleted with it. On a sold or archived listing you haven't asked
 about, **Chat with seller** is disabled, because conversations can only be started
 about available or reserved listings.
 
@@ -292,8 +294,10 @@ The listing service enforces these rules. Every listing action requires login.
   cannot be archived.
 - Deleting permanently removes an available or archived listing and its photos.
   Reserved and sold listings cannot be deleted, and neither can any listing that
-  has ever received an offer, even one that was later withdrawn, or that a buyer
-  has messaged you about; archive it instead.
+  has ever received an offer, even one that was later withdrawn; archive it
+  instead. If buyers have only messaged you about the listing, you can still
+  delete it: the confirmation says how many conversations will be deleted with
+  it, and those conversations disappear for the buyers too.
 - Search shows only other sellers' available listings. It can match text in the
   title (ignoring upper and lower case), and filter by one category, one or more
   conditions, and a minimum and/or maximum price (both inclusive). Results are
@@ -394,7 +398,8 @@ a conversation's buyer and seller can read it.
   "I accept".
 - Either of you can send messages while the listing is available or reserved.
   Once it's sold or archived, the conversation stays readable but no new messages
-  can be sent. If a sale is cancelled, the listing is available again and you
+  can be sent, unless the seller deletes a listing that only had enquiries, which
+  deletes its conversations too. If a sale is cancelled, the listing is available again and you
   can keep messaging.
 - Only one person is logged in to HotShop at a time, so the other person sees
   your message the next time they log in.

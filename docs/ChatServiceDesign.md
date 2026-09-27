@@ -87,9 +87,12 @@ implementation and review.
 
 ## Listing deletion
 
-A listing with any conversation cannot be deleted; the seller archives it
-instead, as the glossary's **Delete** already says. ListingService adds this
-refusal alongside the existing offer-history check.
+Conversations do not block deleting a listing. A listing with offer history
+cannot be deleted, and every offer starts a conversation, so only listings with
+enquiries alone are affected. Deleting such a listing deletes its enquiry
+conversations and their messages in the same transaction, and the delete
+confirmation says how many will be deleted. (Revised on 2026-09-27; originally a
+listing with any conversation could not be deleted and had to be archived.)
 
 ## Errors
 
@@ -107,7 +110,8 @@ wrong and what to do, following the OfferService standard.
   Submitting an offer creates or reuses the conversation.
 - The Make Offer dialog (PR #9) can add the optional message box when
   convenient.
-- `ListingService.deleteListing` refuses listings with conversations.
+- `ListingService.deleteListing` deletes a listing's enquiry conversations with
+  it (see "Listing deletion"; until 2026-09-27 it refused such listings).
 
 ## Notes
 

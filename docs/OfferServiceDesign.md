@@ -107,7 +107,8 @@ Cancellation requests get their own table when TransactionService is built.
   notifications.
 - TransactionService: confirmations, cancellation, and releasing the listing;
   after a cancellation the listing can receive offers again.
-- ChatService: make delete refuse listings with conversation history.
+- ChatService: make delete refuse listings with conversation history. (Revised
+  2026-09-27: enquiry conversations are now deleted with the listing instead.)
 
 ## Verification scope
 
