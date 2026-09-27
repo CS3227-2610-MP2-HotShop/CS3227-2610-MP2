@@ -107,7 +107,8 @@ class MarketplaceUiTest {
         awaitText("page-title", "Search");
         assertEquals("Search for an item, or press Search to browse all listings.",
                 fx(() -> ((Labeled) stage.getScene().lookup("#search-guidance")).getText()));
-        assertTrue(fx(() -> stage.getScene().lookup("#nav-notifications").isDisabled()));
+        assertTrue(fx(() -> stage.getScene().lookup("#nav-wishlist").isDisabled()));
+        assertNull(fx(() -> stage.getScene().lookup("#nav-notifications")), "Notifications were dropped");
         assertEquals(960, fx(() -> stage.getMinWidth()));
         assertEquals(640, fx(() -> stage.getMinHeight()));
     }
