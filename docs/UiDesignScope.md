@@ -107,26 +107,28 @@ consolidated design. The visual refresh implements the following decisions:
 - Buyers see condition on other sellers' listing cards. Condition is the buyer
   card footer; status and pending offers form the owner's card footer.
 
-Cards are 240 x 304 JavaFX layout units, including a 208 x 130 image frame and a
-52-unit title area. Existing dialogs and interaction states use the shared theme.
-These card presentation decisions supersede the original summary-card styling
-above; existing workflow decisions remain in effect.
+Search and public-profile cards are 240 x 304 JavaFX layout units, including a
+208 x 130 image frame and a 52-unit title area. My Listings cards are 240 x 432:
+the same compact card plus an 8-unit gap and a 120-unit meetup area (see below).
+Existing dialogs and interaction states use the shared theme. These card
+presentation decisions supersede the original summary-card styling above;
+existing workflow decisions remain in effect.
 
-## Post-merge layout interview (2026-09-26, not yet implemented)
+## Post-merge layout refinements (agreed 2026-09-26, implemented 2026-09-27)
 
-The following decisions were agreed across interview questions Q1-Q5 and saved
-at the user's request for later implementation. The complete
-[layout refinement specification](UiLayoutRefinementSpec.md) is published as
-[issue #16](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/issues/16).
-Implementation is explicitly deferred.
+The following decisions were agreed across interview questions Q1-Q5. The
+complete [layout refinement specification](UiLayoutRefinementSpec.md) is
+published as [issue #16](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/issues/16)
+and is implemented as described here.
 
-- Seller listing cards gain a dedicated meetup area below the status and
-  pending-offer footer, with more height to accommodate date, time, and place.
-  All cards in My Listings use the same taller height, including cards without
-  a meetup, to keep rows aligned. Search and public-profile cards retain their
-  compact 240 x 304 dimensions. Card widths, image sizing, and two-line title
-  areas remain unchanged. The taller height is determined from the required
-  content and padding rather than stretching cards to fill the window.
+- Seller listing cards have a dedicated meetup area below the status and
+  pending-offer footer. All cards in My Listings use the same taller height,
+  including cards without a meetup, to keep rows aligned. Search and
+  public-profile cards keep their compact 240 x 304 dimensions. Card widths,
+  image sizing, and two-line title areas are unchanged. The taller height is the
+  compact card plus the meetup area, which fits two date lines (an overnight
+  meetup), one time line, and two place lines; cards do not stretch to fill the
+  window.
 - The meetup area shows separate date and time lines, followed by up to two
   lines for the place. Only an oversized place is truncated with an ellipsis;
   full dates and times remain visible, including both dates for overnight
@@ -135,20 +137,21 @@ Implementation is explicitly deferred.
   that area empty. Full meetup details remain available in the sale and chat.
 - Conversation cards open the conversation when clicked outside their separate
   View Listing and participant-profile buttons. Each button opens its own
-  destination without also opening the conversation. Apply this to both
-  conversation groups and preserve keyboard access.
-- Sale Details uses two columns when space permits: item, price, and participant
-  information on the left; sale status, meetup, and available actions on the
-  right. Narrow windows stack these sections vertically.
+  destination without also opening the conversation. This applies to both
+  conversation groups, and the card, View Listing, and profile are separate
+  keyboard targets (Tab, then Enter or Space).
+- Sale Details uses two columns once its content area is at least 720 units
+  wide: item, price, and participant information on the left; sale status,
+  meetup, and available actions on the right. Narrower content stacks these
+  sections, so the default 1100 x 750 window shows two columns and the minimum
+  960 x 640 window shows them stacked.
 - The navigation column has a white background for the full window height,
-  including below its links, while retaining scrolling when needed.
+  including below its links, and still scrolls when the links do not fit.
 
-These are planned revisions to the implemented behavior documented above and
-in Chat Screens Design and Meetup Screens Design, not claims about current UI.
-
-Verification should cover mixed listing states with uniform seller-card heights,
-full date/time rendering (including overnight meetups), two-line place overflow,
-unchanged compact buyer cards, independent conversation/listing/profile click
-targets and keyboard access, stacked and two-column sale layouts, and sidebar
-background coverage with short and scrollable navigation content. Inspect
-rendered content, not just underlying label text or containment bounds.
+`MarketplaceUiTest` covers mixed listing states with uniform seller-card
+heights, full date and time rendering (including overnight meetups), two-line
+place overflow, unchanged compact buyer cards, independent conversation,
+listing, and profile click and keyboard targets, stacked and two-column Sale
+Details (including a pending cancellation request), and sidebar background
+coverage with short and scrollable navigation. The tests check rendered text,
+not just underlying label text or containment bounds.

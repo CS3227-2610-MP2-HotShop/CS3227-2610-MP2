@@ -144,10 +144,15 @@ sale; My Sales and My Purchases show
 `MeetupBar.summary`; and the Dashboard shows
 `SalesDashboard.upcomingMeetups`. There is no separate meetup page, so the old
 "Meetups" and "Availability & Meetups" sidebar entries are gone.
-Seller cards reserve a 120-unit meetup area below the status/offer-count footer.
-`ListingCards` reads the existing `MeetupSummary` directly: booked dates (two
-lines overnight), 24-hour times, and a 40-unit two-line place label. Only the
-place can truncate. The grid computes row height from its fixed-size children.
+Seller cards reserve a 120-unit meetup area below the status/offer-count footer,
+so a seller card is the compact card's height plus that area and its gap
+(`ListingCards.SELLER_CARD_HEIGHT`). `ListingCards` reads the existing
+`MeetupSummary` directly and shows booked dates (two lines overnight), 24-hour
+times, and a 40-unit two-line place label. Only the place can truncate. The date
+and time text comes from `MeetupBar.dates` and `MeetupBar.clockRange`, so cards,
+sales, and the conversation bar format meetups in one place. The grid computes
+row height from its fixed-size children. Colours shared across the stylesheet are
+`-hotshop-*` tokens defined on `.root`.
 
 `ChatPages` gives each conversation card a focusable body with Enter/Space
 activation and a plain title. View Listing and profile buttons remain separate

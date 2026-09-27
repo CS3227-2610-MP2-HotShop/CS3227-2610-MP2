@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import hotshop.ApplicationRuntime;
 import hotshop.model.Category;
@@ -43,17 +45,31 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.TextInputControl;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
 /** Exercises real JavaFX controls against temporary SQLite data, without mocking services. */
 class MarketplaceUiTest {
     private static final Duration MEETUP_LENGTH = Duration.ofMinutes(30);
+    /** Too long for the two place lines on a listing card, so the card must end it with an ellipsis. */
+    private static final String LONG_PLACE =
+            "Library entrance beside the covered walkway and the campus shuttle bus stop ".repeat(2).strip();
+    /** Far longer than any window, so Sale Details must wrap it and let the page scroll to the actions. */
+    private static final String LONG_DESCRIPTION =
+            "Solid wood desk with a drawer and adjustable legs. ".repeat(50).strip();
     @TempDir
     Path directory;
     private ApplicationRuntime runtime;
@@ -449,8 +465,8 @@ class MarketplaceUiTest {
             var scene = Window.getWindows().stream().filter(window -> window != stage && window.isShowing())
                     .findFirst().orElseThrow().getScene();
             scene.getRoot().applyCss();
-            var pane = (javafx.scene.control.DialogPane) scene.getRoot();
-            assertEquals(javafx.scene.paint.Color.web("#faf7f2"), pane.getBackground().getFills().getFirst().getFill());
+            var pane = (DialogPane) scene.getRoot();
+            assertEquals(Color.web("#faf7f2"), pane.getBackground().getFills().getFirst().getFill());
             assertNull(pane.getEffect());
             saveSnapshot("meetup-choose-time-dialog", scene);
             return null;
@@ -568,9 +584,9 @@ class MarketplaceUiTest {
         awaitReady();
         fx(() -> {
             Label location = (Label) stage.getScene().lookup("#listing-meetup-place");
-            var rendered = (javafx.scene.text.Text) location.lookup(".text");
+            var rendered = (Text) location.lookup(".text");
             assertEquals(place, rendered.getText().replace("\n", " "));
-            assertTrue(rendered.getLayoutBounds().getHeight() > 30);
+            assertEquals(2, renderedLines(rendered));
             assertFalse(location.isTextTruncated());
             return null;
         });
@@ -587,8 +603,9 @@ class MarketplaceUiTest {
         snapshot("cards-booked-meetup-minimum", 960, 640);
         fx(() -> {
             var card = (Button) stage.getScene().lookup("#listing-card");
-            assertTrue(card.getHeight() > 304, "Seller cards reserve additional meetup space");
-            assertEquals(240, card.getWidth(), 0.1);
+            assertEquals(ListingCards.SELLER_CARD_HEIGHT, card.getHeight(), 0.1,
+                    "Seller cards reserve the meetup area");
+            assertEquals(ListingCards.CARD_WIDTH, card.getWidth(), 0.1);
             var summary = stage.getScene().lookup("#listing-meetup-summary");
             assertTrue(card.localToScene(card.getLayoutBounds())
                     .contains(summary.localToScene(summary.getLayoutBounds())), "Meetup summary must fit the card");
@@ -601,8 +618,87 @@ class MarketplaceUiTest {
     }
 
     @Test
-    void myListings_mixedStatesAndOvernightMeetup_alignRowsAndKeepDatesReadable() throws Exception {
+    void myListings_mixedStatesWithMeetup_alignUniformRowsAtEveryWidth() throws Exception {
         UUID sale = activeSale();
+        addAvailableArchivedAndSoldListings();
+        bookMeetup(sale, LocalTime.of(14, 0), "Campus");
+        showMyListings();
+        for (int width : List.of(960, 1100, 1400)) {
+            snapshot("seller-mixed-" + width, width, 900);
+            fx(() -> {
+                var cards = stage.getScene().getRoot().lookupAll("#listing-card");
+                assertEquals(4, cards.size());
+                for (var node : cards) {
+                    Button card = (Button) node;
+                    assertEquals(ListingCards.SELLER_CARD_HEIGHT, card.getHeight(), 0.1);
+                    assertEquals(ListingCards.CARD_WIDTH, card.getWidth(), 0.1);
+                    for (var other : cards) {
+                        if (other.getLayoutY() > card.getLayoutY()) {
+                            assertTrue(other.getLayoutY() >= card.getLayoutY() + card.getHeight(),
+                                    "Rows must not overlap");
+                        }
+                    }
+                }
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void myListings_overnightMeetupWithLongPlace_showsBothDatesAndTruncatesOnlyPlace() throws Exception {
+        bookMeetup(activeSale(), LocalTime.of(23, 45), LONG_PLACE);
+        showMyListings();
+        snapshot("seller-overnight-long-place", 1100, 750);
+        fx(() -> {
+            Label date = (Label) stage.getScene().lookup("#listing-meetup-date");
+            assertFalse(date.isTextTruncated());
+            var visibleDate = ((Text) date.lookup(".text")).getText();
+            assertEquals(date.getText(), visibleDate);
+            assertTrue(visibleDate.contains("\n"), "Overnight dates need two lines");
+            Label clock = (Label) stage.getScene().lookup("#listing-meetup-time");
+            assertEquals("23:45 to 00:15", clock.getText());
+            assertFalse(clock.isTextTruncated());
+            Label location = (Label) stage.getScene().lookup("#listing-meetup-place");
+            var visiblePlace = (Text) location.lookup(".text");
+            assertTrue(visiblePlace.getText().endsWith("..."));
+            assertEquals(2, renderedLines(visiblePlace));
+            assertTrue(visiblePlace.getLayoutBounds().getHeight() <= location.getHeight());
+            return null;
+        });
+    }
+
+    @Test
+    void saleDetails_longMeetupPlace_showsEntirePlace() throws Exception {
+        UUID sale = activeSale();
+        bookMeetup(sale, LocalTime.of(23, 45), LONG_PLACE);
+        openSaleDetailsAsSeller(sale);
+        snapshot("sale-long-meetup", 1100, 750);
+        fx(() -> {
+            Label meetup = (Label) stage.getScene().lookup("#sale-meetup");
+            assertTrue(meetup.getText().contains(LONG_PLACE));
+            assertFalse(meetup.isTextTruncated());
+            return null;
+        });
+    }
+
+    @Test
+    void openChat_longMeetupPlace_showsEntirePlaceInMeetupBar() throws Exception {
+        UUID sale = activeSale();
+        bookMeetup(sale, LocalTime.of(23, 45), LONG_PLACE);
+        openSaleDetailsAsSeller(sale);
+        click("sale-open-chat");
+        awaitReady();
+        snapshot("conversation-long-meetup", 960, 640);
+        fx(() -> {
+            Label bar = (Label) stage.getScene().lookup("#meetup-bar-text");
+            assertTrue(bar.getText().contains(LONG_PLACE));
+            assertFalse(bar.isTextTruncated());
+            return null;
+        });
+    }
+
+    /** Adds one available, one archived, and one sold listing for the seller; nobody is left logged in. */
+    private void addAvailableArchivedAndSoldListings() {
         runtime.getAccounts().logout().join();
         runtime.getAccounts().login("seller", "Sample1!").join();
         for (String title : List.of("Available lamp", "Archived book", "Sold chair")) {
@@ -625,65 +721,34 @@ class MarketplaceUiTest {
                 runtime.getAccounts().login("seller", "Sample1!").join();
             }
         }
-        Instant start = LocalDate.now().plusDays(2).atTime(23, 45).atZone(ZoneId.systemDefault()).toInstant();
-        String place = "Library entrance beside the covered walkway and the campus shuttle bus stop ".repeat(2);
+        runtime.getAccounts().logout().join();
+    }
+
+    /** The seller offers one 30-minute time two days ahead and the buyer books it; nobody is left logged in. */
+    private void bookMeetup(UUID sale, LocalTime time, String place) {
+        runtime.getAccounts().logout().join();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        Instant start = LocalDate.now().plusDays(2).atTime(time).atZone(ZoneId.systemDefault()).toInstant();
         var slots = runtime.getMeetups().offerSlot(sale, start, start.plus(MEETUP_LENGTH), place).join();
         runtime.getAccounts().logout().join();
         runtime.getAccounts().login("buyer", "Sample1!").join();
         runtime.getMeetups().bookSlot(slots.offeredSlots().getFirst().id()).join();
         runtime.getAccounts().logout().join();
+    }
+
+    private void showMyListings() throws Exception {
         login("seller");
         click("nav-listings");
         awaitReady();
-        for (int width : List.of(960, 1100, 1400)) {
-            snapshot("seller-mixed-" + width, width, 900);
-            fx(() -> {
-                var cards = stage.getScene().getRoot().lookupAll("#listing-card");
-                assertEquals(4, cards.size());
-                double height = ((Button) cards.iterator().next()).getHeight();
-                assertTrue(height > 304);
-                for (var node : cards) {
-                    Button card = (Button) node;
-                    assertEquals(height, card.getHeight(), 0.1);
-                    assertEquals(240, card.getWidth(), 0.1);
-                    for (var other : cards) {
-                        if (other.getLayoutY() > card.getLayoutY()) {
-                            assertTrue(other.getLayoutY() >= card.getLayoutY() + height,
-                                    "Rows must not overlap");
-                        }
-                    }
-                }
-                Label date = (Label) stage.getScene().lookup("#listing-meetup-date");
-                assertFalse(date.isTextTruncated());
-                var visibleDate = ((javafx.scene.text.Text) date.lookup(".text")).getText();
-                assertEquals(date.getText(), visibleDate);
-                assertTrue(visibleDate.contains("\n"), "Overnight dates need two lines");
-                Label clock = (Label) stage.getScene().lookup("#listing-meetup-time");
-                assertEquals("23:45 to 00:15", clock.getText());
-                assertFalse(clock.isTextTruncated());
-                Label location = (Label) stage.getScene().lookup("#listing-meetup-place");
-                var visiblePlace = (javafx.scene.text.Text) location.lookup(".text");
-                assertTrue(visiblePlace.getText().endsWith("..."));
-                assertTrue(visiblePlace.getLayoutBounds().getHeight() > 30);
-                assertTrue(visiblePlace.getLayoutBounds().getHeight() <= location.getHeight());
-                return null;
-            });
-        }
-        click("nav-sales");
-        awaitReady();
+    }
+
+    private void openSaleDetailsAsSeller(UUID sale) throws Exception {
+        login("seller");
         fx(() -> {
             ui.navigate(() -> ui.sales.details(sale, true));
             return null;
         });
         awaitReady();
-        assertTrue(fx(() -> ((Label) stage.getScene().lookup("#sale-meetup")).getText().contains(place.strip())));
-        snapshot("sale-long-meetup", 1100, 750);
-        assertFalse(fx(() -> ((Label) stage.getScene().lookup("#sale-meetup")).isTextTruncated()));
-        click("sale-open-chat");
-        awaitReady();
-        assertTrue(fx(() -> ((Label) stage.getScene().lookup("#meetup-bar-text")).getText().contains(place.strip())));
-        snapshot("conversation-long-meetup", 960, 640);
-        assertFalse(fx(() -> ((Label) stage.getScene().lookup("#meetup-bar-text")).isTextTruncated()));
     }
 
     @Test
@@ -763,12 +828,102 @@ class MarketplaceUiTest {
         });
     }
 
-    @Test
-    void saleDetails_longContentAndClosedSale_preservesBothParticipantsInformation() throws Exception {
+    @ParameterizedTest(name = "closed={0}, viewer={1}")
+    @CsvSource({"false, seller", "false, buyer", "true, seller", "true, buyer"})
+    void saleDetails_longDescription_showsFullTextAndReachableCancelAction(boolean closed, String account)
+            throws Exception {
+        UUID sale = longDescriptionSale();
+        if (closed) {
+            runtime.getAccounts().login("seller", "Sample1!").join();
+            runtime.getTransactions().cancelSale(sale).join();
+            runtime.getAccounts().logout().join();
+        }
+        openSaleDetails(sale, account);
+        for (int width : List.of(960, 1100)) {
+            snapshot("sale-long-" + account + "-" + closed + "-" + width, width, 750);
+            fx(() -> {
+                Label details = (Label) stage.getScene().lookup(".description");
+                assertEquals(LONG_DESCRIPTION, details.getText());
+                assertFalse(details.isTextTruncated());
+                assertTrue(details.getWidth() <= ui.scroll().getViewportBounds().getWidth());
+                Node action = scrolledIntoView("sale-cancel-sale");
+                assertEquals(closed, action.isDisabled());
+                return null;
+            });
+        }
+    }
+
+    @ParameterizedTest(name = "{0} x {1}")
+    @CsvSource({"960, 640", "1100, 750", "1400, 750"})
+    void saleDetails_windowSize_stacksNarrowAndSplitsWideWithReachableActions(int width, int height)
+            throws Exception {
+        openSaleDetails(bookedSale(), "seller");
+        snapshot("sale-responsive-" + width, width, height);
+        fx(() -> {
+            Node price = stage.getScene().lookup(".price");
+            Node status = stage.getScene().lookup("#sale-status");
+            var itemBounds = price.localToScene(price.getLayoutBounds());
+            var statusBounds = status.localToScene(status.getLayoutBounds());
+            if (width == MarketplaceUi.MINIMUM_WIDTH) {
+                assertEquals(itemBounds.getMinX(), statusBounds.getMinX(), 1, "Narrow windows stack sections");
+                assertTrue(statusBounds.getMinY() > itemBounds.getMaxY());
+            } else {
+                assertTrue(statusBounds.getMinX() > itemBounds.getMaxX(), "Wide windows use two columns");
+            }
+            assertFalse(stage.getScene().lookup("#sale-confirm-completion").isDisabled());
+            scrolledIntoView("sale-cancel-sale");
+            return null;
+        });
+        snapshot("sale-responsive-scrolled-" + width, width, height);
+    }
+
+    @ParameterizedTest(name = "viewer={0}, action={1}")
+    @CsvSource({"seller, sale-withdraw-cancellation", "buyer, sale-accept-cancellation",
+            "buyer, sale-reject-cancellation"})
+    void saleDetails_pendingCancellationRequest_keepsResponseActionsReachable(String account, String action)
+            throws Exception {
+        UUID sale = activeSale();
+        runtime.getAccounts().login("seller", "Sample1!").join();
+        runtime.getTransactions().confirmCompletion(sale).join();
+        runtime.getTransactions().requestCancellation(sale).join();
+        runtime.getAccounts().logout().join();
+        openSaleDetails(sale, account);
+        for (int width : List.of(MarketplaceUi.MINIMUM_WIDTH, MarketplaceUi.INITIAL_WIDTH)) {
+            snapshot("sale-pending-cancellation-" + account + "-" + width, width, 750);
+            fx(() -> {
+                assertFalse(scrolledIntoView(action).isDisabled());
+                assertTrue(stage.getScene().lookup("#sale-confirm-completion").isDisabled(),
+                        "A pending request blocks confirmation");
+                return null;
+            });
+        }
+    }
+
+    @ParameterizedTest(name = "{0} x {1}")
+    @CsvSource({"960, 640", "1100, 750", "1400, 750"})
+    void sidebar_windowSize_fillsHeightWithWhiteBackground(int width, int height) throws Exception {
+        seedListing();
+        login("seller");
+        snapshot("navigation-" + width, width, height);
+        fx(() -> {
+            var sidebar = (ScrollPane) stage.getScene().lookup("#navigation");
+            var viewport = (Region) sidebar.lookup(".viewport");
+            assertEquals(Color.WHITE, viewport.getBackground().getFills().getFirst().getFill());
+            assertEquals(stage.getScene().getHeight(), sidebar.getHeight(), 1);
+            sidebar.setVvalue(1);
+            stage.getScene().getRoot().layout();
+            Node logout = stage.getScene().lookup("#nav-logout");
+            assertTrue(viewport.localToScene(viewport.getLayoutBounds())
+                    .intersects(logout.localToScene(logout.getLayoutBounds())));
+            return null;
+        });
+    }
+
+    /** An active sale of a listing whose description is far longer than the window; nobody is left logged in. */
+    private UUID longDescriptionSale() {
         seedListing();
         runtime.getAccounts().login("seller", "Sample1!").join();
-        String description = "Solid wood desk with a drawer and adjustable legs. ".repeat(50).strip();
-        var listing = runtime.getListings().createListing(new ListingDraft("Large study desk", description,
+        var listing = runtime.getListings().createListing(new ListingDraft("Large study desk", LONG_DESCRIPTION,
                 Category.FURNITURE, 4500, Condition.GOOD, "Campus"), List.of()).join().listing();
         runtime.getAccounts().logout().join();
         runtime.getAccounts().login("buyer", "Sample1!").join();
@@ -777,82 +932,27 @@ class MarketplaceUiTest {
         runtime.getAccounts().login("seller", "Sample1!").join();
         UUID sale = runtime.getOffers().acceptOffer(offer.getId()).join().transactionId();
         runtime.getAccounts().logout().join();
-        login("seller");
-        for (boolean closed : List.of(false, true)) {
-            if (closed) {
-                runtime.getTransactions().cancelSale(sale).join();
-            }
-            for (String account : List.of("seller", "buyer")) {
-                switchUser(account);
-                fx(() -> {
-                    ui.navigate(() -> ui.sales.details(sale, account.equals("seller")));
-                    return null;
-                });
-                awaitReady();
-                for (int width : List.of(960, 1100)) {
-                    snapshot("sale-long-" + account + "-" + closed + "-" + width, width, 750);
-                    fx(() -> {
-                        Label details = (Label) stage.getScene().lookup(".description");
-                        assertEquals(description, details.getText());
-                        assertFalse(details.isTextTruncated());
-                        assertTrue(details.getWidth() <= ui.scroll().getViewportBounds().getWidth());
-                        ui.scroll().setVvalue(1);
-                        stage.getScene().getRoot().layout();
-                        Node action = stage.getScene().lookup("#sale-cancel-sale");
-                        var bounds = action.localToScene(action.getLayoutBounds());
-                        assertTrue(bounds.getMaxX() <= stage.getScene().getWidth());
-                        assertTrue(bounds.getMaxY() <= stage.getScene().getHeight());
-                        assertEquals(closed, action.isDisabled());
-                        return null;
-                    });
-                }
-            }
-        }
+        return sale;
     }
 
-    @Test
-    void saleDetails_windowSizes_reflowDetailsAndKeepSidebarWhite() throws Exception {
-        bookedSale();
-        login("seller");
-        click("nav-sales");
+    private void openSaleDetails(UUID sale, String account) throws Exception {
+        login(account);
+        fx(() -> {
+            ui.navigate(() -> ui.sales.details(sale, account.equals("seller")));
+            return null;
+        });
         awaitReady();
-        click("sale-detail");
-        awaitReady();
-        for (int width : List.of(960, 1100, 1400)) {
-            snapshot("sale-responsive-" + width, width, width == 960 ? 640 : 750);
-            fx(() -> {
-                Node price = stage.getScene().lookup(".price");
-                Node status = stage.getScene().lookup("#sale-status");
-                var itemBounds = price.localToScene(price.getLayoutBounds());
-                var statusBounds = status.localToScene(status.getLayoutBounds());
-                if (width == 960) {
-                    assertEquals(itemBounds.getMinX(), statusBounds.getMinX(), 1);
-                    assertTrue(statusBounds.getMinY() > itemBounds.getMaxY());
-                } else {
-                    assertTrue(statusBounds.getMinX() > itemBounds.getMaxX());
-                }
-                var sidebar = (javafx.scene.control.ScrollPane) stage.getScene().lookup("#navigation");
-                var viewport = (javafx.scene.layout.Region) sidebar.lookup(".viewport");
-                assertEquals(javafx.scene.paint.Color.WHITE,
-                        viewport.getBackground().getFills().getFirst().getFill());
-                assertEquals(stage.getScene().getHeight(), sidebar.getHeight(), 1);
-                sidebar.setVvalue(1);
-                stage.getScene().getRoot().layout();
-                Node logout = stage.getScene().lookup("#nav-logout");
-                assertTrue(viewport.localToScene(viewport.getLayoutBounds())
-                        .intersects(logout.localToScene(logout.getLayoutBounds())));
-                assertFalse(stage.getScene().lookup("#sale-confirm-completion").isDisabled());
-                ui.scroll().setVvalue(1);
-                stage.getScene().getRoot().layout();
-                Node cancel = stage.getScene().lookup("#sale-cancel-sale");
-                assertTrue(cancel.localToScene(cancel.getLayoutBounds()).getMaxY() <= stage.getScene().getHeight(),
-                        "Sale actions must be reachable by scrolling: " + cancel.localToScene(cancel.getLayoutBounds())
-                                + "; content " + ui.scroll().getContent().getLayoutBounds()
-                                + "; viewport " + ui.scroll().getViewportBounds());
-                return null;
-            });
-            snapshot("sale-responsive-scrolled-" + width, width, width == 960 ? 640 : 750);
-        }
+    }
+
+    /** Scrolls the page to the bottom and checks the node is then fully inside the window; call on the FX thread. */
+    private Node scrolledIntoView(String id) {
+        ui.scroll().setVvalue(1);
+        stage.getScene().getRoot().layout();
+        Node node = stage.getScene().lookup("#" + id);
+        var bounds = node.localToScene(node.getLayoutBounds());
+        assertTrue(bounds.getMaxX() <= stage.getScene().getWidth(), id + " must fit the window width");
+        assertTrue(bounds.getMaxY() <= stage.getScene().getHeight(), id + " must be reachable by scrolling");
+        return node;
     }
 
     @Test
@@ -866,15 +966,15 @@ class MarketplaceUiTest {
         });
         snapshot("navigation-short", 960, 450);
         fx(() -> {
-            var sidebar = (javafx.scene.control.ScrollPane) stage.getScene().lookup("#navigation");
+            var sidebar = (ScrollPane) stage.getScene().lookup("#navigation");
             assertTrue(sidebar.getContent().getLayoutBounds().getHeight() > sidebar.getViewportBounds().getHeight());
             sidebar.setVvalue(1);
             stage.getScene().getRoot().layout();
-            var viewport = (javafx.scene.layout.Region) sidebar.lookup(".viewport");
+            var viewport = (Region) sidebar.lookup(".viewport");
             Node logout = stage.getScene().lookup("#nav-logout");
             assertTrue(viewport.localToScene(viewport.getLayoutBounds())
                     .contains(logout.localToScene(logout.getLayoutBounds())));
-            assertEquals(javafx.scene.paint.Color.WHITE, viewport.getBackground().getFills().getFirst().getFill());
+            assertEquals(Color.WHITE, viewport.getBackground().getFills().getFirst().getFill());
             return null;
         });
         snapshot("navigation-short-scrolled", 960, 450);
@@ -1035,9 +1135,12 @@ class MarketplaceUiTest {
                     var bounds = view.getBoundsInLocal();
                     double expectedRatio = card.getAccessibleText().startsWith("Photo 80") ? 0.5 : 2;
                     assertEquals(expectedRatio, bounds.getWidth() / bounds.getHeight(), 0.01);
-                    assertTrue(bounds.getWidth() <= 208 && bounds.getHeight() <= 130);
-                    assertEquals((208 - bounds.getWidth()) / 2, view.getBoundsInParent().getMinX(), 1);
-                    assertEquals((130 - bounds.getHeight()) / 2, view.getBoundsInParent().getMinY(), 1);
+                    assertTrue(bounds.getWidth() <= ListingCards.CONTENT_WIDTH
+                            && bounds.getHeight() <= ListingCards.IMAGE_HEIGHT);
+                    assertEquals((ListingCards.CONTENT_WIDTH - bounds.getWidth()) / 2,
+                            view.getBoundsInParent().getMinX(), 1);
+                    assertEquals((ListingCards.IMAGE_HEIGHT - bounds.getHeight()) / 2,
+                            view.getBoundsInParent().getMinY(), 1);
                     assertNull(view.getViewport());
                     assertNull(view.getClip());
                 }
@@ -1068,11 +1171,11 @@ class MarketplaceUiTest {
             assertEquals(4, titles.size());
             for (var node : titles) {
                 Label title = (Label) node;
-                var rendered = (javafx.scene.text.Text) title.lookup(".text");
+                var rendered = (Text) title.lookup(".text");
                 String visible = rendered.getText().replace("\n", " ");
                 if (title.getText().equals(overflowing) || title.getText().length() == 120) {
                     assertTrue(visible.endsWith("..."), visible);
-                    assertTrue(rendered.getLayoutBounds().getHeight() > 30, "Overflow must use both lines");
+                    assertEquals(2, renderedLines(rendered), "Overflow must use both lines");
                 } else {
                     assertEquals(title.getText(), visible);
                 }
@@ -1084,12 +1187,8 @@ class MarketplaceUiTest {
     }
 
     @Test
-    void listingCards_buyerAndOwner_showRelevantMetadata() throws Exception {
-        seedListing();
-        runtime.getAccounts().login("buyer", "Sample1!").join();
-        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
-        runtime.getOffers().submitOffer(listing.listing().getId(), 4000).join();
-        runtime.getAccounts().logout().join();
+    void listingCards_buyerSearchAndPublicProfile_showConditionOnCompactCards() throws Exception {
+        pendingOfferOnSeededListing();
         login("buyer");
         click("search-submit");
         awaitText("results-count", "1 listing");
@@ -1100,7 +1199,12 @@ class MarketplaceUiTest {
         awaitText("profile-name", "Seller");
         awaitReady();
         assertCardMetadata(List.of("Good"), List.of("Available", "1 pending offer", "1 pending offers"));
-        switchUser("seller");
+    }
+
+    @Test
+    void listingCards_owner_showStatusAndPendingOfferCountInsteadOfCondition() throws Exception {
+        pendingOfferOnSeededListing();
+        login("seller");
         click("nav-listings");
         awaitReady();
         assertCardMetadata(List.of("Available", "1 pending offer"), List.of("Good"));
@@ -1115,6 +1219,15 @@ class MarketplaceUiTest {
         assertCardMetadata(List.of("Reserved", "0 pending offers"), List.of("Good", "Available"));
     }
 
+    /** The buyer offers S$40.00 on the seeded desk; nobody is left logged in. */
+    private void pendingOfferOnSeededListing() {
+        seedListing();
+        runtime.getAccounts().login("buyer", "Sample1!").join();
+        var listing = runtime.getListings().searchListings(hotshop.service.ListingSearch.all()).join().getFirst();
+        runtime.getOffers().submitOffer(listing.listing().getId(), 4000).join();
+        runtime.getAccounts().logout().join();
+    }
+
     private void assertCardMetadata(List<String> expected, List<String> absent) throws Exception {
         fx(() -> {
             Button card = (Button) stage.getScene().lookup("#listing-card");
@@ -1123,7 +1236,8 @@ class MarketplaceUiTest {
             expected.forEach(text -> assertTrue(labels.contains(text), "Missing card information: " + text));
             absent.forEach(text -> assertFalse(labels.contains(text), "Unexpected card information: " + text));
             if (expected.contains("Good")) {
-                assertEquals(304, card.getHeight(), 0.1, "Buyer and public-profile cards stay compact");
+                assertEquals(ListingCards.CARD_HEIGHT, card.getHeight(), 0.1,
+                        "Buyer and public-profile cards stay compact");
             }
             return null;
         });
@@ -1148,7 +1262,7 @@ class MarketplaceUiTest {
             assertTrue(firstHeight < 350, "Cards should remain compact even with a maximum-length title");
             for (var node : cards) {
                 Button card = (Button) node;
-                assertEquals(240, card.getWidth(), 0.1);
+                assertEquals(ListingCards.CARD_WIDTH, card.getWidth(), 0.1);
                 assertEquals(firstHeight, card.getHeight(), 0.1);
             }
             assertEquals(2, cards.stream().map(node -> node.getLayoutY()).distinct().count());
@@ -1161,7 +1275,7 @@ class MarketplaceUiTest {
             var cards = stage.getScene().getRoot().lookupAll("#listing-card");
             for (var node : cards) {
                 Button card = (Button) node;
-                assertEquals(240, card.getWidth(), 0.1);
+                assertEquals(ListingCards.CARD_WIDTH, card.getWidth(), 0.1);
                 assertEquals(height, card.getHeight(), 0.1);
             }
             assertEquals(1, cards.stream().map(node -> node.getLayoutY()).distinct().count());
@@ -1228,11 +1342,11 @@ class MarketplaceUiTest {
                     .findFirst().orElseThrow().getScene();
             scene.getRoot().applyCss();
             scene.getRoot().layout();
-            var pane = (javafx.scene.control.DialogPane) scene.getRoot();
-            assertEquals(javafx.scene.paint.Color.web("#faf7f2"), pane.getBackground().getFills().getFirst().getFill());
+            var pane = (DialogPane) scene.getRoot();
+            assertEquals(Color.web("#faf7f2"), pane.getBackground().getFills().getFirst().getFill());
             assertNull(pane.getEffect());
             Button submit = (Button) scene.lookup("#dialog-submit");
-            assertEquals(submit.getText(), ((javafx.scene.text.Text) submit.lookup(".text")).getText());
+            assertEquals(submit.getText(), ((Text) submit.lookup(".text")).getText());
             saveSnapshot("password-dialog", scene);
             return null;
         });
@@ -1368,7 +1482,7 @@ class MarketplaceUiTest {
                             if (node instanceof Button button && button.getText().equals(action)) {
                                 if (action.equals("Accept Offer")) {
                                     window.getScene().getRoot().layout();
-                                    assertEquals(action, ((javafx.scene.text.Text) button.lookup(".text")).getText());
+                                    assertEquals(action, ((Text) button.lookup(".text")).getText());
                                     saveSnapshot("confirmation-dialog", window.getScene());
                                 }
                                 button.fire();
@@ -1443,7 +1557,7 @@ class MarketplaceUiTest {
         });
     }
 
-    private void saveSnapshot(String name, javafx.scene.Scene scene) throws Exception {
+    private void saveSnapshot(String name, Scene scene) throws Exception {
         var image = scene.snapshot(null);
         int imageWidth = (int) image.getWidth();
         int imageHeight = (int) image.getHeight();
@@ -1474,8 +1588,8 @@ class MarketplaceUiTest {
             if (target instanceof Button button) {
                 button.fire();
             }
-            target.fireEvent(new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_CLICKED,
-                    0, 0, 0, 0, javafx.scene.input.MouseButton.PRIMARY, 1,
+            target.fireEvent(new MouseEvent(MouseEvent.MOUSE_CLICKED,
+                    0, 0, 0, 0, MouseButton.PRIMARY, 1,
                     false, false, false, false, false, false, false, false, false, true, null));
             return null;
         });
@@ -1491,6 +1605,13 @@ class MarketplaceUiTest {
             Thread.sleep(25);
         }
         assertEquals(expected, fx(() -> ((Labeled) stage.getScene().lookup("#" + id)).getText()));
+    }
+
+    /** How many lines a label's text is rendered on, measured against one line in the same font. */
+    private static long renderedLines(Text rendered) {
+        Text oneLine = new Text("Ag");
+        oneLine.setFont(rendered.getFont());
+        return Math.round(rendered.getLayoutBounds().getHeight() / oneLine.getLayoutBounds().getHeight());
     }
 
     private static <T> T fx(Callable<T> work) throws Exception {

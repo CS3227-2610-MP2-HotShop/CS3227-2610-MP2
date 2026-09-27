@@ -25,6 +25,7 @@ import hotshop.service.SaleRole;
  */
 record MeetupBar(String text, List<MeetupBar.Action> actions) {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("EEE d MMM yyyy, HH:mm", Locale.ENGLISH);
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH);
 
     /** Meetup actions the bar can show, plus the link to the sale. */
@@ -92,8 +93,24 @@ record MeetupBar(String text, List<MeetupBar.Action> actions) {
     static String format(MeetupTime time, ZoneId zone) {
         ZonedDateTime start = time.startAt().atZone(zone);
         ZonedDateTime end = time.endAt().atZone(zone);
-        String endText = start.toLocalDate().equals(end.toLocalDate()) ? CLOCK.format(end) : DAY.format(end);
+        String endText = isOvernight(start, end) ? DAY.format(end) : CLOCK.format(end);
         return DAY.format(start) + " to " + endText + " · " + time.location();
+    }
+
+    /** "Fri 2 Oct 2026", or both dates on separate lines when the meetup ends on a later day. */
+    static String dates(MeetupTime time, ZoneId zone) {
+        ZonedDateTime start = time.startAt().atZone(zone);
+        ZonedDateTime end = time.endAt().atZone(zone);
+        return isOvernight(start, end) ? DATE.format(start) + " to\n" + DATE.format(end) : DATE.format(start);
+    }
+
+    /** "14:00 to 14:30", with 24-hour times and no dates. */
+    static String clockRange(MeetupTime time, ZoneId zone) {
+        return CLOCK.format(time.startAt().atZone(zone)) + " to " + CLOCK.format(time.endAt().atZone(zone));
+    }
+
+    private static boolean isOvernight(ZonedDateTime start, ZonedDateTime end) {
+        return !start.toLocalDate().equals(end.toLocalDate());
     }
 
     private static String offeredText(int count) {

@@ -21,10 +21,10 @@ import javafx.stage.Stage;
 
 /** Application shell and guarded navigation. Business operations belong to the runtime services. */
 public final class MarketplaceUi {
-    private static final int INITIAL_WIDTH = 1100;
-    private static final int INITIAL_HEIGHT = 750;
-    private static final int MINIMUM_WIDTH = 960;
-    private static final int MINIMUM_HEIGHT = 640;
+    static final int INITIAL_WIDTH = 1100;
+    static final int INITIAL_HEIGHT = 750;
+    static final int MINIMUM_WIDTH = 960;
+    static final int MINIMUM_HEIGHT = 640;
     final ApplicationRuntime runtime;
     final Stage stage;
     final SearchState searchState = new SearchState();
@@ -53,8 +53,7 @@ public final class MarketplaceUi {
         chats = new ChatPages(this);
         meetups = new MeetupPages(this);
         Scene scene = new Scene(root, INITIAL_WIDTH, INITIAL_HEIGHT);
-        scene.getStylesheets().add(Objects.requireNonNull(
-                MarketplaceUi.class.getResource("/hotshop/styles.css")).toExternalForm());
+        scene.getStylesheets().add(stylesheet());
         stage.setTitle("HotShop");
         stage.setScene(scene);
         stage.setWidth(INITIAL_WIDTH);
@@ -67,6 +66,12 @@ public final class MarketplaceUi {
             }
         });
         login("");
+    }
+
+    /** The shared stylesheet, also used by windows shown outside the marketplace scene. */
+    public static String stylesheet() {
+        return Objects.requireNonNull(MarketplaceUi.class.getResource("/hotshop/styles.css"),
+                "Missing styles.css").toExternalForm();
     }
 
     UUID userId() {

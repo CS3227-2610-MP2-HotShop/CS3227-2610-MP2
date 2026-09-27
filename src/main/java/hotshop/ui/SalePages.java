@@ -10,6 +10,8 @@ import java.util.UUID;
 import hotshop.model.TransactionStatus;
 import hotshop.service.SaleAction;
 import hotshop.service.SaleForParticipant;
+import javafx.application.Platform;
+import javafx.geometry.VPos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
@@ -17,7 +19,11 @@ import javafx.scene.layout.VBox;
 
 /** Purchase/sale history, seller summary, and participant-specific sale actions. */
 final class SalePages {
+    /** Sale Details uses two columns once its content is at least this wide, and stacks otherwise. */
     private static final double TWO_COLUMN_WIDTH = 720;
+    private static final double SECTION_GAP = 24;
+    private static final double HALF_WIDTH_PERCENT = 50;
+    private static final double FULL_WIDTH_PERCENT = 100;
     private final MarketplaceUi app;
 
     SalePages(MarketplaceUi app) {
@@ -178,8 +184,8 @@ final class SalePages {
     private GridPane detailColumns(UiPage page, VBox item, VBox progress) {
         GridPane columns = new GridPane();
         columns.setMinHeight(GridPane.USE_PREF_SIZE);
-        columns.setHgap(24);
-        columns.setVgap(24);
+        columns.setHgap(SECTION_GAP);
+        columns.setVgap(SECTION_GAP);
         item.setMinWidth(0);
         progress.setMinWidth(0);
         item.setMinHeight(VBox.USE_PREF_SIZE);
@@ -188,19 +194,19 @@ final class SalePages {
         columns.add(progress, 0, 1);
         ColumnConstraints left = new ColumnConstraints();
         ColumnConstraints right = new ColumnConstraints();
-        left.setPercentWidth(100);
+        left.setPercentWidth(FULL_WIDTH_PERCENT);
+        right.setPercentWidth(HALF_WIDTH_PERCENT);
         columns.getColumnConstraints().setAll(left);
         columns.widthProperty().addListener((observable, oldWidth, width) -> {
             boolean wide = width.doubleValue() >= TWO_COLUMN_WIDTH;
-            left.setPercentWidth(wide ? 50 : 100);
-            right.setPercentWidth(50);
+            left.setPercentWidth(wide ? HALF_WIDTH_PERCENT : FULL_WIDTH_PERCENT);
             columns.getColumnConstraints().setAll(wide ? List.of(left, right) : List.of(left));
             GridPane.setConstraints(progress, wide ? 1 : 0, wide ? 0 : 1);
             // Recompute the scroll content height after changing rows during a resize layout pass.
-            javafx.application.Platform.runLater(page::requestLayout);
+            Platform.runLater(page::requestLayout);
         });
-        GridPane.setValignment(item, javafx.geometry.VPos.TOP);
-        GridPane.setValignment(progress, javafx.geometry.VPos.TOP);
+        GridPane.setValignment(item, VPos.TOP);
+        GridPane.setValignment(progress, VPos.TOP);
         return columns;
     }
 

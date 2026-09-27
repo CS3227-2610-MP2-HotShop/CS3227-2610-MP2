@@ -2,8 +2,6 @@ package hotshop.ui;
 
 import java.nio.file.Path;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 import java.util.function.Supplier;
 
 import hotshop.service.ListingWithSeller;
@@ -13,21 +11,23 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 
 /** Reusable cards whose TilePane wraps to the available viewport width. */
 final class ListingCards {
-    private static final double CARD_WIDTH = 240;
-    private static final double CARD_HEIGHT = 304;
-    private static final double SELLER_CARD_HEIGHT = 432;
-    private static final double MEETUP_HEIGHT = 120;
+    static final double CARD_WIDTH = 240;
+    static final double CARD_HEIGHT = 304;
+    static final double CONTENT_WIDTH = 208;
+    static final double IMAGE_HEIGHT = 130;
+    /** Room for two date lines (an overnight meetup), one time line, and two place lines. */
+    static final double MEETUP_HEIGHT = 120;
+    static final double DETAILS_GAP = 8;
+    /** A seller card is a compact card plus its meetup area, so every seller card has the same height. */
+    static final double SELLER_CARD_HEIGHT = CARD_HEIGHT + DETAILS_GAP + MEETUP_HEIGHT;
     private static final double PLACE_HEIGHT = 40;
-    private static final double CONTENT_WIDTH = 208;
-    private static final double IMAGE_HEIGHT = 130;
     private static final double TITLE_HEIGHT = 52;
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.ENGLISH);
-    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH);
 
     private ListingCards() {
     }
@@ -50,15 +50,10 @@ final class ListingCards {
         Supplier<Path> image = listing.getImages().isEmpty() ? null
                 : () -> app.runtime.getListingImagePath(listing.getImages().getFirst().filename());
         Label title = UiControls.label(listing.getDetails().title(), "listing-card-title");
-        title.setMinWidth(CONTENT_WIDTH);
-        title.setPrefWidth(CONTENT_WIDTH);
-        title.setMaxWidth(CONTENT_WIDTH);
-        title.setMinHeight(TITLE_HEIGHT);
-        title.setPrefHeight(TITLE_HEIGHT);
-        title.setMaxHeight(TITLE_HEIGHT);
+        fixSize(title, CONTENT_WIDTH, TITLE_HEIGHT);
         title.setAlignment(Pos.TOP_LEFT);
         title.setTextOverrun(OverrunStyle.ELLIPSIS);
-        VBox details = new VBox(8, UiImages.display(image, CONTENT_WIDTH, IMAGE_HEIGHT), title,
+        VBox details = new VBox(DETAILS_GAP, UiImages.display(image, CONTENT_WIDTH, IMAGE_HEIGHT), title,
                 UiControls.label(UiControls.money(listing.getDetails().priceCents()), "price"));
         HBox footer = new HBox(8);
         footer.setAlignment(Pos.CENTER_LEFT);
@@ -79,22 +74,15 @@ final class ListingCards {
         card.setAccessibleText(listing.getDetails().title() + ", "
                 + UiControls.money(listing.getDetails().priceCents()));
         card.setGraphic(details);
-        details.setMinWidth(CONTENT_WIDTH);
-        details.setPrefWidth(CONTENT_WIDTH);
-        details.setMaxWidth(CONTENT_WIDTH);
-        double height = pending == null ? CARD_HEIGHT : SELLER_CARD_HEIGHT;
-        card.setMinSize(CARD_WIDTH, height);
-        card.setPrefSize(CARD_WIDTH, height);
-        card.setMaxSize(CARD_WIDTH, height);
+        fixWidth(details, CONTENT_WIDTH);
+        fixSize(card, CARD_WIDTH, pending == null ? CARD_HEIGHT : SELLER_CARD_HEIGHT);
         card.getStyleClass().addAll("card", "listing-card");
         return card;
     }
 
     private static VBox meetupArea(MeetupSummary summary) {
         VBox area = new VBox(2);
-        area.setMinHeight(MEETUP_HEIGHT);
-        area.setPrefHeight(MEETUP_HEIGHT);
-        area.setMaxHeight(MEETUP_HEIGHT);
+        fixHeight(area, MEETUP_HEIGHT);
         if (summary == null) {
             return area;
         }
@@ -106,27 +94,36 @@ final class ListingCards {
         }
         area.setId("listing-meetup-summary");
         var time = summary.meetup().orElseThrow().getTime();
-        var start = time.startAt().atZone(ZoneId.systemDefault());
-        var end = time.endAt().atZone(ZoneId.systemDefault());
-        String dates = DATE.format(start);
-        if (!start.toLocalDate().equals(end.toLocalDate())) {
-            dates += " to\n" + DATE.format(end);
-        }
-        Label date = UiControls.label(dates, "muted");
+        Label date = UiControls.label(MeetupBar.dates(time, ZoneId.systemDefault()), "muted");
         date.setId("listing-meetup-date");
-        date.setMinHeight(VBox.USE_PREF_SIZE);
-        Label clock = UiControls.label(CLOCK.format(start) + " to " + CLOCK.format(end), "muted");
+        date.setMinHeight(Region.USE_PREF_SIZE);
+        Label clock = UiControls.label(MeetupBar.clockRange(time, ZoneId.systemDefault()), "muted");
         clock.setId("listing-meetup-time");
-        clock.setMinHeight(VBox.USE_PREF_SIZE);
+        clock.setMinHeight(Region.USE_PREF_SIZE);
         Label place = UiControls.label(time.location(), "muted");
         place.setId("listing-meetup-place");
-        place.setMinHeight(PLACE_HEIGHT);
-        place.setPrefHeight(PLACE_HEIGHT);
-        place.setMaxHeight(PLACE_HEIGHT);
+        fixHeight(place, PLACE_HEIGHT);
         place.setMaxWidth(CONTENT_WIDTH);
         place.setAlignment(Pos.TOP_LEFT);
         place.setTextOverrun(OverrunStyle.ELLIPSIS);
         area.getChildren().addAll(date, clock, place);
         return area;
+    }
+
+    private static void fixSize(Region region, double width, double height) {
+        fixWidth(region, width);
+        fixHeight(region, height);
+    }
+
+    private static void fixWidth(Region region, double width) {
+        region.setMinWidth(width);
+        region.setPrefWidth(width);
+        region.setMaxWidth(width);
+    }
+
+    private static void fixHeight(Region region, double height) {
+        region.setMinHeight(height);
+        region.setPrefHeight(height);
+        region.setMaxHeight(height);
     }
 }
