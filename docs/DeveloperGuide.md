@@ -70,11 +70,6 @@ recovers managed images before returning. Closing the runtime drains accepted
 worker operations before releasing the lock. The session is in memory and starts
 logged out on each launch.
 
-The diagrams in this guide describe the implemented architecture. Select a
-diagram to open its full-size image. Editable
-[PlantUML sources](diagrams/AccountUiArchitecture.md) are retained alongside the
-images.
-
 ## Dependencies and checks
 
 JavaFX 25.0.2 uses controls and FXML through OpenJFX Gradle plugin 0.1.0.
