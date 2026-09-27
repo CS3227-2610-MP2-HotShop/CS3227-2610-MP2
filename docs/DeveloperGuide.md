@@ -20,7 +20,7 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 - `src/main/java/hotshop/ui/`: application shell, feature screens, and shared presentation controls.
 - `src/main/resources/hotshop/`: application stylesheet.
 - `src/main/java/hotshop/model/`: shared buyer/seller domain models and supporting types.
-- `src/test/java/hotshop/model/`: JUnit 5 model behaviour and boundary tests.
+- `src/test/java/hotshop/`: JUnit 5 model behaviour and boundary tests.
 - `config/checkstyle/checkstyle.xml`: executable style checks.
 - `docs/`: guides and GitHub Pages source.
 - `logs/`: agent interaction records.
@@ -40,6 +40,40 @@ Notifications were dropped from this release on 2026-09-25, so there is no
 NotificationService and no Notifications sidebar entry. Users learn about
 events from next steps, list ordering, pending-offer counts, and conversation
 unread counts instead.
+
+## Architecture overview
+
+HotShop runs locally in one process. `Main.init` opens `ApplicationRuntime` before
+`Main.start` creates `MarketplaceUi`. Feature page classes build JavaFX controls
+and handle their actions; there is no separate controller package in the current
+implementation.
+
+[![HotShop architecture: JavaFX UI, services, repositories, SQLite, and image storage](diagrams/architecture_uml.png)](diagrams/architecture_uml.png)
+
+| Layer | Current components | Responsibility |
+| --- | --- | --- |
+| UI | `MarketplaceUi`, feature pages, `UiPage` | Navigation, forms, presentation validation, and asynchronous feedback. |
+| Service | `AccountService`, `ListingService`, `OfferService`, `TransactionService`, `MeetupService`, `ChatService` | Authentication, permissions, business rules, and atomic operations. |
+| Repository | `UserRepository`, `ListingRepository`, `OfferRepository`, `TransactionRepository`, `MeetupRepository`, `ChatRepository` | Execute SQL using a supplied connection and map records to models. |
+| Database | `Database`, SQLite JDBC, `marketplace.db` | Connections, migrations, commit/rollback, and local persistence. |
+
+Services also use Java models to enforce domain invariants. `ImageStorage` manages
+files separately from SQLite; profile and listing image helpers coordinate file
+imports and cleanup with saved references. UI image-path resolution goes through
+the runtime rather than repositories.
+
+`ApplicationRuntime.open` acquires the data-directory lock, migrates the database,
+creates separate profile/listing image stores, and constructs the repositories
+and six services. All services share one `Database`, `ServiceWorker`, and
+`AuthenticatedSession`; time-dependent services share the supplied clock. Startup
+recovers managed images before returning. Closing the runtime drains accepted
+worker operations before releasing the lock. The session is in memory and starts
+logged out on each launch.
+
+The diagrams in this guide describe the implemented architecture. Select a
+diagram to open its full-size image. Editable
+[PlantUML sources](diagrams/AccountUiArchitecture.md) are retained alongside the
+images.
 
 ## Dependencies and checks
 
@@ -61,6 +95,8 @@ history, session reset, and unsaved-change guards. Feature page classes construc
 JavaFX controls programmatically; the old welcome-only FXML resource was removed.
 No new library is required.
 
+[![UI shell class diagram showing MarketplaceUi, feature helpers, and the UiPage lifecycle](diagrams/ui_shell_uml.png)](diagrams/ui_shell_uml.png)
+
 The shared `hotshop/styles.css` defines the warm light palette and shadow-free
 control states. Form and confirmation dialogs attach the same stylesheet to their
 dialog panes; the startup-error dialog also uses it. Keep popup and keyboard-focus
@@ -75,10 +111,19 @@ palette variables so conversation screens stay consistent with the theme.
 `UiPage` owns loading, duplicate-submission protection, retry, and safe error
 display. It uses service futures and `Platform.runLater`; it never blocks the FX
 thread on a service future. Page callbacks verify that their page is still current.
-All database operations continue through the shared service worker. Screens use
+Service operations run through the shared [ServiceWorker](#service-worker). Screens use
 services exclusively, and service permissions remain authoritative. Confirmation
 dialogs are closed before business operations start; no database transaction waits
 for user input.
+
+`UiPage.load` offers Retry after an asynchronous failure; `perform` does not
+automatically offer to repeat a mutation. Both ignore duplicate submissions while
+busy, disable the page body, and schedule completion handling through
+`Platform.runLater`. Once back on the FX thread, the page checks
+`MarketplaceUi.isCurrent` before rendering. `MarketplaceUi.canLeave` blocks
+navigation while busy and asks for confirmation if the page's dirty predicate is
+true. Listing editors include photo order in that predicate; profile text and
+conversation drafts supply their own predicates.
 
 `SearchState` separates submitted criteria from draft controls and retains raw
 unfinished price text and scroll position across navigation. Sort changes apply
@@ -183,6 +228,66 @@ hotshop.ui.MeetupBarTest`.
 The tests also write scene snapshots to ignored `build/ui-checks/` for visual
 inspection. Window defaults are 1100 x 750, minimum 960 x 640, in JavaFX units.
 
+## Service worker
+
+`ServiceWorker` serializes service operations away from the JavaFX application
+thread. `ApplicationRuntime` creates one worker and supplies it to all six
+services, together with the shared `AuthenticatedSession`. The worker owns a
+single-thread executor named `hotshop-services`; it does not contain business
+rules or manage database transactions. Services perform validation and permission
+checks inside their submitted operations and use `Database` for commit/rollback.
+
+### Submission and execution
+
+1. A service passes a `Callable<T>` to `submit`. The worker creates a
+   `CompletableFuture<T>`, queues the callable, and returns the future without
+   waiting for the operation to finish.
+2. The executor runs accepted operations one at a time. Session reads and changes
+   use this same queue. For example, a profile update queued before logout checks
+   and uses the logged-in identity before logout clears it.
+3. When the callable returns, the worker completes its future with the result.
+   If it throws an `Exception`, the worker completes that future exceptionally;
+   the failure does not prevent subsequent queued operations from running.
+
+Queue ordering prevents service operations from overlapping, but does not replace
+database transactions: a service must still group related writes atomically.
+Keep operations short, since a slow operation delays every service behind it.
+Never wait for user input inside an operation.
+
+### Completion and UI handoff
+
+The following sequence follows a UI request through the service queue and back
+to the page. `UiPage` handles presentation; `ServiceWorker` only executes the
+callable and completes its future.
+
+[![ServiceWorker sequence showing background execution and completion handling on the JavaFX thread](diagrams/service_worker_uml.png)](diagrams/service_worker_uml.png)
+
+Completion callbacks can run on the service worker. `UiPage` therefore uses
+`Platform.runLater` to handle the result on the FX thread, clears its busy state,
+and checks that it is still the current page before displaying a result or error.
+The worker itself never updates controls or retries an operation. The page offers
+Retry for a failed load; it does not automatically repeat a mutation.
+
+Do not call `join()` or otherwise wait for another service operation from a
+worker callback: the queued operation cannot run until the current work releases
+the worker. Do not close the runtime from that callback either. Cancelling the
+returned future does not remove or interrupt its queued callable, so cancellation
+must not be treated as undoing a write.
+
+### Shutdown
+
+`ServiceWorker.close()` closes the executor and waits for accepted operations to
+finish. `ApplicationRuntime.close()` does this before releasing the data-directory
+lock, so a second instance cannot open the directory while accepted work is still
+running. Shutdown belongs to the application lifecycle owner. A submission
+rejected by the closed executor returns a future completed exceptionally with
+`ServiceException.Code.SESSION` and the message "HotShop has closed".
+
+Existing tests cover session queue ordering in
+`AccountServiceTest.updateProfile_queuedBeforeLogout_usesIdentityInQueueOrder`
+and draining/rejection in
+`ApplicationRuntimeTest.close_queuedRegistration_drainsWorkAndRejectsNewOperations`.
+
 ## Shared models
 
 [AccountService Design](AccountServiceDesign.md) records the approved persistent
@@ -269,11 +374,20 @@ An actor ID passed by a model caller is still not proof of authentication.
 ## Account service and local persistence
 
 `ApplicationRuntime.open(Path)` owns the application data-directory lock, schema
-migration, image recovery, shared service worker, and AccountService. Close it to
+migration, image recovery, shared service worker, and all six services. Close it to
 drain queued work before releasing the lock. `Main.init` opens the runtime off the
 JavaFX thread; `Main.stop` closes it. Initialization failures show an error instead
 of resetting storage. Runtime data defaults to `${user.home}/.hotshop`; override it
-for development with `-Dhotshop.dataDir=/absolute/path` before `-jar`.
+for development with `-Dhotshop.dataDir=/absolute/path` before `-jar`, for example:
+
+```powershell
+java "-Dhotshop.dataDir=C:\HotShop-test-data" -jar release/HotShop.jar
+```
+
+The current Gradle `run` task does not forward this system property to its
+application JVM. The default Windows folder is normally `%USERPROFILE%\.hotshop`.
+For an intentional clean test dataset, close the app, back up any data to retain,
+and delete the selected data folder; the next launch initializes an empty one.
 
 SQLite JDBC 3.53.4.0 is the only new library. The bundled driver supplies SQLite;
 no server or separately installed SQLite executable is needed. Tests enable native
@@ -334,6 +448,8 @@ triggers or semicolons inside string literals or comments.
 `src/test/resources/db/test-migration/` through a package-private constructor,
 so runner tests do not depend on the released schema.
 
+### Account operations and authentication
+
 AccountService returns `CompletableFuture` results. Its public operations are
 `register`, `login`, `logout`, `getCurrentUserId`, `getOwnProfile`, `getPublicProfile`,
 `updateProfile`, `changePassword`, `replaceProfileImage`, and `removeProfileImage`.
@@ -354,11 +470,18 @@ Callbacks may execute on the service worker; marshal UI updates using
 closing the runtime from a completion callback. Closing belongs to the lifecycle
 owner. Cancelling a returned future does not cancel an already queued mutation.
 
+[![Account class diagram showing shared session and worker dependencies and separation of profiles from credentials](diagrams/accounts_uml.png)](diagrams/accounts_uml.png)
+
 Passwords use PBKDF2-HMAC-SHA256, a fresh 16-byte salt, 600,000 iterations, and a
 256-bit derived key, with algorithm/work-factor metadata persisted separately.
 Password strings are not normalized or stripped. No password/hash is returned
 through a profile. A local database is not protection against someone who can
 modify the application's data files; there is no remote authentication server.
+
+The login sequence shows credential verification inside the database transaction
+and session establishment only after successful verification.
+
+[![Login sequence showing username normalization, credential verification, and successful or failed authentication](diagrams/login_uml.png)](diagrams/login_uml.png)
 
 ImageStorage accepts per-feature limits and validates actual JPEG/PNG contents,
 dimensions, and bounded bytes before writing a generated filename. `ManagedImages`
@@ -610,6 +733,24 @@ Git symlinks. Restart Claude Code if the skills do not appear.
 
 ## Acknowledgements
 
+- [OpenAI Codex](https://openai.com/codex/): AI assistance with project scaffolding,
+  implementation, tests, documentation, and review. The task records in
+  [logs](../logs/) describe the scope and verification of individual interactions;
+  generated output was adapted to this project's requirements.
+- [`setup-javafx-project`](../.agents/skills/setup-javafx-project/SKILL.md):
+  repository-local skill used to guide the initial JavaFX/Gradle scaffold, build
+  configuration, CI, and guide structure, as recorded in the
+  [scaffold log](../logs/2026-09-16-create-hotshop-javafx-scaffold.md). This link is
+  the local source; no external author or upstream source is recorded here.
+- [`skills/generate-report`](../skills/generate-report/SKILL.md): repository-local
+  instructions and [report script](../skills/generate-report/scripts/generate_report.py)
+  for turning the Codex setup JSONL log into an HTML execution report. Its scope
+  is development reporting, not application runtime functionality; no external
+  upstream source is recorded here.
+- [JavaFX/OpenJFX](https://openjfx.io/): the application's desktop UI toolkit;
+  JavaFX controls, layouts, images, CSS, and application lifecycle are used
+  throughout the UI. The libraries are bundled in the platform-specific JAR.
+
 - Matt Pocock's engineering skills: agent configuration adapted from the
   installed `setup-matt-pocock-skills` templates in
   `.agents/skills/setup-matt-pocock-skills/`.
@@ -624,3 +765,36 @@ Git symlinks. Restart Claude Code if the skills do not appear.
   and [Java security providers](https://docs.oracle.com/en/java/javase/25/security/oracle-providers.html):
   password-storage implementation guidance. The user-selected composition policy
   is a project requirement, not a claim of NIST compliance.
+
+## Appendix: Requirements
+
+### Wishlist user stories (future release)
+
+Wishlist functionality is deferred: the sidebar entry and listing action are
+disabled and labelled Coming soon. The following are proposed requirements,
+not supported workflows or claims about the current data model.
+
+| As a... | I want to... | So that... |
+| --- | --- | --- |
+| logged-in buyer | save a listing to my wishlist | I can find an item I am considering again without repeating a search. |
+| logged-in buyer | view my saved listings and open their details | I can compare items and check their current availability before offering. |
+| logged-in buyer | remove a listing from my wishlist | I can keep only the items I am still interested in. |
+
+## Appendix: Planned enhancements
+
+These four proposals refine existing features and are not implemented in this
+release. The deferred wishlist above is a future feature, not an enhancement in
+this list.
+
+1. **Show the latest offer's status on conversation cards.** Add a status label
+   using the latest offer already carried by `ConversationSummary`, so users can
+   inspect it without opening each conversation.
+2. **Allow any meetup length from 15 minutes to 4 hours.** Replace the dialog's
+   fixed duration choices with a validated duration input within the existing
+   `MeetupTime` limits.
+3. **Make All categories a selectable search option.** Currently it is the empty
+   category prompt restored by Clear Filters. Let users remove just the category
+   restriction while keeping their condition and price filters.
+4. **Retain whether Filters is expanded across Back navigation.** Extend the
+   existing saved search state to restore that panel's open/closed state, while
+   continuing to open it automatically when a submitted price is invalid.
