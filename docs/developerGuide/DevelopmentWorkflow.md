@@ -1,0 +1,87 @@
+---
+  layout: default.md
+  title: "Development Workflow"
+  pageNav: 3
+---
+
+## Setup
+
+Use JDK 25 and the included Gradle 9.1.0 Wrapper. Set JAVA_HOME to your JDK if
+necessary. Import the root directory as a Gradle project in your IDE.
+
+```powershell
+.\gradlew.bat run
+.\gradlew.bat test checkstyleMain checkstyleTest
+.\gradlew.bat check build shadowJar
+```
+
+Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network access.
+
+## Dependencies and checks
+
+### Libraries and build configuration
+
+JavaFX 25.0.2 uses controls and FXML through OpenJFX Gradle plugin 0.1.0.
+JUnit Jupiter 5.13.4 is configured with the JUnit Platform launcher.
+Checkstyle 12.3.1 enforces mechanical SE-EDU conventions; semantic naming and
+clarity still require review. Shadow 9.2.2 bundles runtime dependencies.
+Native access is enabled in Gradle launch scripts and the JAR manifest for JavaFX.
+
+### Targeted model checks
+
+Model tests cover validation boundaries, lifecycle transitions, immutable
+snapshots, and cancellation permissions/history. For a targeted run, use
+`.\gradlew.bat test --tests hotshop.model.TransactionTest`.
+
+## Packaging and CI
+
+### Building the distribution
+
+`shadowJar` writes `release/HotShop.jar`. Build separately for each target OS and
+architecture because JavaFX native libraries are platform-specific.
+The JAR requires a separately installed Java 25 runtime.
+
+### Continuous integration
+
+GitHub Actions runs tests, Checkstyle, check, build, and shadowJar on pull
+requests and pushes to main/master, and uploads a Linux JAR artifact.
+The workflow also supports manual dispatch.
+
+## GitHub Pages
+
+After pushing, open repository Settings > Pages, select **Deploy from a branch**,
+select the branch containing these files and **/docs**, and save.
+GitHub publishes the site after its Pages build completes.
+Hosting has not been enabled by this local setup.
+
+## Engineering skills
+
+### Agent configuration
+
+Agent skill configuration lives in [docs/agents](../agents/). It defines the
+[team GitHub issue tracker](../agents/issue-tracker.md),
+[triage labels](../agents/triage-labels.md), and
+[domain documentation rules](../agents/domain.md). `AGENTS.md` directs agents
+to read these files when needed.
+
+Edit these configuration files directly to adjust the workflow. Re-run
+`setup-matt-pocock-skills` when switching trackers or restarting setup.
+Domain documentation uses a root `CONTEXT.md` and `docs/adr/`, created by
+`domain-modeling` as terminology and decisions are resolved.
+
+### Sharing skills between coding agents
+
+The skills are installed once in `.agents/skills/`, where Codex reads them.
+Claude Code reads `.claude/skills/` instead, so link that path to the same
+folder rather than copying it. On Windows (no administrator rights needed):
+
+```powershell
+New-Item -ItemType Directory -Force .claude
+cmd /c mklink /J .claude\skills .agents\skills
+Add-Content .git\info\exclude ".claude/skills"
+```
+
+On macOS/Linux, use `ln -s ../.agents/skills .claude/skills`. The link is
+excluded locally rather than committed because the repository does not enable
+Git symlinks. Restart Claude Code if the skills do not appear.
+
