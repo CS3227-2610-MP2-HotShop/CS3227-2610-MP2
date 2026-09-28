@@ -15,8 +15,9 @@ Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network a
 
 ### Diagrams
 
-The five diagrams of sales, offers, and meetups (the `*_uml.puml` files) are
-PlantUML sources in `docs/diagrams/`, committed next to the PNGs the guide shows. After
+The seven diagrams of listings, offers, sales, meetups, and chat (the
+`*_uml.puml` files) are PlantUML sources in `docs/diagrams/`, committed next to
+the PNGs the guide shows. After
 editing a source, regenerate its PNG with the PlantUML jar (1.2026.8, from the
 [PlantUML releases](https://github.com/plantuml/plantuml/releases)) placed in the
 git-ignored `tools/` folder:
@@ -587,6 +588,10 @@ Design decisions:
   conversations (buyers who messaged but never offered) are deleted with it, and
   the screen warns how many.
 
+A listing's statuses, and what moves it between them:
+
+[![State diagram of a listing: available, reserved, sold, and archived, with editing, deleting, and the sale's outcome](diagrams/listing_state_uml.png)](diagrams/listing_state_uml.png)
+
 ## Offer service
 
 OfferService handles buyers' offers and the seller's decisions. Design:
@@ -736,6 +741,11 @@ Design decisions:
   fake messages; `ConversationSummary` carries the latest offer and the active
   sale ID, so the screen shows the live offer and meetup beside the messages.
 
+How a buyer's first message reaches the seller, and how opening the
+conversation clears its unread count:
+
+[![Sequence diagram of a buyer messaging a seller, the seller's unread count, and the seller opening the conversation](diagrams/chat_unread_uml.png)](diagrams/chat_unread_uml.png)
+
 ### Testing the services
 
 Service tests open a real `ApplicationRuntime` on a temporary folder with a
@@ -849,8 +859,8 @@ Git symlinks. Restart Claude Code if the skills do not appear.
   commit message format used throughout the history.
 - [JUnit 5](https://junit.org/junit5/) (5.13.4): the testing framework for every
   model, service, database, and UI test, including parameterised tests.
-- [PlantUML](https://plantuml.com/) (1.2026.8): renders the sale, offer, and meetup
-  diagrams from their `.puml` sources in `docs/diagrams/`; see
+- [PlantUML](https://plantuml.com/) (1.2026.8): renders the listing, offer, sale,
+  meetup, and chat diagrams from their `.puml` sources in `docs/diagrams/`; see
   "Diagrams" under Setup. It is a documentation tool only and is not part of
   the build.
 - [Gradle](https://docs.gradle.org/9.1.0/release-notes.html): wrapper and Java 25 build support.
