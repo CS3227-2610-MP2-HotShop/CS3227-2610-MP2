@@ -43,14 +43,29 @@ public final class Meetup {
         lastEventAt = createdAt;
     }
 
-    /** The buyer books an offered slot; the meetup takes the slot's time and place. */
+    /**
+     * The buyer books an offered slot; the meetup takes the slot's time and place.
+     *
+     * @param slot the offered slot to use
+     * @param buyerId the buyer's user ID
+     * @param sellerId the seller's user ID
+     * @param bookedAt the booking time
+     * @return a new scheduled meetup using the offered time and place
+     */
     public static Meetup book(MeetupSlot slot, UUID buyerId, UUID sellerId, Instant bookedAt) {
         Objects.requireNonNull(slot, "Slot");
         return new Meetup(UUID.randomUUID(), slot.transactionId(), buyerId, sellerId, slot.time(),
                 MeetupStatus.SCHEDULED, bookedAt);
     }
 
-    /** Restores a persisted meetup, rejecting proposal histories the live model could never produce. */
+    /**
+     * Restores a persisted meetup, rejecting proposal histories the live model could never produce.
+     *
+     * @param saved the persisted snapshot to validate and restore
+     * @return the restored meetup with its persisted identity
+     * @throws IllegalArgumentException if the supplied values violate the model invariants
+     * @throws NullPointerException if a required value is null
+     */
     public static Meetup restore(Snapshot saved) {
         Objects.requireNonNull(saved, "Saved meetup");
         Meetup meetup = new Meetup(saved.id(), saved.transactionId(), saved.buyerId(), saved.sellerId(),
@@ -75,7 +90,17 @@ public final class Meetup {
         return meetup;
     }
 
-    /** Either participant proposes one new time and place while no other proposal is pending. */
+    /**
+     * Either participant proposes one new time and place while no other proposal is pending.
+     *
+     * @param proposerId the ID of the participant proposing the move
+     * @param newTime the proposed meetup time and location
+     * @param proposedAt the proposal time, not before the previous meetup event
+     * @return the newly created pending reschedule proposal
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public RescheduleProposal proposeMove(UUID proposerId, MeetupTime newTime, Instant proposedAt) {
         requireScheduled();
         requireParticipant(proposerId);
@@ -90,31 +115,77 @@ public final class Meetup {
         return proposal;
     }
 
-    /** The other participant accepts; the meetup moves to the proposed time and place. */
+    /**
+     * The other participant accepts; the meetup moves to the proposed time and place.
+     *
+     * @param proposalId the ID of the pending reschedule proposal
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public void acceptMove(UUID proposalId, UUID actorId, Instant resolvedAt) {
         time = resolve(proposalId, actorId, resolvedAt, ProposalStatus.ACCEPTED).getTime();
     }
 
-    /** The other participant declines; the meetup keeps its time. */
+    /**
+     * The other participant declines; the meetup keeps its time.
+     *
+     * @param proposalId the ID of the pending reschedule proposal
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public void rejectMove(UUID proposalId, UUID actorId, Instant resolvedAt) {
         resolve(proposalId, actorId, resolvedAt, ProposalStatus.REJECTED);
     }
 
-    /** The proposer takes back their own pending proposal. */
+    /**
+     * The proposer takes back their own pending proposal.
+     *
+     * @param proposalId the ID of the pending reschedule proposal
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public void withdrawMove(UUID proposalId, UUID actorId, Instant resolvedAt) {
         resolve(proposalId, actorId, resolvedAt, ProposalStatus.WITHDRAWN);
     }
 
-    /** Cancels a scheduled meetup, withdrawing any pending proposal; the sale itself is unaffected. */
+    /**
+     * Cancels a scheduled meetup, withdrawing any pending proposal; the sale itself is unaffected.
+     *
+     * @param cancelledAt the cancellation time, not before the previous event
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public void cancel(Instant cancelledAt) {
         finish(MeetupStatus.CANCELLED, cancelledAt);
     }
 
-    /** Marks a scheduled meetup completed when its sale completes. */
+    /**
+     * Marks a scheduled meetup completed when its sale completes.
+     *
+     * @param completedAt the completion time, not before the previous meetup event
+     * @throws IllegalStateException if the meetup or pending proposal does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required value is null
+     */
     public void complete(Instant completedAt) {
         finish(MeetupStatus.COMPLETED, completedAt);
     }
 
+    /**
+     * Returns the pending reschedule proposal, or empty if none exists.
+     *
+     * @return the pending reschedule proposal, or empty if none exists
+     */
     public Optional<RescheduleProposal> getPendingProposal() {
         if (proposals.isEmpty() || proposals.getLast().getStatus() != ProposalStatus.PENDING) {
             return Optional.empty();
@@ -122,39 +193,83 @@ public final class Meetup {
         return Optional.of(proposals.getLast());
     }
 
-    /** Immutable snapshots of every proposal, oldest first. */
+    /**
+     * Immutable snapshots of every proposal, oldest first.
+     *
+     * @return an unmodifiable copy of the proposal history, oldest first
+     */
     public List<RescheduleProposal> getProposals() {
         return List.copyOf(proposals);
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the ID of the associated agreed sale.
+     *
+     * @return the ID of the associated agreed sale
+     */
     public UUID getTransactionId() {
         return transactionId;
     }
 
+    /**
+     * Returns the buyer's user ID.
+     *
+     * @return the buyer's user ID
+     */
     public UUID getBuyerId() {
         return buyerId;
     }
 
+    /**
+     * Returns the seller's user ID.
+     *
+     * @return the seller's user ID
+     */
     public UUID getSellerId() {
         return sellerId;
     }
 
+    /**
+     * Returns the meetup time and location.
+     *
+     * @return the meetup time and location
+     */
     public MeetupTime getTime() {
         return time;
     }
 
+    /**
+     * Returns the current lifecycle status.
+     *
+     * @return the current lifecycle status
+     */
     public MeetupStatus getStatus() {
         return status;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    /**
+     * Returns the latest recorded event time.
+     *
+     * @return the latest recorded event time
+     */
     public Instant getLastEventAt() {
         return lastEventAt;
     }

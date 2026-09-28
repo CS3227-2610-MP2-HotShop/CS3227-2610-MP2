@@ -12,10 +12,22 @@ public sealed interface ListingPhoto {
     record NewFile(Path source) implements ListingPhoto {
     }
 
+    /**
+     * Selects an existing listing photo to retain in the ordered photo list.
+     *
+     * @param filename the storage-relative image filename
+     * @return a reference to a photo already owned by the listing
+     */
     static ListingPhoto keep(String filename) {
         return new Existing(filename);
     }
 
+    /**
+     * Selects a source file to import when the listing is saved.
+     *
+     * @param source the source image file
+     * @return a request to import the source file
+     */
     static ListingPhoto add(Path source) {
         return new NewFile(source);
     }

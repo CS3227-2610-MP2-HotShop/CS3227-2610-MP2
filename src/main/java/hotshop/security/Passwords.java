@@ -20,7 +20,13 @@ public final class Passwords {
     private static final int MAX_LENGTH = 128;
     private final SecureRandom random = new SecureRandom();
 
-    /** Validates the exact password and derives a key using a fresh random salt. */
+    /**
+     * Validates the exact password and derives a key using a fresh random salt.
+     *
+     * @param password the password to validate or verify, used without trimming
+     * @return the derived key with its algorithm, iteration count, and fresh salt
+     * @throws ServiceException if the password violates policy or key derivation is unavailable
+     */
     public PasswordHash hash(String password) {
         validate(password);
         byte[] salt = new byte[SALT_BYTES];
@@ -28,7 +34,14 @@ public final class Passwords {
         return new PasswordHash(ALGORITHM, ITERATIONS, salt, derive(password, salt, ITERATIONS));
     }
 
-    /** Compares a supplied password against supported persisted credentials without changing them. */
+    /**
+     * Compares a supplied password against supported persisted credentials without changing them.
+     *
+     * @param password the password to validate or verify, used without trimming
+     * @param stored the persisted credential metadata and derived key
+     * @return true if the supplied password matches the stored derived key
+     * @throws ServiceException if the stored credential format is unsupported or key derivation is unavailable
+     */
     public boolean matches(String password, PasswordHash stored) {
         if (password == null || password.codePointCount(0, password.length()) > MAX_LENGTH) {
             return false;

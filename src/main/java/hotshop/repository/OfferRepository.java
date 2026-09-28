@@ -18,6 +18,13 @@ import hotshop.model.OfferStatus;
 
 /** SQL mappings only; callers supply the transaction and enforce permissions. Times are epoch milliseconds. */
 public final class OfferRepository {
+    /**
+     * Inserts an offer and its lifecycle timestamps in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param offer the offer whose state is used
+     * @throws SQLException if database access fails
+     */
     public void insert(Connection connection, Offer offer) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO offers (id, listing_id, buyer_id, "
                 + "amount_cents, status, created_at, closed_at) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
@@ -32,7 +39,13 @@ public final class OfferRepository {
         }
     }
 
-    /** Saves a status change; amounts and identities never change. */
+    /**
+     * Saves a status change; amounts and identities never change.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param offer the offer whose state is used
+     * @throws SQLException if database access fails
+     */
     public void update(Connection connection, Offer offer) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE offers SET status = ?, closed_at = ? WHERE id = ?")) {
             statement.setString(1, offer.getStatus().name());
@@ -44,6 +57,14 @@ public final class OfferRepository {
         }
     }
 
+    /**
+     * Returns the matching offer, or empty if none exists.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the offer ID
+     * @return the matching offer, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Offer> findById(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM offers WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -51,7 +72,15 @@ public final class OfferRepository {
         }
     }
 
-    /** The buyer's pending offer on a listing, if any; there is at most one. */
+    /**
+     * The buyer's pending offer on a listing, if any; there is at most one.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @param buyerId the buyer's user ID
+     * @return the matching offer, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Offer> findPending(Connection connection, UUID listingId, UUID buyerId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM offers WHERE listing_id = ? AND buyer_id = ? AND status = 'PENDING'")) {
@@ -61,7 +90,14 @@ public final class OfferRepository {
         }
     }
 
-    /** Every pending offer on a listing, from any buyer. */
+    /**
+     * Every pending offer on a listing, from any buyer.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @return the pending offers, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Offer> findPendingByListing(Connection connection, UUID listingId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM offers WHERE listing_id = ? AND status = 'PENDING' ORDER BY created_at DESC, id")) {
@@ -70,7 +106,14 @@ public final class OfferRepository {
         }
     }
 
-    /** Every offer on a listing in any status, newest first. */
+    /**
+     * Every offer on a listing in any status, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @return all offers on the listing, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Offer> findByListing(Connection connection, UUID listingId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM offers WHERE listing_id = ? ORDER BY created_at DESC, id")) {
@@ -79,7 +122,15 @@ public final class OfferRepository {
         }
     }
 
-    /** Every offer one buyer has made on one listing, in any status, newest first. */
+    /**
+     * Every offer one buyer has made on one listing, in any status, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @param buyerId the buyer's user ID
+     * @return the buyer's offers on the listing, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Offer> findByListingAndBuyer(Connection connection, UUID listingId, UUID buyerId)
             throws SQLException {
         try (var statement = connection.prepareStatement(
@@ -90,7 +141,14 @@ public final class OfferRepository {
         }
     }
 
-    /** Every offer a buyer has made in any status, newest first. */
+    /**
+     * Every offer a buyer has made in any status, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param buyerId the buyer's user ID
+     * @return the matching records in every status, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Offer> findByBuyer(Connection connection, UUID buyerId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM offers WHERE buyer_id = ? ORDER BY created_at DESC, id")) {
@@ -99,7 +157,14 @@ public final class OfferRepository {
         }
     }
 
-    /** Pending offer counts for each of the seller's listings that has any, keyed by listing ID. */
+    /**
+     * Pending offer counts for each of the seller's listings that has any, keyed by listing ID.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param sellerId the seller's user ID
+     * @return pending offer counts keyed by listing ID; zero-count listings are omitted
+     * @throws SQLException if database access fails
+     */
     public Map<UUID, Integer> countPendingByListingForSeller(Connection connection, UUID sellerId)
             throws SQLException {
         Map<UUID, Integer> result = new HashMap<>();
@@ -116,7 +181,14 @@ public final class OfferRepository {
         return result;
     }
 
-    /** True when the listing has ever received an offer, whatever became of it. */
+    /**
+     * True when the listing has ever received an offer, whatever became of it.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @return true if any offer history exists for this listing
+     * @throws SQLException if database access fails
+     */
     public boolean existsForListing(Connection connection, UUID listingId) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT 1 FROM offers WHERE listing_id = ? LIMIT 1")) {
             statement.setString(1, listingId.toString());

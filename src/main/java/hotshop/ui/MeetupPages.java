@@ -111,6 +111,12 @@ final class MeetupPages {
         date.setEditable(false);
         LocalDate today = LocalDate.now(zone);
         date.setDayCellFactory(picker -> new DateCell() {
+            /**
+             * Updates the date cell and disables empty dates or dates outside the booking window.
+             *
+             * @param day the date represented by this cell
+             * @param isEmpty whether the cell has no date to display
+             */
             @Override
             public void updateItem(LocalDate day, boolean isEmpty) {
                 super.updateItem(day, isEmpty);
@@ -203,11 +209,24 @@ final class MeetupPages {
 
     private static <T> StringConverter<T> converter(Function<T, String> text) {
         return new StringConverter<>() {
+            /**
+             * Formats a meetup option for display in its choice control.
+             *
+             * @param value the option, or null for an empty label
+             * @return the option label, or an empty string for null
+             */
             @Override
             public String toString(T value) {
                 return value == null ? "" : text.apply(value);
             }
 
+            /**
+             * Rejects text conversion because users must choose an existing option.
+             *
+             * @param value the typed text, which is not supported
+             * @return no value; this operation always throws
+             * @throws UnsupportedOperationException always; free-text conversion is unsupported
+             */
             @Override
             public T fromString(String value) {
                 throw new UnsupportedOperationException("Choose from the list");

@@ -18,7 +18,11 @@ import hotshop.model.OfferStatus;
 public record ConversationSummary(Conversation conversation, Listing listing, PublicProfile otherParticipant,
         SaleRole role, Optional<Offer> latestOffer, Optional<UUID> activeSaleId, int unreadCount, String preview,
         Instant lastActivityAt, boolean canSend) {
-    /** True while the buyer has a pending offer or the two have an active sale; such conversations are listed first. */
+    /**
+     * True while the buyer has a pending offer or the two have an active sale; such conversations are listed first.
+     *
+     * @return true if there is a pending offer or an active sale
+     */
     public boolean isAboutOfferOrSale() {
         return activeSaleId.isPresent() || latestOffer.filter(offer -> offer.getStatus() == OfferStatus.PENDING)
                 .isPresent();

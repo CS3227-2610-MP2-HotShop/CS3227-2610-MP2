@@ -7,11 +7,21 @@ import java.util.UUID;
 public final class AuthenticatedSession {
     private UUID userId;
 
+    /**
+     * Returns the current user ID, or empty when logged out.
+     *
+     * @return the current user ID, or empty when logged out
+     */
     public Optional<UUID> getCurrentUserId() {
         return Optional.ofNullable(userId);
     }
 
-    /** Returns the acting user on the shared worker, or fails when nobody is logged in. */
+    /**
+     * Returns the acting user on the shared worker, or fails when nobody is logged in.
+     *
+     * @return the current authenticated user ID
+     * @throws ServiceException with SESSION code if nobody is logged in
+     */
     public UUID requireUserId() {
         if (userId == null) {
             throw new ServiceException(ServiceException.Code.SESSION, "Login is required");

@@ -30,7 +30,16 @@ public final class Transaction {
     private UUID cancelledBy;
     private Instant lastEventAt;
 
-    /** Captures an accepted offer and its reserved listing without retaining either mutable object. */
+    /**
+     * Captures an accepted offer and its reserved listing without retaining either mutable object.
+     *
+     * @param listing the listing whose state is used
+     * @param offer the offer whose state is used
+     * @param createdAt the creation time
+     * @throws IllegalArgumentException if the supplied values violate the model invariants
+     * @throws NullPointerException if a required value is null
+     * @throws IllegalStateException if the supplied listing or offer is not in the required state
+     */
     public Transaction(Listing listing, Offer offer, Instant createdAt) {
         id = UUID.randomUUID();
         status = TransactionStatus.ACTIVE;
@@ -85,6 +94,11 @@ public final class Transaction {
     /**
      * Restores a persisted sale, rejecting combinations the live model could never produce. The
      * last-event time that orders later actions is derived from the saved times.
+     *
+     * @param saved the persisted snapshot to validate and restore
+     * @return the restored transaction with its persisted identity
+     * @throws IllegalArgumentException if the supplied values violate the model invariants
+     * @throws NullPointerException if a required value is null
      */
     public static Transaction restore(Snapshot saved) {
         Objects.requireNonNull(saved, "Saved transaction");
@@ -158,7 +172,15 @@ public final class Transaction {
         }
     }
 
-    /** Records one participant's confirmation; the second completes this transaction. */
+    /**
+     * Records one participant's confirmation; the second completes this transaction.
+     *
+     * @param actorId the ID of the participant performing the action
+     * @param confirmedAt the confirmation time, not before the previous sale event
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public void confirmCompletion(UUID actorId, Instant confirmedAt) {
         requireActive();
         requireParticipant(actorId);
@@ -183,7 +205,15 @@ public final class Transaction {
         lastEventAt = confirmedAt;
     }
 
-    /** Cancels directly only before the first participant confirmation, recording who and when. */
+    /**
+     * Cancels directly only before the first participant confirmation, recording who and when.
+     *
+     * @param actorId the ID of the participant performing the action
+     * @param cancelledAt the cancellation time, not before the previous event
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public void cancel(UUID actorId, Instant cancelledAt) {
         requireActive();
         requireParticipant(actorId);
@@ -194,7 +224,16 @@ public final class Transaction {
         markCancelled(actorId, cancelledAt);
     }
 
-    /** Requests mutual cancellation after the first confirmation, preserving earlier request history. */
+    /**
+     * Requests mutual cancellation after the first confirmation, preserving earlier request history.
+     *
+     * @param actorId the ID of the participant performing the action
+     * @param requestedAt the request time, not before the previous sale event
+     * @return the newly created pending cancellation request
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public CancellationRequest requestCancellation(UUID actorId, Instant requestedAt) {
         requireActive();
         requireParticipant(actorId);
@@ -208,106 +247,229 @@ public final class Transaction {
         return request;
     }
 
-    /** Accepts the other participant's current request and cancels this transaction. */
+    /**
+     * Accepts the other participant's current request and cancels this transaction.
+     *
+     * @param requestId the ID of the pending cancellation request
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public void acceptCancellation(UUID requestId, UUID actorId, Instant resolvedAt) {
         UUID requesterId = resolveCancellation(requestId, actorId, resolvedAt, CancellationStatus.ACCEPTED);
         markCancelled(requesterId, resolvedAt);
     }
 
-    /** Rejects the other participant's request without clearing existing confirmations. */
+    /**
+     * Rejects the other participant's request without clearing existing confirmations.
+     *
+     * @param requestId the ID of the pending cancellation request
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public void rejectCancellation(UUID requestId, UUID actorId, Instant resolvedAt) {
         resolveCancellation(requestId, actorId, resolvedAt, CancellationStatus.REJECTED);
     }
 
-    /** Withdraws the actor's own request without clearing existing confirmations. */
+    /**
+     * Withdraws the actor's own request without clearing existing confirmations.
+     *
+     * @param requestId the ID of the pending cancellation request
+     * @param actorId the ID of the participant performing the action
+     * @param resolvedAt the resolution time, not before the preceding event
+     * @throws IllegalStateException if the sale or pending request does not permit this action
+     * @throws IllegalArgumentException if the actor is not permitted or the event time precedes the last event
+     * @throws NullPointerException if a required identity or event time is null
+     */
     public void withdrawCancellation(UUID requestId, UUID actorId, Instant resolvedAt) {
         resolveCancellation(requestId, actorId, resolvedAt, CancellationStatus.WITHDRAWN);
     }
 
-    /** Returns immutable snapshots; later resolutions do not mutate previously returned history. */
+    /**
+     * Returns immutable snapshots; later resolutions do not mutate previously returned history.
+     *
+     * @return an unmodifiable copy of the cancellation history in request order
+     */
     public List<CancellationRequest> getCancellationRequests() {
         return List.copyOf(cancellationRequests);
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the ID of the associated listing.
+     *
+     * @return the ID of the associated listing
+     */
     public UUID getListingId() {
         return listingId;
     }
 
+    /**
+     * Returns the ID of the offer that created this sale.
+     *
+     * @return the ID of the offer that created this sale
+     */
     public UUID getAcceptedOfferId() {
         return acceptedOfferId;
     }
 
+    /**
+     * Returns the buyer's user ID.
+     *
+     * @return the buyer's user ID
+     */
     public UUID getBuyerId() {
         return buyerId;
     }
 
+    /**
+     * Returns the seller's user ID.
+     *
+     * @return the seller's user ID
+     */
     public UUID getSellerId() {
         return sellerId;
     }
 
+    /**
+     * Returns the agreed sale price in SGD cents.
+     *
+     * @return the agreed sale price in SGD cents
+     */
     public long getAgreedPriceCents() {
         return agreedPriceCents;
     }
 
+    /**
+     * Returns the listing title captured when the sale was agreed.
+     *
+     * @return the listing title captured when the sale was agreed
+     */
     public String getListingTitle() {
         return listingTitle;
     }
 
+    /**
+     * Returns the listing description captured when the sale was agreed.
+     *
+     * @return the listing description captured when the sale was agreed
+     */
     public String getListingDescription() {
         return listingDescription;
     }
 
+    /**
+     * Returns the item condition captured when the sale was agreed.
+     *
+     * @return the item condition captured when the sale was agreed
+     */
     public Condition getListingCondition() {
         return listingCondition;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    /**
+     * Returns the current lifecycle status.
+     *
+     * @return the current lifecycle status
+     */
     public TransactionStatus getStatus() {
         return status;
     }
 
+    /**
+     * Returns the buyer's confirmation time, or empty before they confirm.
+     *
+     * @return the buyer's confirmation time, or empty before they confirm
+     */
     public Optional<Instant> getBuyerConfirmedAt() {
         return Optional.ofNullable(buyerConfirmedAt);
     }
 
+    /**
+     * Returns the seller's confirmation time, or empty before they confirm.
+     *
+     * @return the seller's confirmation time, or empty before they confirm
+     */
     public Optional<Instant> getSellerConfirmedAt() {
         return Optional.ofNullable(sellerConfirmedAt);
     }
 
-    /** The latest recorded event; a new action's time must not precede it. */
+    /**
+     * The latest recorded event; a new action's time must not precede it.
+     *
+     * @return the latest recorded event time
+     */
     public Instant getLastEventAt() {
         return lastEventAt;
     }
 
-    /** When the sale was cancelled, directly or by an accepted request; empty unless cancelled. */
+    /**
+     * When the sale was cancelled, directly or by an accepted request; empty unless cancelled.
+     *
+     * @return the cancellation time, or empty unless cancelled
+     */
     public Optional<Instant> getCancelledAt() {
         return Optional.ofNullable(cancelledAt);
     }
 
-    /** Who cancelled directly, or whose cancellation request was accepted; empty unless cancelled. */
+    /**
+     * Who cancelled directly, or whose cancellation request was accepted; empty unless cancelled.
+     *
+     * @return the cancelling user or accepted request owner, or empty unless cancelled
+     */
     public Optional<UUID> getCancelledBy() {
         return Optional.ofNullable(cancelledBy);
     }
 
-    /** True once either participant has confirmed; direct cancellation is then no longer allowed. */
+    /**
+     * True once either participant has confirmed; direct cancellation is then no longer allowed.
+     *
+     * @return true if either participant has confirmed completion
+     */
     public boolean hasConfirmation() {
         return buyerConfirmedAt != null || sellerConfirmedAt != null;
     }
 
-    /** True when the given participant has confirmed completion. */
+    /**
+     * True when the given participant has confirmed completion.
+     *
+     * @param participantId the ID of the buyer or seller in this sale
+     * @return true if the specified participant has confirmed completion
+     * @throws IllegalArgumentException if the user is not a participant
+     * @throws NullPointerException if the participant ID is null
+     */
     public boolean hasConfirmed(UUID participantId) {
         requireParticipant(participantId);
         return participantId.equals(buyerId) ? buyerConfirmedAt != null : sellerConfirmedAt != null;
     }
 
-    /** The request awaiting a response, if any; it is always the latest request. */
+    /**
+     * The request awaiting a response, if any; it is always the latest request.
+     *
+     * @return the pending cancellation request, or empty if none exists
+     */
     public Optional<CancellationRequest> getPendingCancellation() {
         return hasPendingCancellation() ? Optional.of(cancellationRequests.getLast()) : Optional.empty();
     }

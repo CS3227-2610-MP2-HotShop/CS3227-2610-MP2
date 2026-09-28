@@ -20,7 +20,16 @@ public final class Listing {
     private ListingStatus status;
     private Instant updatedAt;
 
-    /** Creates an available listing; both timestamps start at the creation time. */
+    /**
+     * Creates an available listing; both timestamps start at the creation time.
+     *
+     * @param sellerId the seller's user ID
+     * @param details the validated listing terms
+     * @param images the ordered images, at most ten, with display orders matching their list positions
+     * @param createdAt the creation time
+     * @throws IllegalArgumentException if image count or ordering is invalid, or timestamps are out of order
+     * @throws NullPointerException if a required value or image entry is null
+     */
     public Listing(UUID sellerId, ListingDetails details, List<ListingImage> images, Instant createdAt) {
         this(UUID.randomUUID(), sellerId, details, images, ListingStatus.AVAILABLE, createdAt, createdAt);
     }
@@ -39,7 +48,20 @@ public final class Listing {
         }
     }
 
-    /** Restores a persisted listing while enforcing the same invariants as creation. */
+    /**
+     * Restores a persisted listing while enforcing the same invariants as creation.
+     *
+     * @param id the listing ID
+     * @param sellerId the seller's user ID
+     * @param details the validated listing terms
+     * @param images the ordered images, at most ten, with display orders matching their list positions
+     * @param status the persisted lifecycle status
+     * @param createdAt the creation time
+     * @param updatedAt the last change time, not before creation
+     * @return the restored listing with its persisted identity
+     * @throws IllegalArgumentException if image count or ordering is invalid, or timestamps are out of order
+     * @throws NullPointerException if a required value or image entry is null
+     */
     public static Listing restore(UUID id, UUID sellerId, ListingDetails details, List<ListingImage> images,
             ListingStatus status, Instant createdAt, Instant updatedAt) {
         return new Listing(id, sellerId, details, images, status, createdAt, updatedAt);
@@ -48,7 +70,13 @@ public final class Listing {
     /**
      * Replaces all sale details while available. Only an actual change advances the update time.
      *
+     * @param newDetails the replacement listing terms
+     * @param newImages the complete replacement image list, at most ten, in display order
+     * @param time the event time, not before the preceding event or creation
      * @return true when sale terms changed and the service must reject pending offers
+     * @throws IllegalStateException if the current listing status does not permit this action
+     * @throws IllegalArgumentException if image count or ordering is invalid, or timestamps are out of order
+     * @throws NullPointerException if a required value or image entry is null
      */
     public boolean update(ListingDetails newDetails, List<ListingImage> newImages, Instant time) {
         requireStatus(ListingStatus.AVAILABLE);
@@ -67,25 +95,41 @@ public final class Listing {
         return hasChanges;
     }
 
-    /** Reserves an available listing as part of coordinated offer acceptance. */
+    /**
+     * Reserves an available listing as part of coordinated offer acceptance.
+     *
+     * @throws IllegalStateException if the current listing status does not permit this action
+     */
     public void reserve() {
         requireStatus(ListingStatus.AVAILABLE);
         status = ListingStatus.RESERVED;
     }
 
-    /** Releases a reservation after the transaction has been cancelled. */
+    /**
+     * Releases a reservation after the transaction has been cancelled.
+     *
+     * @throws IllegalStateException if the current listing status does not permit this action
+     */
     public void release() {
         requireStatus(ListingStatus.RESERVED);
         status = ListingStatus.AVAILABLE;
     }
 
-    /** Marks a reserved listing sold after both transaction participants confirm. */
+    /**
+     * Marks a reserved listing sold after both transaction participants confirm.
+     *
+     * @throws IllegalStateException if the current listing status does not permit this action
+     */
     public void markSold() {
         requireStatus(ListingStatus.RESERVED);
         status = ListingStatus.SOLD;
     }
 
-    /** Archives an available or sold listing; services must also reject pending offers. */
+    /**
+     * Archives an available or sold listing; services must also reject pending offers.
+     *
+     * @throws IllegalStateException if the current listing status does not permit this action
+     */
     public void archive() {
         if (status != ListingStatus.AVAILABLE && status != ListingStatus.SOLD) {
             throw new IllegalStateException("Only available or sold listings can be archived");
@@ -96,36 +140,72 @@ public final class Listing {
     /**
      * True for available or archived listings; reserved and sold listings always have a transaction.
      * Services must also refuse listings with offer history.
+     *
+     * @return true if the status permits deletion, subject to service checks for existing history
      */
     public boolean isDeletable() {
         return status == ListingStatus.AVAILABLE || status == ListingStatus.ARCHIVED;
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the seller's user ID.
+     *
+     * @return the seller's user ID
+     */
     public UUID getSellerId() {
         return sellerId;
     }
 
+    /**
+     * Returns the current validated listing terms.
+     *
+     * @return the current validated listing terms
+     */
     public ListingDetails getDetails() {
         return details;
     }
 
+    /**
+     * Returns the unmodifiable image list in display order.
+     *
+     * @return the unmodifiable image list in display order
+     */
     public List<ListingImage> getImages() {
         return images;
     }
 
+    /**
+     * Returns the current lifecycle status.
+     *
+     * @return the current lifecycle status
+     */
     public ListingStatus getStatus() {
         return status;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
-    /** Time of the last actual change to sale details or images; status changes do not count. */
+    /**
+     * Time of the last actual change to sale details or images; status changes do not count.
+     *
+     * @return the last time listing terms or images actually changed
+     */
     public Instant getUpdatedAt() {
         return updatedAt;
     }

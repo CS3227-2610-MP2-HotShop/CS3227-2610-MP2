@@ -40,7 +40,16 @@ public final class MeetupService {
     private final AuthenticatedSession session;
     private final Clock clock;
 
-    /** Wires the shared database, worker, and session with the repositories meetups touch. */
+    /**
+     * Wires the shared database, worker, and session with the repositories meetups touch.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param meetups the meetup repository
+     * @param transactions the agreed-sale repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param clock the clock supplying event times and the local time zone
+     */
     public MeetupService(Database database, MeetupRepository meetups, TransactionRepository transactions,
             ServiceWorker worker, AuthenticatedSession session, Clock clock) {
         this.database = database;
@@ -54,6 +63,12 @@ public final class MeetupService {
     /**
      * The seller offers one time and place for the sale's handover. At most three future slots per
      * sale, none overlapping each other or the seller's own scheduled meetups.
+     *
+     * @param saleId the ID of the agreed sale
+     * @param start the proposed start time
+     * @param end the proposed end time
+     * @param location the meetup location, trimmed and limited to 200 Unicode code points
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
      */
     public CompletableFuture<MeetupSummary> offerSlot(UUID saleId, Instant start, Instant end, String location) {
         return worker.submit(() -> {
@@ -82,7 +97,12 @@ public final class MeetupService {
         });
     }
 
-    /** The seller takes back a slot nobody has booked. */
+    /**
+     * The seller takes back a slot nobody has booked.
+     *
+     * @param slotId the ID of the offered meetup slot
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> withdrawSlot(UUID slotId) {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
@@ -102,6 +122,9 @@ public final class MeetupService {
     /**
      * The buyer books one offered slot; the sale's other slots are then deleted. Neither participant
      * may have another scheduled meetup at an overlapping time, in any role.
+     *
+     * @param slotId the ID of the offered meetup slot
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
      */
     public CompletableFuture<MeetupSummary> bookSlot(UUID slotId) {
         return worker.submit(() -> {
@@ -130,7 +153,15 @@ public final class MeetupService {
         });
     }
 
-    /** Either participant proposes moving the meetup to one new time and place. */
+    /**
+     * Either participant proposes moving the meetup to one new time and place.
+     *
+     * @param meetupId the ID of the meetup
+     * @param start the proposed start time
+     * @param end the proposed end time
+     * @param location the meetup location, trimmed and limited to 200 Unicode code points
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> proposeMove(UUID meetupId, Instant start, Instant end, String location) {
         return changeMeetup(meetupId, (connection, meetup, userId, now) -> {
             MeetupTime time = toFutureTime(start, end, location, now);
@@ -142,7 +173,12 @@ public final class MeetupService {
         });
     }
 
-    /** The other participant accepts the pending move, after both participants are rechecked for clashes. */
+    /**
+     * The other participant accepts the pending move, after both participants are rechecked for clashes.
+     *
+     * @param meetupId the ID of the meetup
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> acceptMove(UUID meetupId) {
         return changeMeetup(meetupId, (connection, meetup, userId, now) -> {
             var proposal = requireResponder(meetup, userId);
@@ -151,13 +187,23 @@ public final class MeetupService {
         });
     }
 
-    /** The other participant declines the pending move; the meetup keeps its time. */
+    /**
+     * The other participant declines the pending move; the meetup keeps its time.
+     *
+     * @param meetupId the ID of the meetup
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> rejectMove(UUID meetupId) {
         return changeMeetup(meetupId, (connection, meetup, userId, now) ->
                 meetup.rejectMove(requireResponder(meetup, userId).getId(), userId, eventTime(meetup, now)));
     }
 
-    /** The proposer takes back their pending move. */
+    /**
+     * The proposer takes back their pending move.
+     *
+     * @param meetupId the ID of the meetup
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> withdrawMove(UUID meetupId) {
         return changeMeetup(meetupId, (connection, meetup, userId, now) -> {
             var proposal = requirePendingProposal(meetup);
@@ -168,12 +214,22 @@ public final class MeetupService {
         });
     }
 
-    /** Either participant cancels the meetup; the sale stays active and the seller can offer new times. */
+    /**
+     * Either participant cancels the meetup; the sale stays active and the seller can offer new times.
+     *
+     * @param meetupId the ID of the meetup
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> cancelMeetup(UUID meetupId) {
         return changeMeetup(meetupId, (connection, meetup, userId, now) -> meetup.cancel(eventTime(meetup, now)));
     }
 
-    /** The sale's offered slots and meetup, for either participant. */
+    /**
+     * The sale's offered slots and meetup, for either participant.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the sale's refreshed meetup summary; failures complete it exceptionally
+     */
     public CompletableFuture<MeetupSummary> getMeetupSummary(UUID saleId) {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
@@ -188,6 +244,15 @@ public final class MeetupService {
     /** A change to one scheduled meetup, applied inside the operation's database transaction. */
     @FunctionalInterface
     private interface MeetupChange {
+        /**
+         * Applies a participant's change to a loaded meetup within the caller's transaction.
+         *
+         * @param connection the caller-owned database connection
+         * @param meetup the meetup to change
+         * @param userId the authenticated participant's ID
+         * @param now the current service time
+         * @throws SQLException if database access fails
+         */
         void apply(Connection connection, Meetup meetup, UUID userId, Instant now) throws SQLException;
     }
 

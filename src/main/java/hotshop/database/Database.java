@@ -24,7 +24,11 @@ public final class Database {
     private final String url;
     private final List<String> migrations;
 
-    /** Selects an absolute SQLite file; connections are opened only when work is executed. */
+    /**
+     * Selects an absolute SQLite file; connections are opened only when work is executed.
+     *
+     * @param file the SQLite database file, resolved to an absolute path
+     */
     public Database(Path file) {
         this(file, MIGRATIONS);
     }
@@ -38,11 +42,24 @@ public final class Database {
     /** Work may pass this connection to any participating repository. */
     @FunctionalInterface
     public interface Work<T> {
-        /** Uses the caller-owned connection without committing, closing, or retaining it. */
+        /**
+         * Uses the caller-owned connection without committing, closing, or retaining it.
+         *
+         * @param connection the caller-owned connection for the current database transaction
+         * @return the result of the work
+         * @throws SQLException if database access fails
+         */
         T execute(Connection connection) throws SQLException;
     }
 
-    /** Commits successful work, rolls back failures, and closes the configured connection in either case. */
+    /**
+     * Commits successful work, rolls back failures, and closes the configured connection in either case.
+     *
+     * @param <T> the operation result type
+     * @param work the work to execute atomically on one connection
+     * @return the result produced by the committed work
+     * @throws SQLException if database access fails
+     */
     public <T> T executeTransaction(Work<T> work) throws SQLException {
         try (Connection connection = openConnection()) {
             connection.setAutoCommit(false);
@@ -76,6 +93,9 @@ public final class Database {
     /**
      * Applies each pending migration in order, one transaction per version, so a failure leaves
      * the database at the last fully applied version. Never downgrades a newer database.
+     *
+     * @throws SQLException if database access fails
+     * @throws IOException if filesystem access or resource loading fails
      */
     public void migrate() throws SQLException, IOException {
         List<String> scripts = new ArrayList<>();

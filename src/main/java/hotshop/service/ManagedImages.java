@@ -27,6 +27,13 @@ final class ManagedImages {
     /** Lists every filename in this namespace that saved records still reference. */
     @FunctionalInterface
     interface References {
+        /**
+         * Reads the live image references using the caller's transaction.
+         *
+         * @param connection the caller-owned database connection
+         * @return the filenames still referenced by persisted records
+         * @throws SQLException if the reference query fails
+         */
         Set<String> find(Connection connection) throws SQLException;
     }
 

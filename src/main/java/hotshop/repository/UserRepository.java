@@ -13,7 +13,14 @@ import hotshop.security.PasswordHash;
 
 /** SQL mappings only; callers supply the transaction and enforce permissions. */
 public final class UserRepository {
-    /** Finds a profile by normalized username inside the caller's transaction. */
+    /**
+     * Finds a profile by normalized username inside the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param normalized the username normalized to lowercase
+     * @return the matching user, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<User> findByUsername(Connection connection, String normalized) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM users WHERE normalized_username = ?")) {
             statement.setString(1, normalized);
@@ -23,7 +30,14 @@ public final class UserRepository {
         }
     }
 
-    /** Restores a profile by identity without reading credentials. */
+    /**
+     * Restores a profile by identity without reading credentials.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the user ID
+     * @return the matching user, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<User> findById(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM users WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -33,7 +47,14 @@ public final class UserRepository {
         }
     }
 
-    /** Inserts both registration records; the caller commits or rolls back their shared transaction. */
+    /**
+     * Inserts both registration records; the caller commits or rolls back their shared transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param user the user profile to persist
+     * @param password the credential metadata and derived key to persist
+     * @throws SQLException if database access fails
+     */
     public void insert(Connection connection, User user, PasswordHash password) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO users "
                 + "(id, username, normalized_username, display_name) VALUES (?, ?, ?, ?)")) {
@@ -54,7 +75,14 @@ public final class UserRepository {
         }
     }
 
-    /** Reads the separate credential record; missing credentials are a storage failure. */
+    /**
+     * Reads the separate credential record; missing credentials are a storage failure.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the user ID
+     * @return the stored credential metadata and derived key
+     * @throws SQLException if database access fails
+     */
     public PasswordHash getCredentials(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM credentials WHERE user_id = ?")) {
             statement.setString(1, id.toString());
@@ -68,7 +96,13 @@ public final class UserRepository {
         }
     }
 
-    /** Updates profile fields only, preserving username and ID, inside the caller's transaction. */
+    /**
+     * Updates profile fields only, preserving username and ID, inside the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param user the user profile to persist
+     * @throws SQLException if database access fails
+     */
     public void updateProfile(Connection connection, User user) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE users SET display_name = ?, "
                 + "profile_image = ?, preferred_pickup_location = ? WHERE id = ?")) {
@@ -82,7 +116,14 @@ public final class UserRepository {
         }
     }
 
-    /** Replaces credential metadata and derived key without changing profile or session state. */
+    /**
+     * Replaces credential metadata and derived key without changing profile or session state.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the user ID
+     * @param password the credential metadata and derived key to persist
+     * @throws SQLException if database access fails
+     */
     public void updatePassword(Connection connection, UUID id, PasswordHash password) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE credentials SET algorithm = ?, iterations = ?, "
                 + "salt = ?, password_hash = ? WHERE user_id = ?")) {
@@ -103,7 +144,13 @@ public final class UserRepository {
                 row.getString("preferred_pickup_location"));
     }
 
-    /** Lists live profile-image references so cleanup cannot remove a referenced image. */
+    /**
+     * Lists live profile-image references so cleanup cannot remove a referenced image.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @return the set of image filenames still referenced by database rows
+     * @throws SQLException if database access fails
+     */
     public Set<String> getReferencedImages(Connection connection) throws SQLException {
         Set<String> result = new HashSet<>();
         try (var statement = connection.prepareStatement(

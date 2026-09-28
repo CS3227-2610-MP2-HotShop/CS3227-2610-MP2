@@ -31,7 +31,20 @@ public final class RescheduleProposal {
                 ProposalStatus.PENDING, null);
     }
 
-    /** Restores a persisted proposal; its owning Meetup's restoration checks it fits the meetup's history. */
+    /**
+     * Restores a persisted proposal; its owning Meetup's restoration checks it fits the meetup's history.
+     *
+     * @param id the reschedule proposal ID
+     * @param meetupId the ID of the meetup
+     * @param proposerId the ID of the participant proposing the move
+     * @param time the meetup time and location
+     * @param createdAt the creation time
+     * @param status the persisted lifecycle status
+     * @param resolvedAt the resolution time; null only when restoring a pending request or proposal
+     * @return the restored reschedule proposal with its persisted identity
+     * @throws IllegalArgumentException if the resolution time is inconsistent with the status or creation time
+     * @throws NullPointerException if a required value is null
+     */
     public static RescheduleProposal restore(UUID id, UUID meetupId, UUID proposerId, MeetupTime time,
             Instant createdAt, ProposalStatus status, Instant resolvedAt) {
         Objects.requireNonNull(id, "Proposal ID");
@@ -53,30 +66,65 @@ public final class RescheduleProposal {
         return new RescheduleProposal(id, meetupId, proposerId, this.time, createdAt, outcome, time);
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the ID of the associated meetup.
+     *
+     * @return the ID of the associated meetup
+     */
     public UUID getMeetupId() {
         return meetupId;
     }
 
+    /**
+     * Returns the user ID of the move proposer.
+     *
+     * @return the user ID of the move proposer
+     */
     public UUID getProposerId() {
         return proposerId;
     }
 
+    /**
+     * Returns the meetup time and location.
+     *
+     * @return the meetup time and location
+     */
     public MeetupTime getTime() {
         return time;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    /**
+     * Returns the current lifecycle status.
+     *
+     * @return the current lifecycle status
+     */
     public ProposalStatus getStatus() {
         return status;
     }
 
+    /**
+     * Returns the resolution time, or empty while pending.
+     *
+     * @return the resolution time, or empty while pending
+     */
     public Optional<Instant> getResolvedAt() {
         return Optional.ofNullable(resolvedAt);
     }

@@ -21,7 +21,13 @@ import hotshop.model.TransactionStatus;
 
 /** SQL mappings for agreed sales and their cancellation requests. Times are epoch milliseconds. */
 public final class TransactionRepository {
-    /** Saves a newly created sale in the caller's transaction. */
+    /**
+     * Saves a newly created sale in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param transaction the agreed sale to persist
+     * @throws SQLException if database access fails
+     */
     public void insert(Connection connection, Transaction transaction) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO transactions (id, listing_id, "
                 + "accepted_offer_id, buyer_id, seller_id, agreed_price_cents, listing_title, listing_description, "
@@ -41,7 +47,13 @@ public final class TransactionRepository {
         }
     }
 
-    /** Saves status, confirmations, cancellation details, and every cancellation request. */
+    /**
+     * Saves status, confirmations, cancellation details, and every cancellation request.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param transaction the agreed sale to persist
+     * @throws SQLException if database access fails
+     */
     public void update(Connection connection, Transaction transaction) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE transactions SET status = ?, "
                 + "buyer_confirmed_at = ?, seller_confirmed_at = ?, cancelled_at = ?, cancelled_by = ? WHERE id = ?")) {
@@ -70,7 +82,14 @@ public final class TransactionRepository {
         }
     }
 
-    /** Restores one sale with its cancellation requests, or empty when no sale has this ID. */
+    /**
+     * Restores one sale with its cancellation requests, or empty when no sale has this ID.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the transaction ID
+     * @return the matching transaction, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Transaction> findById(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM transactions WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -78,17 +97,38 @@ public final class TransactionRepository {
         }
     }
 
-    /** Every sale where the user is the seller, newest first. */
+    /**
+     * Every sale where the user is the seller, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param sellerId the seller's user ID
+     * @return the matching records in every status, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Transaction> findBySeller(Connection connection, UUID sellerId) throws SQLException {
         return findByParticipant(connection, "seller_id", sellerId);
     }
 
-    /** Every sale where the user is the buyer, newest first. */
+    /**
+     * Every sale where the user is the buyer, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param buyerId the buyer's user ID
+     * @return the matching records in every status, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Transaction> findByBuyer(Connection connection, UUID buyerId) throws SQLException {
         return findByParticipant(connection, "buyer_id", buyerId);
     }
 
-    /** The ID of the listing's active sale, if it has one; there is at most one. */
+    /**
+     * The ID of the listing's active sale, if it has one; there is at most one.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @return the active sale ID, or empty when none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<UUID> findActiveIdForListing(Connection connection, UUID listingId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT id FROM transactions WHERE listing_id = ? AND status = 'ACTIVE'")) {
@@ -99,7 +139,14 @@ public final class TransactionRepository {
         }
     }
 
-    /** The status of the sale created from an accepted offer, if there is one. */
+    /**
+     * The status of the sale created from an accepted offer, if there is one.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param offerId the ID of the offer
+     * @return the associated sale status, or empty when no sale exists
+     * @throws SQLException if database access fails
+     */
     public Optional<TransactionStatus> findStatusByOffer(Connection connection, UUID offerId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT status FROM transactions WHERE accepted_offer_id = ?")) {
@@ -110,7 +157,14 @@ public final class TransactionRepository {
         }
     }
 
-    /** Sale statuses for every accepted offer on a listing, keyed by offer ID. */
+    /**
+     * Sale statuses for every accepted offer on a listing, keyed by offer ID.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @return sale statuses keyed by accepted offer ID
+     * @throws SQLException if database access fails
+     */
     public Map<UUID, TransactionStatus> findStatusesByListing(Connection connection, UUID listingId)
             throws SQLException {
         Map<UUID, TransactionStatus> result = new HashMap<>();

@@ -47,7 +47,19 @@ public final class ChatService {
     private final AuthenticatedSession session;
     private final Clock clock;
 
-    /** Wires the shared database, worker, and session with the repositories conversations draw on. */
+    /**
+     * Wires the shared database, worker, and session with the repositories conversations draw on.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param chats the conversation and message repository
+     * @param listings the listing repository
+     * @param offers the offer repository
+     * @param transactions the agreed-sale repository
+     * @param users the user and credential repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param clock the clock supplying event times and the local time zone
+     */
     public ChatService(Database database, ChatRepository chats, ListingRepository listings, OfferRepository offers,
             TransactionRepository transactions, UserRepository users, ServiceWorker worker,
             AuthenticatedSession session, Clock clock) {
@@ -65,6 +77,11 @@ public final class ChatService {
     /**
      * The buyer's "Chat with seller": sends a message about another seller's available or reserved
      * listing, starting the conversation if this is the buyer's first message or offer on it.
+     *
+     * @param listingId the ID of the listing
+     * @param text the message text, trimmed and limited to 1,000 Unicode code points
+     * @return a future containing the conversation view including the saved message; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<ConversationView> messageSeller(UUID listingId, String text) {
         return worker.submit(() -> {
@@ -83,7 +100,14 @@ public final class ChatService {
         });
     }
 
-    /** Either participant replies in an existing conversation while its listing is available or reserved. */
+    /**
+     * Either participant replies in an existing conversation while its listing is available or reserved.
+     *
+     * @param conversationId the ID of the conversation
+     * @param text the message text, trimmed and limited to 1,000 Unicode code points
+     * @return a future containing the conversation view including the saved message; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<ConversationView> sendMessage(UUID conversationId, String text) {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
@@ -98,7 +122,12 @@ public final class ChatService {
         });
     }
 
-    /** Opens one of the current user's conversations and marks everything in it as read. */
+    /**
+     * Opens one of the current user's conversations and marks everything in it as read.
+     *
+     * @param conversationId the ID of the conversation
+     * @return a future containing the conversation view after marking it read; failures complete it exceptionally
+     */
     public CompletableFuture<ConversationView> openConversation(UUID conversationId) {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
@@ -111,6 +140,10 @@ public final class ChatService {
     /**
      * The buyer's existing conversation about a listing, opened and marked read, or empty when they
      * have not started one; the screen then shows an empty chat until the first message is sent.
+     *
+     * @param listingId the ID of the listing
+     * @return a future containing the existing conversation after marking it read, or empty if none exists; failures
+     *     complete it exceptionally
      */
     public CompletableFuture<Optional<ConversationView>> openChatWithSeller(UUID listingId) {
         return worker.submit(() -> {
@@ -132,6 +165,11 @@ public final class ChatService {
     /**
      * Seller only: opens a buyer's existing conversation about one of the seller's listings, for
      * example from an incoming offer or a sale. Sellers never start conversations.
+     *
+     * @param listingId the ID of the listing
+     * @param buyerId the buyer's user ID
+     * @return a future containing the buyer's existing conversation after marking it read; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<ConversationView> openChatWithBuyer(UUID listingId, UUID buyerId) {
         return worker.submit(() -> {
@@ -156,6 +194,9 @@ public final class ChatService {
      * Every conversation the current user takes part in, as buyer or seller: those with a pending
      * offer or an active sale first, then the rest; within each, unread ones first, then by latest
      * activity (a message, an offer made, or an offer closed), newest first.
+     *
+     * @return a future containing the conversation summaries in offer/sale, unread, and latest-activity order;
+     *     failures complete it exceptionally
      */
     public CompletableFuture<List<ConversationSummary>> getConversations() {
         return worker.submit(() -> {
@@ -164,7 +205,11 @@ public final class ChatService {
         });
     }
 
-    /** Unread messages and offer events across all the current user's conversations, for the sidebar. */
+    /**
+     * Unread messages and offer events across all the current user's conversations, for the sidebar.
+     *
+     * @return a future containing the total unread message and offer-event count; failures complete it exceptionally
+     */
     public CompletableFuture<Integer> getUnreadCount() {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
