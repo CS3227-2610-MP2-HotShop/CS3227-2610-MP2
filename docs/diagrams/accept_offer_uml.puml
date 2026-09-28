@@ -1,0 +1,39 @@
+@startuml accept_offer_uml
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+hide footbox
+
+title Accepting an offer: one database transaction
+
+actor Seller
+participant "Offer page\n(UI)" as UI
+participant OfferService
+participant ServiceWorker
+participant "Offer, Listing, and\nTransaction repositories" as Repos
+participant PendingOffers
+
+Seller -> UI : Accept Offer (confirmed)
+UI -> OfferService : acceptOffer(offerId)
+OfferService -> ServiceWorker : submit(work)
+ServiceWorker --> UI : future
+note over UI : The JavaFX thread is free while the work runs.
+
+group Database.executeTransaction, on the service worker thread
+  OfferService -> Repos : find offer and listing
+  note right of OfferService
+    Refused with a ServiceException if the user is
+    not the seller, the offer is not pending, or the
+    listing is no longer available.
+  end note
+  OfferService -> OfferService : offer.accept(), listing.reserve()
+  OfferService -> Repos : update offer
+  OfferService -> PendingOffers : rejectAllExcept(listing, offer)
+  PendingOffers -> Repos : reject every other pending offer
+  OfferService -> Repos : update listing
+  OfferService -> Repos : insert new Transaction
+  note over OfferService, Repos : Commit; any failure rolls everything back.
+end
+
+ServiceWorker --> UI : future completes with AcceptedOffer
+UI -> UI : Platform.runLater: open Sale Details
+@enduml

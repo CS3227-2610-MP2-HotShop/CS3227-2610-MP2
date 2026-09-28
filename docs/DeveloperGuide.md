@@ -13,6 +13,21 @@ necessary. Import the root directory as a Gradle project in your IDE.
 
 Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network access.
 
+### Diagrams
+
+The five diagrams of sales, offers, and meetups (the `*_uml.puml` files) are
+PlantUML sources in `docs/diagrams/`, committed next to the PNGs the guide shows. After
+editing a source, regenerate its PNG with the PlantUML jar (1.2026.8, from the
+[PlantUML releases](https://github.com/plantuml/plantuml/releases)) placed in the
+git-ignored `tools/` folder:
+
+```powershell
+java -jar tools\plantuml.jar -tpng -charset UTF-8 docs\diagrams\sale_models_uml.puml
+```
+
+The class and state diagrams use PlantUML's built-in Smetana layout, so Graphviz
+is not needed. Commit the `.puml` and the regenerated `.png` together.
+
 ## Structure
 
 - `src/main/java/hotshop/Launcher.java`: executable JAR entry point.
@@ -140,7 +155,9 @@ minimum. `UiPage.setHeadingExtras` places controls on the title's row.
 
 `OfferBar` is a pure record that maps the viewer's role, the latest offer, the
 listing status, and the sale status to the bar's text and `OfferBar.Action`s, so
-its rules are tested without JavaFX (`OfferBarTest`). The actions call
+its rules are tested without JavaFX (`OfferBarTest`). For example, after an
+accepted offer's sale is cancelled, the buyer gets Make Offer again once the
+listing is available. The actions call
 OfferService through `OfferPages.makeOffer` and `OfferPages.accept`, which the
 listing page also uses. `ConversationSummary` carries only an active sale's ID,
 so for an accepted offer without one the page finds the sale's status in
@@ -182,8 +199,8 @@ loads `getMeetupSummary`; for a completed sale it uses the `MeetupSummary` on th
 matching `SaleForParticipant`. Sale Details shows the bar's text for an active
 sale; My Sales and My Purchases show
 `MeetupBar.summary`; and the Dashboard shows
-`SalesDashboard.upcomingMeetups`. There is no separate meetup page, so the old
-"Meetups" and "Availability & Meetups" sidebar entries are gone.
+`SalesDashboard.upcomingMeetups`. There is no separate meetup page or sidebar
+entry: meetups are always arranged inside the sale's conversation.
 Seller cards reserve a 120-unit meetup area below the status/offer-count footer,
 so a seller card is the compact card's height plus that area and its gap
 (`ListingCards.SELLER_CARD_HEIGHT`). `ListingCards` reads the existing
@@ -491,193 +508,254 @@ and construct its own `ManagedImages`. SQL fixtures/triggers
 in tests inject persistence failures at the external database boundary; assertions
 check service-visible results and managed-file lifecycle.
 
+## Marketplace services
+
+Five services carry the marketplace rules: ListingService, OfferService,
+TransactionService (sales), MeetupService, and ChatService. Each is reached
+through `ApplicationRuntime` (`getListings()`, `getOffers()`, `getTransactions()`,
+`getMeetups()`, `getChats()`), shares the one `ServiceWorker`, database, and
+session described above, and follows the same pattern:
+
+- Every operation requires login and acts as the session's current user.
+  Screens never pass a user ID, so a screen cannot act for someone else.
+- Each change runs in one database transaction. It loads the records, checks
+  who may act and what state allows, applies the change through the model, and
+  saves every affected record before committing. Any failure rolls the whole
+  change back.
+- Refusals are `ServiceException`s whose codes say why (`VALIDATION`,
+  `NOT_FOUND`, `PERMISSION`, `INVALID_STATE`, `SESSION`, `STORAGE`) and whose
+  messages say what to do, with real values, never SQL. Tests assert the code
+  and key values, not exact wording.
+- Results are detached copies, often paired with public profiles
+  (`ListingWithSeller`, `SaleForParticipant`, `ConversationSummary`), so screens
+  cannot change stored state by accident.
+
+`ServiceSupport` holds the plumbing these five share: the current time
+truncated to SQLite's milliseconds, transaction error mapping, public-profile
+lookup, status words, price formatting (`S$40.00`), and message times on a
+24-hour clock. Small package-private helpers let one service change another's
+records inside its own transaction, without queueing more work on the single
+worker: `PendingOffers` (reject a listing's pending offers), `SaleMeetups`
+(load and close a sale's meetup), and `Conversations` (start a conversation and
+add messages).
+
+The models behind these services, and how they refer to each other:
+
+[![Class diagram of listings, offers, sales, cancellation requests, meetup times, meetups, move proposals, conversations, and messages](diagrams/sale_models_uml.png)](diagrams/sale_models_uml.png)
+
+Records refer to each other by ID rather than holding each other, so each can
+be loaded and saved on its own. A sale (`Transaction`) copies the agreed price
+and the listing's title, description, and condition, so a later listing edit
+never changes it. `MeetupTime` is one value for a start, end, and place,
+validated once (15 minutes to 4 hours, a 1-200 character place) and shared by
+offered times, meetups, and move proposals.
+
 ## Listing service
 
-[ListingService Design](ListingServiceDesign.md) records the approved requirements.
-**ListingService includes buyer search.** Buyer screens should call
-`searchListings` and `getListing` rather than implementing a second search.
+ListingService manages a seller's listings and buyers' search. Design:
+[ListingService Design](ListingServiceDesign.md).
 
-Access it through `ApplicationRuntime.getListings()`. It shares the worker,
-session, and database with AccountService, and every operation requires login.
-
-| Operation | Rule |
+| Operation | Who and when |
 | --- | --- |
-| `createListing(draft, photos)` | Saves an available listing owned by the current user. |
-| `updateListing(id, draft, photos)` | Owner only; available listings only. |
-| `archiveListing(id)` | Owner only; available or sold listings. |
-| `deleteListing(id)` | Owner only; available or archived listings; removes photos. |
-| `getMyListings()` | Current user's listings as `OwnListing` (listing plus pending offer count): reserved, available, sold, archived, each newest first. |
-| `getListing(id)` | Any existing listing in any status. |
-| `searchListings(search)` | Other sellers' available listings only. |
+| `createListing(draft, photos)` | Any user; saves an available listing they own. |
+| `updateListing(id, draft, photos)` | The owner, while available. |
+| `archiveListing(id)` | The owner, while available or sold. |
+| `deleteListing(id)` | The owner, while available or archived, with no offer history. |
+| `getMyListings()` | The current user's listings as `OwnListing`: reserved, available, sold, archived, each newest first, with the pending-offer count and, for reserved listings, the meetup summary. |
+| `getPublicListings(sellerId)` | Any user; a profile's available listings, newest first. |
+| `getListing(id)` | Any user; any existing listing in any status. |
+| `searchListings(search)` | Any user; other sellers' available listings only. |
 
-Screens pass a `ListingDraft` of raw form values; invalid values become
-`VALIDATION` failures rather than exceptions from the model. Photos are a complete
-ordered `List<ListingPhoto>` of `ListingPhoto.keep(filename)` and
-`ListingPhoto.add(path)` entries (0 to 10), validated against
-`ImageStorage.LISTING_LIMITS` (JPEG/PNG, 10 MiB, 4096 px per side). Imports happen
-before the database write; on any failure, recovery removes the unsaved copies.
-Results are `ListingWithSeller`: a detached `Listing` plus the seller's
-`PublicProfile`. Non-owners get `PERMISSION`; a status that forbids the action
-gets `INVALID_STATE`. Both codes are part of the shared `ServiceException`.
+Design decisions:
 
-`ListingSearch` holds optional filters (title text, category, conditions, price
-bounds of 0 to the price cap) and a `ListingSort`. SQL selects other sellers'
-available listings; `ListingSearch` then filters and sorts them in Java because
-SQLite's case-insensitive matching covers ASCII letters only. There is no
-pagination.
-
-`ApplicationRuntime.open(Path, Clock)` lets tests fix the time; timestamps are
-truncated to milliseconds to match what SQLite stores. Some listing tests set a
-listing's status in SQL to reach reserved or sold states directly; offer and sale
-tests use the real services.
+- **Photos are saved before the database write, and cleaned up on failure.**
+  A save takes the complete ordered photo list (`ListingPhoto.keep` and
+  `ListingPhoto.add`, 0 to 10, JPEG/PNG up to 10 MiB and 4096 px per side).
+  New files are imported first; if the transaction then fails, recovery removes
+  the copies that were never saved, and removed photos are only deleted after
+  commit.
+- **An actual edit or an archive rejects the listing's pending offers** in the
+  same transaction (`PendingOffers`), because buyers offered on the old details.
+  `Listing.update` reports whether anything really changed, so saving without a
+  change keeps the offers.
+- **Search filters and sorts in Java, not SQL.** SQL selects other sellers'
+  available listings; `ListingSearch` then applies the title, category,
+  condition, and price filters and the sort, because SQLite's case-insensitive
+  matching only covers ASCII letters. There is no pagination.
+- **Deleting keeps history safe.** A listing with offer history cannot be
+  deleted; the refusal tells the seller to archive it instead. Its enquiry
+  conversations (buyers who messaged but never offered) are deleted with it, and
+  the screen warns how many.
 
 ## Offer service
 
-[OfferService Design](OfferServiceDesign.md) records the approved requirements.
-**OfferService includes the buyer operations** (submit, withdraw, my offers).
-Buyer screens should call them rather than implementing them again.
+OfferService handles buyers' offers and the seller's decisions. Design:
+[OfferService Design](OfferServiceDesign.md).
 
-Access it through `ApplicationRuntime.getOffers()`. It shares the worker,
-session, and database with the other services, and every operation requires login.
+| Operation | Who and when |
+| --- | --- |
+| `submitOffer(listingId, amountCents[, message])` | A buyer, on another seller's available listing, with no pending offer on it. The message is optional. |
+| `withdrawOffer(offerId)` | The offer's buyer, while pending. |
+| `getMyOffers()` | A buyer's offers in every status, newest first. |
+| `getOffersForListing(listingId)` | The listing's seller: the live sale's offer, then accepted offers whose sale was cancelled, then the rest newest first. |
+| `acceptOffer(offerId)` | The listing's seller, for a pending offer on an available listing. |
+| `rejectOffer(offerId)` | The listing's seller, for a pending offer. |
 
-| Operation | Who | Rule |
-| --- | --- | --- |
-| `submitOffer(listingId, amountCents)` | Buyer | Another seller's available listing; one pending offer per buyer and listing. |
-| `submitOffer(listingId, amountCents, message)` | Buyer | As above, with an optional first message (null or blank means none). |
-| `withdrawOffer(offerId)` | The offer's buyer | Pending offers only. |
-| `getMyOffers()` | Buyer | Own offers in every status, newest first, each with listing and seller. |
-| `getOffersForListing(listingId)` | The listing's seller | Every offer; live sale first, then accepted offers whose sale was cancelled, then the rest newest first. |
-| `acceptOffer(offerId)` | The listing's seller | Pending offer on an available listing. |
-| `rejectOffer(offerId)` | The listing's seller | Pending offers only. |
+Design decisions:
 
-`acceptOffer` does everything in one database transaction: accept the offer,
-reserve the listing, reject the other pending offers through `PendingOffers`, and
-save a `Transaction`. It returns `AcceptedOffer` (offer, reserved listing, sale
-ID). `OfferWithListing` and `OfferWithBuyer` carry the sale status for accepted
-offers, so screens can show "Accepted, sale cancelled" without a new offer status.
+- **Accepting is one transaction.** It accepts the offer, reserves the listing,
+  rejects every other pending offer, and creates the sale together, so a buyer
+  can never see an accepted offer without a sale, or two sales for one listing
+  (the database also allows only one active sale per listing).
+- **Amounts never change.** To change an amount, the buyer withdraws and offers
+  again; the database allows one pending offer per buyer and listing.
+- **Every offer starts or reuses the buyer's conversation** (through
+  `Conversations`), in the same transaction, so the seller can always reply to
+  anyone who offered. An optional message becomes the conversation's next
+  message.
+- **Accepted offers carry their sale's status** (`OfferWithListing`,
+  `OfferWithBuyer`), so screens can show "Accepted · Sale Cancelled" without a
+  separate offer status. After a sale is cancelled, the listing can receive new
+  offers.
 
-`ServiceSupport` holds plumbing shared by ListingService and OfferService: the
-truncated current time, transaction error mapping, public-profile lookup, status
-words, and price formatting (`S$40.00`). `ServiceException` has factories for
-its codes. Refusal messages say what is wrong and what to do, using real values,
-and never mention SQL. Tests assert the code and key values in selected
-messages, not exact wording.
+The first diagram follows accepting an offer through its single transaction; the
+second shows how making an offer starts or reuses the buyer's conversation.
 
-Submitting an offer also starts the buyer's conversation about the listing, or
-reuses it, in the same database transaction (through `Conversations`), so the
-seller always has a conversation with everyone who offered.
+[![Sequence diagram of accepting an offer inside one database transaction on the service worker](diagrams/accept_offer_uml.png)](diagrams/accept_offer_uml.png)
 
-After TransactionService cancels a sale, the released listing can receive offers
-again.
-
-## Chat service
-
-[ChatService Design](ChatServiceDesign.md) records the approved requirements.
-**ChatService covers both participants.** Buyer and seller chat screens should
-call it rather than implementing the rules again.
-
-Access it through `ApplicationRuntime.getChats()`. Every operation requires
-login. Only the buyer starts a conversation, by messaging the seller or by
-making an offer; only the buyer and seller can read it.
-
-| Operation | Who | Rule |
-| --- | --- | --- |
-| `messageSeller(listingId, text)` | Buyer | Another seller's available or reserved listing. Starts the conversation or adds to it. |
-| `sendMessage(conversationId, text)` | Either participant | While the listing is available or reserved; sold and archived listings are read-only. |
-| `openConversation(conversationId)` | Either participant | Returns every message and marks them read. |
-| `openChatWithSeller(listingId)` | Buyer | The existing conversation, opened, or empty when there is none yet. |
-| `openChatWithBuyer(listingId, buyerId)` | The listing's seller | An existing conversation only; sellers never start one. |
-| `getConversations()` | Anyone | `ConversationSummary` list: pending offer or active sale first, then the rest; unread first, then latest activity. |
-| `getUnreadCount()` | Anyone | Total unread items, for the sidebar. |
-
-Messages are 1-1,000 characters after trimming. A conversation's unread count
-is the other participant's messages after the viewer's read position plus
-offer events since the viewer last opened it: new and withdrawn offers for the
-seller, accepted and rejected ones for the buyer, each offer counted once. These
-are worked out from the offers' own times, so no event table is needed.
-`ConversationSummary` also carries the buyer's latest offer, the active sale
-between the two (so the screen can ask MeetupService for the meetup), a preview,
-and whether sending is allowed. `Conversations` is the package-private helper
-that ChatService and OfferService use to start conversations and add messages
-inside their own transactions. There are no automatic messages.
+[![Sequence diagram of making an offer, which starts or reuses the buyer's conversation and adds an optional message](diagrams/make_offer_uml.png)](diagrams/make_offer_uml.png)
 
 ## Transaction service
 
-[TransactionService Design](TransactionServiceDesign.md) records the approved
-requirements, including which lists are intended for which page.
-**TransactionService includes the buyer's purchase list.** Buyer screens should
-call `getMyPurchases` rather than implementing it again.
+TransactionService runs an agreed sale from acceptance to completion or
+cancellation, and builds My Sales, My Purchases, and the seller dashboard.
+Design: [TransactionService Design](TransactionServiceDesign.md).
 
-Access it through `ApplicationRuntime.getTransactions()`. Every operation
-requires login, and only the sale's buyer and seller may act on it. Actions take
-only the sale ID; the request being accepted, rejected, or withdrawn is always
-the sale's one pending request.
-
-| Operation | Rule |
+| Operation | Who and when |
 | --- | --- |
-| `confirmCompletion(saleId)` | Active sale, no pending request, not yet confirmed by you. The second confirmation completes the sale and marks the listing sold. |
-| `cancelSale(saleId)` | Active sale that nobody has confirmed. Releases the listing. |
-| `requestCancellation(saleId)` | Active sale with a confirmation and no pending request. |
-| `acceptCancellation` / `rejectCancellation(saleId)` | The participant who did not make the pending request. Accepting cancels and releases the listing. |
+| `confirmCompletion(saleId)` | Either participant, while active, with no pending request, once each. The second confirmation completes the sale. |
+| `cancelSale(saleId)` | Either participant, while active and before anyone has confirmed. |
+| `requestCancellation(saleId)` | Either participant, after a confirmation, when no request is pending. |
+| `acceptCancellation(saleId)` / `rejectCancellation(saleId)` | The participant who did not make the pending request. |
 | `withdrawCancellation(saleId)` | The participant who made the pending request. |
-| `getMySales()` / `getMyPurchases()` | One `SaleForParticipant` per agreed sale: pending request first, other active, completed, cancelled, each newest first. |
-| `getSalesDashboard()` | `SalesDashboard`: pending offers across your listings, active and completed sale counts, the total of completed sales, and upcoming meetups. |
+| `getMySales()` / `getMyPurchases()` | One `SaleForParticipant` per sale: those waiting on a cancellation response first, then other active, completed, and cancelled, each newest first. |
+| `getSalesDashboard()` | The seller's pending offers received, active and completed sale counts, the total of completed sales, and upcoming meetups. |
 
-Every change loads the sale, checks the participant and status, applies it
-through the `Transaction` model, and saves the sale and any listing change in
-one database transaction (`applyToActiveSale`). `SaleProgress` turns a sale's
-state into the viewer's `NextStep` (with display text), `SaleAction`s, and list
-position, using the same model queries the rules use, so screens never offer an
-action that would be refused. Completing a sale completes its scheduled meetup,
-and cancelling it cancels the meetup, in the same transaction.
+Design decisions:
+
+- **Actions take only the sale ID.** A sale has at most one pending
+  cancellation request, so accept, reject, and withdraw always act on it; a
+  stale screen cannot answer an older request.
+- **One path for every change** (`applyToActiveSale`): load the sale, check the
+  participant and that it is active, apply the change through the `Transaction`
+  model, and save the sale, its listing (sold or available again), and its
+  meetup together.
+- **Screens are told what to do next.** `SaleProgress` turns a sale into the
+  viewer's `NextStep` (with its display text), the `SaleAction`s they may take,
+  and its place in the list, using the same model queries as the rules. Screens
+  never offer an action the service would refuse.
+- **The sale decides the meetup's outcome.** Completing a sale completes its
+  meetup and cancelling it cancels the meetup, in the same transaction
+  (`SaleMeetups`), so the two can never disagree.
+
+The sale's states, and what each participant can do in them:
+
+[![State diagram of a sale from acceptance through confirmations, cancellation requests, completion, or cancellation](diagrams/sale_state_uml.png)](diagrams/sale_state_uml.png)
 
 ## Meetup service
 
-[MeetupService Design](MeetupServiceDesign.md) records the approved requirements.
-**MeetupService includes the buyer's operations** (booking, moving, cancelling).
-Buyer screens should call them rather than implementing them again.
+MeetupService arranges when and where an active sale's buyer and seller hand
+over the item. Design: [MeetupService Design](MeetupServiceDesign.md).
 
-Access it through `ApplicationRuntime.getMeetups()`. Every operation requires
-login and only the sale's participants may act. Times are `MeetupTime` values:
-15 minutes to 4 hours long, a 1-200 character location, starting in the future
-and on or before the 60th calendar day after today (`MAX_DAYS_AHEAD`). Calendar
-days and the times in refusal messages use the services' clock zone; the
-production clock is `Clock.systemDefaultZone()`, so they match the screens, and
-tests use a fixed UTC `TestClock`.
-
-| Operation | Rule |
+| Operation | Who and when |
 | --- | --- |
-| `offerSlot(saleId, start, end, location)` | Seller of an active sale with no booked meetup. At most 3 future slots; they cannot overlap each other or the seller's scheduled meetups. |
-| `withdrawSlot(slotId)` | Seller of the slot's sale. |
-| `bookSlot(slotId)` | Buyer of the sale, for a future slot. Neither participant may have another scheduled meetup at an overlapping time, in any role. The sale's other slots are deleted. |
-| `proposeMove(meetupId, start, end, location)` | Either participant, when no move is pending. Overlaps are checked as for booking. |
-| `acceptMove` / `rejectMove(meetupId)` | The participant who did not propose. Accepting rechecks overlaps and moves the meetup. |
+| `offerSlot(saleId, start, end, location)` | The seller, while the sale is active and no meetup is booked; at most 3 future times at once. |
+| `withdrawSlot(slotId)` | The seller of the time's sale. |
+| `bookSlot(slotId)` | The buyer, for a future offered time. The sale's other offered times are deleted. |
+| `proposeMove(meetupId, start, end, location)` | Either participant, when no move is pending. |
+| `acceptMove(meetupId)` / `rejectMove(meetupId)` | The participant who did not propose. |
 | `withdrawMove(meetupId)` | The participant who proposed. |
-| `cancelMeetup(meetupId)` | Either participant. The sale stays active and the seller can offer new slots. |
-| `getMeetupSummary(saleId)` | `MeetupSummary`: future offered slots and the current meetup (scheduled, else the completed one). Cancelled meetups are kept in the database as history but not returned. |
+| `cancelMeetup(meetupId)` | Either participant; the sale stays active. |
+| `getMeetupSummary(saleId)` | Either participant: future offered times and the current meetup (scheduled, else completed). |
 
-The same summary is carried by `SaleForParticipant`, by reserved entries in
-`OwnListing`, and counted in `SalesDashboard.upcomingMeetups` (the seller's
-scheduled meetups that have not started). `SaleMeetups` is the package-private
-helper that loads summaries and closes a sale's meetup for TransactionService.
-`SaleProgress` puts cancellation requests and the viewer's own confirmation ahead
-of meetup steps; a meetup counts as past once its end time has passed.
+Design decisions:
 
-The full test suite takes more than ten minutes on a typical laptop, mostly
-because each test account's password is hashed with 600,000 PBKDF2 iterations.
-Run the targeted checks below while developing and the full suite before
-committing.
+- **Offered times belong to one sale**, not to a seller's general
+  availability, so booking one can safely delete the rest.
+- **No double bookings.** Offering a time checks the seller's other scheduled
+  meetups; booking, proposing a move, and accepting a move check both
+  participants', whether they are buying or selling in them. The same time can
+  be offered to two buyers, and the first to book gets it.
+- **"60 days ahead" counts calendar days.** A meetup may start at any time on
+  or before the 60th day after today (`MAX_DAYS_AHEAD`), so an evening meetup on
+  day 60 may end on day 61. Calendar days and message times use the services'
+  clock zone: the production clock is `Clock.systemDefaultZone()`, which
+  matches the screens, and tests use a fixed UTC `TestClock`.
+- **Nothing changes by the clock alone.** A meetup whose end time has passed
+  stays scheduled, and the next step asks the participants to confirm
+  completion. Cancelled meetups are kept as history but not shown.
+- **The summary travels with the sale.** `SaleForParticipant`, reserved
+  `OwnListing` entries, and the conversation (through the active sale ID in
+  `ConversationSummary`) carry the same `MeetupSummary`, and the dashboard counts
+  the seller's scheduled meetups that have not started.
 
-Targeted development checks:
+How a sale's meetup moves from offered times to a booked meetup, and how the
+sale's outcome closes it:
+
+[![State diagram of arranging a meetup: offered times, booking, move proposals, cancelling, and the sale's outcome](diagrams/meetup_state_uml.png)](diagrams/meetup_state_uml.png)
+
+## Chat service
+
+ChatService handles the conversation between one buyer and the seller about one
+listing. Design: [ChatService Design](ChatServiceDesign.md).
+
+| Operation | Who and when |
+| --- | --- |
+| `messageSeller(listingId, text)` | A buyer, on another seller's available or reserved listing; starts the conversation or adds to it. |
+| `sendMessage(conversationId, text)` | Either participant, while the listing is available or reserved. |
+| `openConversation(conversationId)` | Either participant; returns every message and marks them read. |
+| `openChatWithSeller(listingId)` | A buyer; their conversation, or empty before the first message. |
+| `openChatWithBuyer(listingId, buyerId)` | The listing's seller; an existing conversation only. |
+| `getConversations()` | Anyone; pending offers and active sales first, then the rest; unread first, then the latest activity. |
+| `getUnreadCount()` | Anyone; the total unread items, for the sidebar. |
+
+Design decisions:
+
+- **Only buyers start conversations**, by messaging or by making an offer, and
+  there is at most one per buyer and listing. Sellers open existing ones from
+  an offer or a sale.
+- **Sold and archived listings keep their conversations readable** but closed
+  to new messages; a cancelled sale makes the listing available, so sending
+  resumes. Messages are 1-1,000 characters and cannot be edited.
+- **Unread counts include offer news without an event table.** A
+  conversation's count is the other participant's messages after the viewer's
+  read position, plus offers that changed since the viewer last opened it: new
+  and withdrawn offers for the seller, accepted and rejected ones for the buyer,
+  each counted once. These come from the offers' own times.
+- **No automatic messages.** Offer, sale, and meetup events never appear as
+  fake messages; `ConversationSummary` carries the latest offer and the active
+  sale ID, so the screen shows the live offer and meetup beside the messages.
+
+### Testing the services
+
+Service tests open a real `ApplicationRuntime` on a temporary folder with a
+`TestClock` (`ApplicationRuntime.open(Path, Clock)`), so they use the real
+database, worker, and repositories, and time only moves when a test advances it.
+Some listing tests set a listing's status in SQL to reach reserved or sold states
+directly; offer, sale, meetup, and chat tests use the real services.
+
+The full test suite takes 10 to 15 minutes on our machines, mostly because each
+test account's password is hashed with 600,000 PBKDF2 iterations, and the UI
+tests open JavaFX windows. Run targeted checks while developing and the full
+suite before committing:
 
 ```powershell
-.\gradlew.bat test --tests hotshop.service.AccountServiceTest
-.\gradlew.bat test --tests hotshop.service.ProfileImageTest
-.\gradlew.bat test --tests "hotshop.service.Listing*"
+.\gradlew.bat test --tests "hotshop.service.Listing*" --tests hotshop.service.PublicListingsTest
 .\gradlew.bat test --tests hotshop.service.OfferServiceTest
 .\gradlew.bat test --tests hotshop.service.TransactionServiceTest
 .\gradlew.bat test --tests hotshop.service.MeetupServiceTest --tests "hotshop.model.Meetup*"
 .\gradlew.bat test --tests hotshop.service.ChatServiceTest --tests hotshop.model.ConversationTest --tests hotshop.model.MessageTest
+.\gradlew.bat test --tests hotshop.service.AccountServiceTest --tests hotshop.service.ProfileImageTest
 .\gradlew.bat test --tests hotshop.storage.ImageStorageTest
 .\gradlew.bat test --tests hotshop.ApplicationRuntimeTest --tests hotshop.database.DatabaseTest
 ```
@@ -746,13 +824,35 @@ Git symlinks. Restart Claude Code if the skills do not appear.
   JavaFX controls, layouts, images, CSS, and application lifecycle are used
   throughout the UI. The libraries are bundled in the platform-specific JAR.
 
-- Matt Pocock's engineering skills: agent configuration adapted from the
-  installed `setup-matt-pocock-skills` templates in
-  `.agents/skills/setup-matt-pocock-skills/`.
+- [Matt Pocock's engineering skills](https://github.com/mattpocock/skills)
+  (`mattpocock/skills`, all 25 pinned in `skills-lock.json`): agent
+  configuration adapted from the installed `setup-matt-pocock-skills`
+  templates in `.agents/skills/setup-matt-pocock-skills/`. The skills'
+  instructions were used unmodified to run the development process for the
+  listing, offer, sale, meetup, and chat features: `grilling` and
+  `domain-modeling` for the design interviews recorded in the `*Design.md`
+  documents and `CONTEXT.md`, `implement` and `tdd` for building each feature
+  test first, `code-review` for the two-axis standards and specification
+  reviews, and `resolving-merge-conflicts` for rebases. The skills shaped the
+  process only; none of their text is part of the application.
+- [Claude Code](https://claude.com/claude-code) (Anthropic): AI assistance for
+  the listing, offer, sale, meetup, and chat services and screens, including
+  design interviews, implementation, tests, reviews, merge-conflict
+  resolution, these guides, and the PlantUML diagrams in `docs/diagrams/`.
+  Each session is recorded in [logs](../logs/); all output was reviewed and
+  adapted to the project's requirements.
 
 - [OpenJFX Gradle plugin](https://github.com/openjfx/javafx-gradle-plugin): dependency configuration.
 - [SE-EDU Java conventions](https://se-education.org/guides/conventions/java/intermediate.html):
   basis for the Checkstyle rules.
+- [SE-EDU Git conventions](https://se-education.org/guides/conventions/git.html):
+  commit message format used throughout the history.
+- [JUnit 5](https://junit.org/junit5/) (5.13.4): the testing framework for every
+  model, service, database, and UI test, including parameterised tests.
+- [PlantUML](https://plantuml.com/) (1.2026.8): renders the sale, offer, and meetup
+  diagrams from their `.puml` sources in `docs/diagrams/`; see
+  "Diagrams" under Setup. It is a documentation tool only and is not part of
+  the build.
 - [Gradle](https://docs.gradle.org/9.1.0/release-notes.html): wrapper and Java 25 build support.
 - [Shadow](https://gradleup.com/shadow/): executable dependency bundling.
 - [Xerial SQLite JDBC](https://github.com/xerial/sqlite-jdbc): bundled SQLite driver.
@@ -763,19 +863,230 @@ Git symlinks. Restart Claude Code if the skills do not appear.
 
 ## Appendix: Requirements
 
-### Wishlist user stories (future release)
+### Product scope
+
+**Target user:** people who buy and sell second-hand items with others who share
+one HotShop installation (for example, a shared computer), and who hand items
+over in person.
+
+**Value proposition:** one desktop app, working offline, to list an item, agree
+a price through offers, chat with the other person, arrange a handover time and
+place, and record that the sale completed, instead of juggling listings,
+messages, and calendars separately. Every user can both buy and sell.
+
+### User stories
+
+Priorities: `* * *` must have, `* *` nice to have, `*` unlikely to have or
+deferred.
+
+| Priority | As a... | I want to... | So that... |
+| --- | --- | --- | --- |
+| `* * *` | seller | create a listing with a price, details, and photos | buyers can find and judge my item |
+| `* * *` | seller | edit an available listing | I can correct its details before anyone agrees to buy |
+| `* * *` | seller | archive a listing | it leaves search but its history stays visible to the people involved |
+| `* *` | seller | delete a listing nobody has offered on | I can remove a mistake completely |
+| `* * *` | buyer | search other sellers' available listings by title, category, condition, and price | I find items I want quickly |
+| `* * *` | buyer | make an offer, optionally with a message | the seller knows what I am willing to pay |
+| `* * *` | buyer | withdraw my pending offer | I can change my mind or offer a different amount |
+| `* * *` | seller | see every offer on my listing | I can compare them before deciding |
+| `* * *` | seller | accept one offer | the item is reserved for that buyer and other offers are closed |
+| `* *` | seller | reject an offer | the buyer knows it was declined |
+| `* * *` | buyer or seller | confirm that the handover happened | the sale completes once both of us confirm |
+| `* * *` | buyer or seller | cancel a sale before anyone confirms | the listing becomes available again |
+| `* *` | buyer or seller | request cancellation after a confirmation, and answer the other person's request | a sale can only be undone by agreement once someone has confirmed |
+| `* * *` | seller | see My Sales and a dashboard of offers, sales, and upcoming meetups | I know what needs my attention |
+| `* * *` | buyer | see My Purchases with each sale's next step | I know what to do next |
+| `* * *` | seller | offer the buyer up to three meetup times and places | the buyer can pick one that suits them |
+| `* * *` | buyer | book one of the offered times | we have an agreed handover |
+| `* *` | buyer or seller | propose moving a booked meetup, and accept or reject the other person's proposal | we can reschedule without cancelling |
+| `* *` | buyer or seller | cancel a booked meetup | we can arrange a new time while the sale stays active |
+| `* * *` | buyer | message the seller about a listing | I can ask questions before offering |
+| `* * *` | buyer or seller | see my conversations with unread counts, offers and active sales first | I notice new messages and offer news |
+| `* *` | seller | open the conversation with a buyer from their offer or sale | I can reply without searching for it |
+| `*` | user | be notified when an offer, sale, or meetup changes | I don't have to check each page (not in this release: notifications were dropped for time; next steps, list ordering, and unread counts show these events instead) |
+
+#### Wishlist user stories (future release)
 
 Wishlist functionality is deferred: the sidebar entry and listing action are
 disabled and labelled Coming soon. The following are proposed requirements,
 not supported workflows or claims about the current data model.
 
-| As a... | I want to... | So that... |
-| --- | --- | --- |
-| logged-in buyer | save a listing to my wishlist | I can find an item I am considering again without repeating a search. |
-| logged-in buyer | view my saved listings and open their details | I can compare items and check their current availability before offering. |
-| logged-in buyer | remove a listing from my wishlist | I can keep only the items I am still interested in. |
+| Priority | As a... | I want to... | So that... |
+| --- | --- | --- | --- |
+| `*` | logged-in buyer | save a listing to my wishlist | I can find an item I am considering again without repeating a search. |
+| `*` | logged-in buyer | view my saved listings and open their details | I can compare items and check their current availability before offering. |
+| `*` | logged-in buyer | remove a listing from my wishlist | I can keep only the items I am still interested in. |
+
+### Use cases
+
+For all use cases, the **system** is HotShop and the **actor** is a logged-in
+user, unless specified otherwise. Each step that changes data is saved in one
+database transaction.
+
+#### Use case: Make an offer and have it accepted
+
+**Actors:** buyer, seller
+
+**Main success scenario:**
+
+1. The buyer opens another seller's available listing and makes an offer,
+   optionally with a message.
+2. HotShop saves the pending offer and starts, or reuses, the buyer's
+   conversation with the seller, adding the message if there is one.
+3. The seller opens the listing's Incoming Offers or the conversation, and
+   accepts the offer.
+4. HotShop accepts the offer, reserves the listing, rejects every other
+   pending offer on it, and creates an active sale.
+5. HotShop shows the sale's details, and both participants see the sale's next
+   step.
+
+   Use case ends.
+
+**Extensions:**
+
+- 1a. The listing is the buyer's own. HotShop refuses the offer. Use case ends.
+- 1b. The listing is reserved, sold, or archived. HotShop refuses the offer and
+  names the status. Use case ends.
+- 1c. The buyer already has a pending offer on the listing. HotShop refuses and
+  shows that offer's amount; the buyer may withdraw it and resume at step 1.
+- 1d. The amount is outside S$0.01 to S$1,000,000.00, or the message is over
+  1,000 characters. HotShop explains the limit. Resume at step 1.
+- 2a. The buyer withdraws the offer before the seller responds. The offer is
+  closed as withdrawn. Use case ends.
+- 3a. The seller rejects the offer. The offer is closed as rejected and the
+  listing stays available. Use case ends.
+- 3b. The listing was edited or archived after the offer was made. Its pending
+  offers were rejected then, so there is nothing to accept. Use case ends.
+
+#### Use case: Arrange a meetup
+
+**Actors:** seller, buyer of an active sale
+
+**Main success scenario:**
+
+1. The seller offers a meetup time: a date, start time, length, and place.
+2. HotShop saves the offered time and shows it in the conversation's meetup bar.
+3. The buyer chooses one of the offered times and books it.
+4. HotShop books the meetup and deletes the sale's other offered times.
+5. Both participants see the booked meetup in the conversation, the sale, and
+   the seller's listing.
+
+   Use case ends.
+
+**Extensions:**
+
+- 1a. The seller already has three offered times for the sale. Offer Time is no
+  longer shown until one is withdrawn or booked.
+- 1b. The time is in the past, after the 60th day from today, not 15 minutes to
+  4 hours long, or its place is blank or over 200 characters. HotShop explains
+  the limit. Resume at step 1.
+- 1c. The time overlaps one of the seller's other meetups. HotShop refuses and
+  names the clashing meetup. Resume at step 1.
+- 3a. The time overlaps another meetup of either participant. HotShop refuses
+  the booking and names the clash. Resume at step 3.
+- 5a. Either participant proposes moving the meetup to a new time and place.
+  - 5a1. The other participant accepts: the meetup moves.
+  - 5a2. The other participant rejects, or the proposer withdraws: the meetup
+    stays as booked.
+- 5b. Either participant cancels the meetup. The sale stays active. Resume at
+  step 1.
+- 5c. The sale completes or is cancelled. The meetup completes or is cancelled
+  with it. Use case ends.
+- 5d. The meetup's end time passes. It stays booked, and the next step asks
+  both participants to confirm completion.
+
+#### Use case: Cancel a sale after a confirmation
+
+**Actors:** two participants of an active sale, one of whom has confirmed
+completion
+
+**Main success scenario:**
+
+1. A participant requests cancellation of the sale.
+2. HotShop records the pending request and blocks further confirmations.
+3. The other participant accepts the request.
+4. HotShop cancels the sale, cancels its meetup, and makes the listing
+   available again.
+
+   Use case ends.
+
+**Extensions:**
+
+- 1a. Nobody has confirmed yet. The participant cancels the sale directly
+  instead. Resume at step 4.
+- 1b. A request is already pending. HotShop refuses a second one. Use case ends.
+- 2a. A participant tries to confirm completion. HotShop refuses while the
+  request is pending.
+- 3a. The other participant rejects the request. The sale continues and earlier
+  confirmations stay. Use case ends.
+- 3b. The requester withdraws the request. The sale continues. Use case ends.
+
+#### Use case: Start and continue a conversation
+
+**Actors:** buyer, seller
+
+**Main success scenario:**
+
+1. The buyer opens another seller's available or reserved listing and chooses
+   Chat with seller.
+2. The buyer writes a message and sends it.
+3. HotShop starts the conversation and saves the message.
+4. The seller sees the conversation with an unread count, opens it, and replies.
+
+   Use case ends.
+
+**Extensions:**
+
+- 1a. The listing is the buyer's own. HotShop does not offer a conversation.
+- 1b. The listing is sold or archived and the buyer has no conversation about
+  it. HotShop refuses to start one.
+- 1c. The buyer starts the conversation by making an offer instead. Resume at
+  step 4.
+- 2a. The message is blank or over 1,000 characters. HotShop refuses and keeps
+  the draft. Resume at step 2.
+- 4a. The listing has since been sold or archived. The conversation stays
+  readable, but no new messages can be sent.
+- 4b. The seller deletes a listing that only had enquiries. Its conversations
+  are deleted with it, after the seller is warned how many. Use case ends.
+
+### Non-functional requirements
+
+1. Every change to listings, offers, sales, meetups, and conversations is saved
+   in one database transaction, so a failure part-way leaves nothing half done.
+2. All data operations run one at a time on a single background worker, so two
+   actions never interleave and the window stays responsive while they run.
+3. Only one HotShop instance can use a data folder at a time.
+4. HotShop works offline; all data stays in a local folder on the computer.
+5. Existing data is upgraded automatically, without loss, when a newer version
+   adds database tables.
+6. Every refused action explains what is wrong and what to do next, using real
+   values, and never shows internal errors such as SQL.
+7. Every screen stays usable at the minimum window size of 960 x 640.
+
+### Glossary
+
+The project's domain terms are defined in [CONTEXT.md](../CONTEXT.md). The
+terms used most in this guide:
+
+| Term | Meaning |
+| --- | --- |
+| Active sale | A sale that has been agreed but not yet completed or cancelled. Its listing is reserved. |
+| Archive | Withdraw a listing from search while keeping it and its history visible to the people involved. It cannot be reopened. |
+| Cancellation request | A participant's proposal to cancel an active sale after the first completion confirmation; the other participant must agree. |
+| Completion confirmation | A participant's declaration that the sale is complete. Both must confirm. |
+| Conversation | The messages between one buyer and the seller about one listing; at most one per buyer and listing. |
+| Delete | Permanently remove a listing with no offer or sale history, together with its enquiry conversations. |
+| Enquiry | A conversation about a listing that the buyer never made an offer on. |
+| Meetup | The booked time and place where an active sale's buyer and seller hand over the item. |
+| Meetup slot (offered time) | A time and place the seller offers the buyer for one sale's handover. |
+| Offer | A buyer's proposal to buy a listing at a specified amount. |
+| Reschedule proposal (move proposal) | A participant's proposal to move a meetup to one new time and place. |
+| Transaction (sale) | An agreed sale, created when the seller accepts an offer. |
+| Withdraw | Take back your own pending offer, or your own pending request or proposal. |
 
 ## Appendix: Planned enhancements
+
+Team size: 2
 
 These four proposals refine existing features and are not implemented in this
 release. The deferred wishlist above is a future feature, not an enhancement in
@@ -793,3 +1104,99 @@ this list.
 4. **Retain whether Filters is expanded across Back navigation.** Extend the
    existing saved search state to restore that panel's open/closed state, while
    continuing to open it automatically when a submitted price is invalid.
+
+## Appendix: Instructions for manual testing
+
+These steps test the listing, offer, sale, meetup, and chat features with two
+accounts. They complement the [User Guide](UserGuide.md), which explains each
+screen; testing of accounts, profiles, and search is covered separately.
+
+Only one user is logged in at a time, so every "as Bob" step means: choose
+**Log out**, then log in as Bob. Messages and changes made by one user appear
+for the other at their next login.
+
+### Preparing a fresh data folder
+
+Use a separate folder so tests never touch your own data. Build the JAR, then
+start HotShop on the test folder (PowerShell):
+
+```powershell
+.\gradlew.bat shadowJar
+java "-Dhotshop.dataDir=$env:TEMP\hotshop-test" -jar release\HotShop.jar
+```
+
+To start again from nothing, close HotShop and delete that folder.
+
+Register three accounts (see the User Guide's account section). Carol is only
+needed for the refusal checks:
+
+| Username | Display name | Password |
+| --- | --- | --- |
+| `alice` | `Alice` | `Sample1!` |
+| `bobby` | `Bob` | `Sample1!` |
+| `carol` | `Carol` | `Sample1!` |
+
+### Walkthrough: from listing to completed sale
+
+1. **As Alice, create a listing.** My Listings, then **Create Listing**: title
+   `Study desk`, description `Wooden desk with one drawer`, category Furniture,
+   condition Good, price `50.00`, pickup location `Library entrance`. Choose
+   **Save Listing**.
+   Expected: the card appears in My Listings as Available with 0 pending offers.
+2. **As Bob, message the seller.** Search, open **Study desk**, choose **Chat
+   with seller**. The page shows "No messages yet." and a "No offer yet" bar.
+   Type `Is it still available?` and choose **Send**.
+   Expected: the message appears; Conversations lists the conversation with a
+   Buying badge.
+3. **As Bob, make an offer with a message.** In the conversation's bar choose
+   **Make Offer**, enter `40.00` and the message `Can pick up tonight`, and
+   choose **Submit Offer**.
+   Expected: the bar shows "Offer of S$40.00 · Pending" with **Withdraw Offer**,
+   and the message appears in the conversation.
+4. **As Alice, see the unread items and accept.** The sidebar shows
+   **Conversations (3)**: Bob's two messages plus the new offer. Open the
+   conversation, choose **Accept Offer**, and confirm.
+   Expected: Sale Details opens; the listing is Reserved; Conversations now
+   shows no unread count for it.
+5. **As Alice, offer a meetup time.** On Sale Details choose **Open Chat**. The
+   bar says "No meetup times offered yet". Choose **Offer Time**; the dialog
+   starts at tomorrow 12:00 for 30 minutes at `Library entrance`. Choose **Offer
+   Time** again to save.
+   Expected: the bar shows "1 time offered" with **View Times** and **Offer
+   Time**.
+6. **As Bob, book the time.** Open the conversation, choose **Choose Time**,
+   then **Book**.
+   Expected: the bar shows "Meetup: <tomorrow's date>, 12:00 to 12:30 · Library
+   entrance" with **Propose Move**, **Cancel Meetup**, and **View Sale**.
+7. **As Bob, propose a move.** Choose **Propose Move**, change the start time to
+   `14:00`, and choose **Propose Move**.
+   Expected: the bar says "You proposed moving the meetup to …" with **Withdraw
+   Proposal**; Propose Move and Cancel Meetup are hidden while it is pending.
+8. **As Alice, accept the move.** Open the conversation and choose **Accept
+   Move**.
+   Expected: the meetup now runs 14:00 to 14:30. My Listings shows the date,
+   time, and place on the reserved card.
+9. **Complete the sale.** As Alice, open My Sales, open the sale, choose
+   **Confirm Completion**, and confirm. As Bob, do the same from My Purchases.
+   Expected: after Bob confirms, the sale is completed, the listing is Sold, the
+   conversation's bar shows "Sale completed · Met on …", and the send box is
+   disabled because the listing is sold.
+
+### Checks for refusals and edge cases
+
+Start each from a new listing by Alice unless stated.
+
+| Check | Steps | Expected |
+| --- | --- | --- |
+| One pending offer | As Bob, make an offer, then open the listing again. | Make Offer is replaced by your pending offer and **Withdraw Offer**. |
+| Offer on a reserved listing | After Alice accepts Bob's offer, as Carol, open the listing. | Make Offer is disabled with "Only available listings can receive offers." Carol can still choose **Chat with seller**. |
+| Other offers rejected on accept | As Bob and Carol, each make an offer; as Alice, accept Bob's. | Carol's offer shows as Rejected, and Carol's conversation shows an unread item. |
+| Cancel before confirming | As Bob, offer `40.00`; as Alice, accept it. Then, as either user, open Sale Details and choose **Cancel Sale**, then confirm. | The sale is Cancelled and the listing is Available again. Bob's bar shows "Offer of S$40.00 · Accepted · Sale Cancelled" with **View Sale** and **Make Offer**. |
+| Cancellation needs agreement | In an active sale, as Alice, choose **Confirm Completion**; then **Request Cancellation**. As Bob, open the sale. | Confirm Completion is disabled for Bob; **Accept Cancellation** and **Reject Cancellation** are shown. Accepting cancels the sale; rejecting keeps it active. |
+| At most three offered times | In an active sale with no booked meetup, as Alice, offer three different times. | After the third, **Offer Time** is no longer shown. |
+| Meetups up to 60 days ahead | In the Offer Time dialog, open the date picker. | Dates before today and after the 60th day from today are disabled; any start time on day 60 is accepted. |
+| No double bookings | With a booked meetup between Alice and Bob (walkthrough steps 1 to 8, before completing the sale), create a second listing and sale between them; as Alice, offer the same time as the booked meetup. | Refused: "You already have a meetup from … to …. Choose a different time." |
+| Cancel a meetup | With a booked meetup, choose **Cancel Meetup** and confirm. | The sale stays active and the bar asks the seller to offer times again. |
+| Messages are limited | In any open conversation, paste a message over 1,000 characters and choose **Send**. | The counter below Send shows, for example, "1234 / 1,000". Sending is refused with "Messages can be at most 1,000 characters, but this one has 1,234." and the draft is kept. |
+| Delete a listing with enquiries | As Bob, message Alice about a new listing without offering. As Alice, open the listing and choose **Delete Listing**. | The confirmation adds "1 conversation about this listing will also be deleted, for you and the buyers." After confirming, Bob no longer has the conversation. |
+| Delete is refused after an offer | As Bob, make and then withdraw an offer. As Alice, open the listing. | **Delete Listing** is disabled; archive the listing instead. |

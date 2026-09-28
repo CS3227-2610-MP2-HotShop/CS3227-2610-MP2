@@ -1,0 +1,67 @@
+@startuml sale_models_uml
+!pragma layout smetana
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+title Sale, meetup, and conversation models
+
+class Listing {
+  status : ListingStatus
+}
+class Offer {
+  amountCents : long
+  status : OfferStatus
+}
+class Transaction {
+  agreedPriceCents : long
+  status : TransactionStatus
+  buyerConfirmedAt : Instant [0..1]
+  sellerConfirmedAt : Instant [0..1]
+}
+class CancellationRequest {
+  status : CancellationStatus
+}
+class MeetupSlot <<record>>
+class Meetup {
+  status : MeetupStatus
+}
+class RescheduleProposal {
+  status : ProposalStatus
+}
+class MeetupTime <<record>> {
+  startAt : Instant
+  endAt : Instant
+  location : String
+}
+class Conversation {
+  buyer and seller read positions
+}
+class Message <<record>> {
+  sequence : long
+  text : String
+}
+
+Listing "1" -- "*" Offer : receives >
+Offer "1" -- "0..1" Transaction : accepted offer creates >
+Transaction "1" *-- "*" CancellationRequest : history
+Transaction "1" -- "*" MeetupSlot : offered times >
+Transaction "1" -- "*" Meetup : at most one scheduled >
+Meetup "1" *-- "*" RescheduleProposal : move history
+MeetupSlot --> MeetupTime
+Meetup --> MeetupTime
+RescheduleProposal --> MeetupTime
+Listing "1" -- "*" Conversation : one per buyer >
+Conversation "1" *-- "*" Message
+
+note right of MeetupSlot
+  At most 3 future times at once;
+  past ones are kept but not shown.
+end note
+
+note bottom of Transaction
+  Copies the agreed price and the listing's
+  title, description, and condition, so later
+  listing edits never change a sale.
+end note
+@enduml
