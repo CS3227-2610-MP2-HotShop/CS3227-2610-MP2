@@ -1,0 +1,41 @@
+@startuml meetup_state_uml
+!pragma layout smetana
+skinparam shadowing false
+hide empty description
+
+title Arranging a sale's meetup
+
+[*] --> NoTimes : sale becomes active
+
+NoTimes --> TimesOffered : seller offers a time
+TimesOffered --> TimesOffered : seller offers or withdraws times\n(up to 3 at once)
+TimesOffered --> NoTimes : seller withdraws the last time,\nor the offered times pass
+TimesOffered --> Scheduled : buyer books a time\n(the other times are deleted)
+
+Scheduled --> MovePending : either participant proposes a move
+MovePending --> Scheduled : accepted (meetup moves),\nrejected, or withdrawn
+
+Scheduled --> NoTimes : either participant cancels the meetup\n(sale stays active)
+MovePending --> NoTimes : meetup cancelled\n(pending move withdrawn)
+
+Scheduled --> Completed : sale completes
+MovePending --> Completed : sale completes\n(pending move withdrawn)
+Scheduled --> Cancelled : sale is cancelled
+MovePending --> Cancelled : sale is cancelled\n(pending move withdrawn)
+TimesOffered --> [*] : sale completes or is cancelled\n(unbooked times deleted)
+NoTimes --> [*] : sale completes or is cancelled\nwithout a meetup
+Completed --> [*]
+Cancelled --> [*]
+
+note right of Scheduled
+  A meetup whose end time has passed stays
+  scheduled; the next step asks the
+  participants to confirm completion.
+end note
+note left of NoTimes
+  Times start in the future, on or before the
+  60th day after today. Offering checks the
+  seller's other meetups; booking and moves
+  check both participants'.
+end note
+@enduml

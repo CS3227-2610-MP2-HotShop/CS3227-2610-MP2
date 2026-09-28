@@ -1,0 +1,32 @@
+@startuml sale_state_uml
+!pragma layout smetana
+skinparam shadowing false
+hide empty description
+
+title Life of a sale (Transaction)
+
+[*] --> Active : seller accepts an offer\n(listing reserved)
+
+state Active {
+  [*] --> NoConfirmation
+  NoConfirmation --> OneConfirmed : a participant confirms completion
+  OneConfirmed --> CancellationPending : a participant requests cancellation
+  CancellationPending --> OneConfirmed : other participant rejects,\nor requester withdraws
+}
+
+OneConfirmed --> Completed : the other participant confirms\n(listing sold, meetup completed)
+NoConfirmation --> Cancelled : either participant cancels\n(listing available again)
+CancellationPending --> Cancelled : other participant accepts\n(listing available again)
+
+Completed --> [*]
+Cancelled --> [*]
+
+note right of CancellationPending
+  Confirmations are blocked while
+  a request is pending.
+end note
+note bottom of Cancelled
+  Cancelling also cancels the sale's meetup
+  and deletes its unbooked offered times.
+end note
+@enduml

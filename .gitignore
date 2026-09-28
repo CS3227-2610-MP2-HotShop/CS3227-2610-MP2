@@ -10,3 +10,4 @@ release/*.jar
 Thumbs.db
 bin/
 .vscode/
+tools/
