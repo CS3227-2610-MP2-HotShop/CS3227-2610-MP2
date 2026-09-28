@@ -1,0 +1,57 @@
+@startuml chat_unread_uml
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+hide footbox
+
+title Messaging a seller, and how unread counts work
+
+actor Buyer
+actor Seller
+participant "Chat screens\n(UI)" as UI
+participant ChatService
+participant Conversations
+participant ChatRepository
+participant OfferRepository
+
+== Buyer sends the first message ==
+Buyer -> UI : Send (text)
+UI -> ChatService : messageSeller(listingId, text)
+ChatService -> ChatService : check text is 1-1,000 characters,\nand listing is another seller's, available or reserved
+note right of ChatService
+  Each call runs in one database
+  transaction on the service worker.
+end note
+ChatService -> Conversations : findOrStart(listing, buyer)
+Conversations -> ChatRepository : find the buyer's conversation
+alt no conversation yet
+  Conversations -> ChatRepository : insert new Conversation
+end
+ChatService -> Conversations : append(conversation, buyer, text)
+Conversations -> ChatRepository : insert next Message
+Conversations -> ChatRepository : mark read up to it for the buyer
+ChatService --> UI : ConversationView
+
+== Seller's sidebar counts unread items ==
+UI -> ChatService : getUnreadCount() after any navigation
+loop each of the seller's conversations
+  ChatService -> ChatRepository : count the buyer's messages\nafter the seller's read position
+  ChatService -> OfferRepository : find the buyer's offers on the listing
+  ChatService -> ChatService : add new and withdrawn offers\nsince the seller last opened it
+end
+ChatService --> UI : total unread
+UI --> Seller : Conversations (1)
+
+== Seller opens the conversation ==
+Seller -> UI : open the conversation
+UI -> ChatService : openConversation(conversationId)
+ChatService -> ChatRepository : mark read up to the latest message,\nand record when the seller opened it
+ChatService --> UI : ConversationView (every message)
+UI -> ChatService : getUnreadCount() after the page loads
+ChatService --> UI : total unread (this conversation now adds 0)
+
+note over ChatService, OfferRepository
+  Offer news needs no event table. The buyer counts accepted and
+  rejected offers, the seller counts new and withdrawn ones, each
+  only if it happened after that person last opened the conversation.
+end note
+@enduml
