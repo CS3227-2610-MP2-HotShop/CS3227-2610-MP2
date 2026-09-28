@@ -12,13 +12,24 @@ public final class ServiceException extends RuntimeException {
 
     private final Code code;
 
-    /** Creates a categorized failure with a message suitable for display. */
+    /**
+     * Creates a categorized failure with a message suitable for display.
+     *
+     * @param code the stable failure category
+     * @param message the displayable failure message
+     */
     public ServiceException(Code code, String message) {
         super(message);
         this.code = code;
     }
 
-    /** Retains the underlying diagnostic cause separately from the display message. */
+    /**
+     * Retains the underlying diagnostic cause separately from the display message.
+     *
+     * @param code the stable failure category
+     * @param message the displayable failure message
+     * @param cause the underlying diagnostic cause
+     */
     public ServiceException(Code code, String message, Throwable cause) {
         super(message, cause);
         this.code = code;
@@ -40,6 +51,11 @@ public final class ServiceException extends RuntimeException {
         return new ServiceException(Code.INVALID_STATE, message);
     }
 
+    /**
+     * Returns the stable failure category.
+     *
+     * @return the stable failure category
+     */
     public Code getCode() {
         return code;
     }

@@ -2,7 +2,8 @@
 
 ## Requirements
 
-Install Java 25. A graphical desktop is required.
+Install a **JDK 25** (Java Development Kit) to build and run HotShop using the
+Gradle Wrapper below. A graphical desktop is required.
 
 ## Start HotShop
 
@@ -15,17 +16,14 @@ From the project directory on Windows:
 On macOS/Linux, use `./gradlew run` (run `chmod +x gradlew` first if needed).
 The first build downloads dependencies and requires internet access.
 
-HotShop opens the **Log in** page in an 1100 by 750 window. The minimum window
-size is 960 by 640 (JavaFX layout units). Pages and the sidebar scroll when
-needed; listing grids wrap to fewer columns in narrower windows.
-
-Pages and dialogs use a warm light theme with ivory backgrounds, white panels,
-burnt-orange accents, and no shadows. Keyboard focus is shown with an outline.
-Conversations use the same theme: unread badges use the orange accent, and your
-own messages have a soft warm background to distinguish them from replies.
+HotShop opens the **Log in** page. Pages and the sidebar scroll when needed;
+listing grids wrap to fewer columns in narrower windows. Keyboard focus is
+shown with an outline.
 
 Startup creates or opens a local database and image folder at `.hotshop` in your
-home directory. Accounts, listings, offers, and images in that folder survive
+home directory (normally `%USERPROFILE%\.hotshop` on Windows, or
+`$env:USERPROFILE\.hotshop` in PowerShell). Accounts, listings, offers,
+conversations and messages, sales, meetups, and images in that folder survive
 application restarts. Only one HotShop instance may use the same folder at a time.
 Opening an older HotShop data folder upgrades it automatically without removing
 existing accounts.
@@ -33,6 +31,11 @@ existing accounts.
 If startup fails, HotShop displays an error and exits without resetting existing
 data. Check folder permissions and close another running HotShop instance before
 retrying. Close HotShop before backing up its entire data folder, including images.
+
+To reset all local data, close HotShop and delete its entire data folder. This
+permanently removes every local account and all marketplace history and images;
+back up the folder first if you want to keep them. The next launch creates an
+empty database. If you selected a custom data folder, reset that folder instead.
 
 ## Run the packaged application
 
@@ -46,11 +49,28 @@ java -jar release/HotShop.jar
 The JAR includes JavaFX libraries for the build machine's platform, but does not
 include Java itself. The CI artifact targets Linux.
 
+To use a separate data folder, put the Java system property before `-jar`, for
+example on Windows:
+
+```powershell
+java "-Dhotshop.dataDir=C:\HotShop-test-data" -jar release/HotShop.jar
+```
+
+Replace the example path with your chosen folder. Passing `-Dhotshop.dataDir=...`
+to `gradlew run` does not select the app's folder: the current Gradle run task
+does not forward that property to the application. Use the JAR command above.
+
 ## Accounts and navigation
 
 Choose **Create an account** to register with a username, display name, password,
-and password confirmation. Registration returns to login with your username
-filled in. Password visibility checkboxes let you inspect what you typed.
+and password confirmation, then choose **Register**. Registration returns to
+login with your username filled in and the message "Account created. Log in to
+continue." **Back to login** leaves registration without creating an account.
+On the login page, choose **Log in** or press Enter in the password field while
+**Show password** is unchecked to submit. Usernames are case-insensitive and
+surrounding whitespace is trimmed at login; passwords retain their exact case
+and whitespace. Password visibility
+checkboxes let you inspect what you typed.
 After login, the Search page opens. Every user can both buy and sell; the sidebar's
 Buying and Selling headings organise pages and do not switch account roles.
 The white navigation column fills the window height. In shorter windows, scroll
@@ -60,21 +80,30 @@ Use **My Profile** to save your display name and private preferred pickup locati
 Your username cannot be changed. **Replace Image** and **Remove Image** save
 separately from the text fields. **Change Password** requires your current password
 and matching new passwords; it keeps you logged in. Clicking another participant's
-name/photo opens their public profile with their available listings, newest first.
-Your own identity link opens My Profile instead.
+name/photo opens **Public Profile** with their available listings, newest first.
+If they have none, it shows "No available listings". Your own identity link opens
+My Profile instead.
 
 Use **Back** to return through pages and **Log out** to end the session. Leaving a
-listing editor or profile with unsaved text changes asks whether to discard them;
-the same protection applies to logout and closing the window. Wait for an active
-operation to finish before navigating or closing.
+listing editor with changed fields or added, removed, or reordered photos asks
+whether to discard them. Unsaved profile text has the same protection, including
+on logout and closing the window. Choose **Discard Changes** to leave without
+saving, or **Cancel** to keep editing. Wait for an active operation to finish
+before navigating or closing.
 
 ## Search and listings
 
 Search starts with guidance and no results. Enter a title query and press Enter
 or **Search**. An empty query searches all eligible listings from other sellers.
-Open **Filters** for category, conditions, and minimum/maximum SGD price. Query
-and filter changes take effect only on submission. Sorting reorders the last
-submitted results immediately. **Clear Filters** does not submit; **Refresh**
+Open **Filters** for category, conditions, and minimum/maximum SGD price.
+**All categories** means there is no category restriction; selecting no conditions
+includes all conditions. **Clear Filters** restores these defaults and clears both
+price fields. Query and filter changes take effect only on submission. If a price
+is invalid when you submit, **Filters** opens automatically to show the error.
+The sort choices are **Newest**, **Price low to high**, and **Price high to low**.
+Sorting reorders the last submitted results immediately. The count above the
+results shows "1 listing" or "n listings", including "0 listings" for no matches.
+**Clear Filters** does not submit; **Refresh**
 reruns the last submitted search. Back navigation retains draft fields and the
 submitted search, sorting, and scroll position. A new login resets search.
 
@@ -84,14 +113,16 @@ and condition. Open a card to see all photos, the description, status, category,
 condition, pickup location, and seller profile link. No matches and failed loads
 have different messages; a failed load offers **Retry**.
 
-Listing cards stay the same size when the window is resized: wider windows fit
-more cards per row. Cards have aligned rows and prices, with two lines reserved
-for the title. Titles that exceed two lines end with an ellipsis; open the card
-to read the full title. Photos fit completely inside their frames without cropping.
+Long card titles end with an ellipsis; open the card to read the full title.
+Photos fit completely inside their frames without cropping.
 
 Under Selling, **My Listings** shows your listings, status, and pending-offer counts;
 condition is available on the detail page instead of these owner cards.
-Choose **Create Listing**, enter the details, and optionally use **Add Photo**.
+Choose **Create Listing** and fill in **Title**, **Description**, **Asking price
+(SGD)**, **Category**, **Condition**, and **Listing pickup location**. Optionally
+use **Add Photo**; the file chooser offers `.jpg`, `.jpeg`, and `.png` files.
+Choose **Save Listing** to save and open the listing, or **Cancel** to go back
+(you will be asked to discard any unsaved changes).
 Photo previews have **Move Up**, **Move Down**, and **Remove** controls. New listings
 prefill your preferred pickup location, which you can change for that listing.
 Photos are validated before being added and revalidated when saved; the app
@@ -111,6 +142,8 @@ with at most two decimal places, optionally add a message to the seller (up to
 conversation with the seller. Your pending offer
 then appears with **Withdraw Offer**; changing an amount requires withdrawing first.
 **My Offers** contains your offer history and links to listings and accepted purchases.
+On reserved listings, **Make Offer** is disabled with the explanation
+"Only available listings can receive offers."
 
 Sellers accept or reject offers in the listing's Incoming Offers section.
 **Accept Offer** asks for confirmation: it reserves the listing, creates an active
@@ -128,8 +161,15 @@ reject it, and the requester can withdraw it. Pending requests block completion.
 Confirmation, direct cancellation, and accepting cancellation explain their effects
 in confirmation dialogs. Only currently permitted actions are enabled.
 
-The seller **Dashboard** summarises pending offers, active/completed sales, the
-total agreed value of completed sales, and your upcoming meetups as a seller.
+Choose **Dashboard** in the sidebar to open **Seller Dashboard**. Its tiles are:
+
+- **Pending offers**: pending offers received on your listings.
+- **Active sales**: your agreed sales awaiting completion or cancellation.
+- **Completed sales**: the number of your completed sales.
+- **Completed sales value**: the total agreed value of your completed sales.
+- **Upcoming meetups**: your scheduled meetups as a seller that have not started.
+
+Use the **My Listings** and **My Sales** buttons to open those pages.
 
 ## Conversations
 
@@ -217,12 +257,9 @@ Purchases**, and on reserved listings in **My Listings**, for example "2 times
 offered" or "No meetup times yet". A sale's **Sale Details** page shows the same
 text as the conversation's bar. Completed sales that had a meetup show where you
 met ("Met on ...").
-Every **My Listings** card has the same taller height, reserving a meetup area
-below its status and pending-offer count even when there is no summary. Booked
-meetups show the date and time separately, including both dates for an overnight
-meetup. Places use up to two lines; only oversized places end with an ellipsis.
-Open the sale or its conversation for full details. Search and public-profile
-cards keep their compact size.
+Booked meetups show the date and time, including both dates for an overnight
+meetup. Long places may end with an ellipsis; open the sale or its conversation
+for full details.
 
 **Sale Details** groups the item, agreed price, and other participant on the left
 and status, meetup, and actions on the right. Narrow windows stack these sections;
@@ -252,8 +289,10 @@ The account service enforces these rules:
   use 3-30 ASCII letters, digits, or underscores and are case-insensitively unique.
   Usernames cannot be changed. Display names contain 1-80 Unicode code points.
 - Passwords contain 8-128 Unicode code points, including an ASCII uppercase letter,
-  lowercase letter, digit, and punctuation character. Spaces are allowed but do
-  not count as punctuation. Password case and whitespace are preserved exactly.
+  lowercase letter, digit, and a printable ASCII symbol. Any printable ASCII
+  non-letter, non-digit symbol counts, including `$`, `+`, `<`, `=`, `>`, `^`,
+  `|`, and `~`. Spaces are allowed but do not satisfy the symbol requirement.
+  Password case and whitespace are preserved exactly.
 - Registration leaves the user logged out. Restarting also logs out; switching
   users requires logout. Password changes require the current password and retain
   the current session. Password recovery and account deletion are not available.

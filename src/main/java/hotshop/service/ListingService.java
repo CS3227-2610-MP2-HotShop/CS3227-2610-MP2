@@ -52,7 +52,21 @@ public final class ListingService {
     private final ManagedImages images;
     private final Clock clock;
 
-    /** Wires the shared database, worker, and session with the listing-specific managed image namespace. */
+    /**
+     * Wires the shared database, worker, and session with the listing-specific managed image namespace.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param listings the listing repository
+     * @param offers the offer repository
+     * @param transactions the agreed-sale repository
+     * @param meetups the meetup repository
+     * @param chats the conversation and message repository
+     * @param users the user and credential repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param storage the managed image storage for this service
+     * @param clock the clock supplying event times and the local time zone
+     */
     public ListingService(Database database, ListingRepository listings, OfferRepository offers,
             TransactionRepository transactions, MeetupRepository meetups, ChatRepository chats, UserRepository users,
             ServiceWorker worker, AuthenticatedSession session, ImageStorage storage, Clock clock) {
@@ -70,7 +84,11 @@ public final class ListingService {
                 listings::getReferencedImages);
     }
 
-    /** Lifecycle maintenance, queued with other operations; does not require login. */
+    /**
+     * Lifecycle maintenance, queued with other operations; does not require login.
+     *
+     * @return a future containing null after image recovery finishes; failures complete it exceptionally
+     */
     public CompletableFuture<Void> recoverImages() {
         return worker.submit(() -> {
             try {
@@ -82,7 +100,13 @@ public final class ListingService {
         });
     }
 
-    /** Saves a new available listing owned by the current user, importing 0 to 10 new photos. */
+    /**
+     * Saves a new available listing owned by the current user, importing 0 to 10 new photos.
+     *
+     * @param draft the requested listing terms, validated before saving
+     * @param photos the complete photo list in the desired display order, with at most ten entries
+     * @return a future containing the saved listing and its seller profile; failures complete it exceptionally
+     */
     public CompletableFuture<ListingWithSeller> createListing(ListingDraft draft, List<ListingPhoto> photos) {
         return submit(() -> {
             UUID sellerId = session.requireUserId();
@@ -102,6 +126,9 @@ public final class ListingService {
      * Returns the current user's listings in every status with their pending offer counts: reserved
      * first (awaiting handover), then available, sold, and archived, each newest first. Reserved
      * listings also carry their active sale's meetup summary.
+     *
+     * @return a future containing the current user's listings with pending offer counts and reserved-sale meetups;
+     *     failures complete it exceptionally
      */
     public CompletableFuture<List<OwnListing>> getMyListings() {
         return submit(() -> {
@@ -122,7 +149,13 @@ public final class ListingService {
         });
     }
 
-    /** Available listings on a public profile, newest first; private seller counts are excluded. */
+    /**
+     * Available listings on a public profile, newest first; private seller counts are excluded.
+     *
+     * @param sellerId the seller's user ID
+     * @return a future containing the seller's available listings and public profile, newest first; failures complete
+     *     it exceptionally
+     */
     public CompletableFuture<List<ListingWithSeller>> getPublicListings(UUID sellerId) {
         return submit(() -> {
             session.requireUserId();
@@ -150,7 +183,12 @@ public final class ListingService {
                 ? Optional.of(SaleMeetups.load(connection, meetups, sale.orElseThrow(), now)) : Optional.empty();
     }
 
-    /** Returns any existing listing in any status; deleted and unknown listings are not found. */
+    /**
+     * Returns any existing listing in any status; deleted and unknown listings are not found.
+     *
+     * @param id the listing ID
+     * @return a future containing the requested listing and its seller profile; failures complete it exceptionally
+     */
     public CompletableFuture<ListingWithSeller> getListing(UUID id) {
         return submit(() -> {
             session.requireUserId();
@@ -162,6 +200,10 @@ public final class ListingService {
     /**
      * Buyer search over other sellers' available listings. Reserved, sold, and archived listings
      * and the current user's own listings never appear. Results are not paginated.
+     *
+     * @param search the search filters and ordering to apply
+     * @return a future containing the matching listings in the requested order, each with its seller profile; failures
+     *     complete it exceptionally
      */
     public CompletableFuture<List<ListingWithSeller>> searchListings(ListingSearch search) {
         return submit(() -> {
@@ -183,6 +225,11 @@ public final class ListingService {
      * An actual change advances the update time and rejects every pending offer in the same
      * transaction; an unchanged save changes nothing. Removed photos are retired after commit.
      * Permission and status are checked before importing photos and again when saving.
+     *
+     * @param id the listing ID
+     * @param draft the requested listing terms, validated before saving
+     * @param photos the complete photo list in the desired display order, with at most ten entries
+     * @return a future containing the saved listing and its seller profile; failures complete it exceptionally
      */
     public CompletableFuture<ListingWithSeller> updateListing(UUID id, ListingDraft draft, List<ListingPhoto> photos) {
         return submit(() -> {
@@ -216,6 +263,9 @@ public final class ListingService {
     /**
      * Owner only; available or sold listings leave browsing but stay visible by ID and in My Listings.
      * Every pending offer is rejected in the same transaction.
+     *
+     * @param id the listing ID
+     * @return a future containing the archived listing and its seller profile; failures complete it exceptionally
      */
     public CompletableFuture<ListingWithSeller> archiveListing(UUID id) {
         return submit(() -> {
@@ -242,6 +292,10 @@ public final class ListingService {
      * Owner only; permanently removes an available or archived listing that has never received an
      * offer, together with its enquiry conversations and their messages, and retires its photos.
      * Every offer starts a conversation, so only enquiries without offers can be deleted this way.
+     *
+     * @param id the listing ID
+     * @return a future containing null after the listing is deleted and image cleanup is attempted; failures complete
+     *     it exceptionally
      */
     public CompletableFuture<Void> deleteListing(UUID id) {
         return submit(() -> {

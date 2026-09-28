@@ -21,7 +21,13 @@ import hotshop.model.ListingStatus;
 
 /** SQL mappings only; callers supply the transaction and enforce permissions. Times are epoch milliseconds. */
 public final class ListingRepository {
-    /** Inserts a new listing and its ordered images in the caller's transaction. */
+    /**
+     * Inserts a new listing and its ordered images in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listing the listing whose state is used
+     * @throws SQLException if database access fails
+     */
     public void insert(Connection connection, Listing listing) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO listings (id, seller_id, title, description, "
                 + "category, price_cents, condition, pickup_location, status, created_at, updated_at) "
@@ -37,7 +43,13 @@ public final class ListingRepository {
         insertImages(connection, listing);
     }
 
-    /** Saves changed details, status, update time, and the complete image list of an existing listing. */
+    /**
+     * Saves changed details, status, update time, and the complete image list of an existing listing.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listing the listing whose state is used
+     * @throws SQLException if database access fails
+     */
     public void update(Connection connection, Listing listing) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE listings SET title = ?, description = ?, "
                 + "category = ?, price_cents = ?, condition = ?, pickup_location = ?, status = ?, updated_at = ? "
@@ -57,7 +69,13 @@ public final class ListingRepository {
         insertImages(connection, listing);
     }
 
-    /** Permanently removes a listing; its image rows are removed with it. */
+    /**
+     * Permanently removes a listing; its image rows are removed with it.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the listing ID
+     * @throws SQLException if database access fails
+     */
     public void delete(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("DELETE FROM listings WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -67,7 +85,14 @@ public final class ListingRepository {
         }
     }
 
-    /** Restores one listing with its images, or empty when no listing has this ID. */
+    /**
+     * Restores one listing with its images, or empty when no listing has this ID.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the listing ID
+     * @return the matching listing, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Listing> findById(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM listings WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -76,7 +101,14 @@ public final class ListingRepository {
         }
     }
 
-    /** Restores every listing of one seller in any status, newest first. */
+    /**
+     * Restores every listing of one seller in any status, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param sellerId the seller's user ID
+     * @return the matching records in every status, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Listing> findBySeller(Connection connection, UUID sellerId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM listings WHERE seller_id = ? ORDER BY created_at DESC, id")) {
@@ -85,7 +117,14 @@ public final class ListingRepository {
         }
     }
 
-    /** Restores every available listing not owned by the given user, newest first. */
+    /**
+     * Restores every available listing not owned by the given user, newest first.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param sellerId the seller's user ID
+     * @return available listings owned by other sellers, newest first
+     * @throws SQLException if database access fails
+     */
     public List<Listing> findAvailableExcludingSeller(Connection connection, UUID sellerId) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM listings WHERE status = 'AVAILABLE' "
                 + "AND seller_id <> ? ORDER BY created_at DESC, id")) {
@@ -94,7 +133,13 @@ public final class ListingRepository {
         }
     }
 
-    /** Lists every listing image filename still referenced, so cleanup never removes a live photo. */
+    /**
+     * Lists every listing image filename still referenced, so cleanup never removes a live photo.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @return the set of image filenames still referenced by database rows
+     * @throws SQLException if database access fails
+     */
     public Set<String> getReferencedImages(Connection connection) throws SQLException {
         Set<String> result = new HashSet<>();
         try (var statement = connection.prepareStatement("SELECT filename FROM listing_images");

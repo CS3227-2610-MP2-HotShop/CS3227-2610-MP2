@@ -31,6 +31,16 @@ public final class CancellationRequest {
     /**
      * Restores a persisted request. Its owning Transaction's restoration checks that it belongs to
      * that sale and fits the sale's history.
+     *
+     * @param id the cancellation request ID
+     * @param transactionId the ID of the agreed sale
+     * @param requesterId the ID of the participant requesting cancellation
+     * @param createdAt the creation time
+     * @param status the persisted lifecycle status
+     * @param resolvedAt the resolution time; null only when restoring a pending request or proposal
+     * @return the restored cancellation request with its persisted identity
+     * @throws IllegalArgumentException if the resolution time is inconsistent with the status or creation time
+     * @throws NullPointerException if a required value is null
      */
     public static CancellationRequest restore(UUID id, UUID transactionId, UUID requesterId, Instant createdAt,
             CancellationStatus status, Instant resolvedAt) {
@@ -52,26 +62,56 @@ public final class CancellationRequest {
         return new CancellationRequest(id, transactionId, requesterId, createdAt, outcome, time);
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the ID of the associated agreed sale.
+     *
+     * @return the ID of the associated agreed sale
+     */
     public UUID getTransactionId() {
         return transactionId;
     }
 
+    /**
+     * Returns the user ID of the cancellation requester.
+     *
+     * @return the user ID of the cancellation requester
+     */
     public UUID getRequesterId() {
         return requesterId;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    /**
+     * Returns the current lifecycle status.
+     *
+     * @return the current lifecycle status
+     */
     public CancellationStatus getStatus() {
         return status;
     }
 
+    /**
+     * Returns the resolution time, or empty while pending.
+     *
+     * @return the resolution time, or empty while pending
+     */
     public Optional<Instant> getResolvedAt() {
         return Optional.ofNullable(resolvedAt);
     }

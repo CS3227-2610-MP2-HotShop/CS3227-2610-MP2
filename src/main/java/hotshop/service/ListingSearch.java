@@ -18,7 +18,11 @@ public record ListingSearch(String titleText, Category category, Set<Condition> 
     private static final Comparator<Listing> NEWEST_FIRST =
             Comparator.comparing(Listing::getCreatedAt).reversed();
 
-    /** Every available listing of other sellers, newest first. */
+    /**
+     * Every available listing of other sellers, newest first.
+     *
+     * @return unfiltered search criteria with newest-first ordering
+     */
     public static ListingSearch all() {
         return new ListingSearch(null, null, null, null, null, null);
     }
@@ -33,7 +37,11 @@ public record ListingSearch(String titleText, Category category, Set<Condition> 
                 && (maxPriceCents == null || details.priceCents() <= maxPriceCents);
     }
 
-    /** The requested order, with ties broken newest first. */
+    /**
+     * The requested order, with ties broken newest first.
+     *
+     * @return the requested comparator, with price ties ordered newest first
+     */
     public Comparator<Listing> order() {
         Comparator<Listing> byPrice = Comparator.comparingLong(listing -> listing.getDetails().priceCents());
         return switch (sort == null ? ListingSort.NEWEST : sort) {

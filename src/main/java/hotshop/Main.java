@@ -18,7 +18,9 @@ public class Main extends Application {
     private ApplicationRuntime runtime;
     private Exception startupFailure;
 
-    /** JavaFX invokes init off the application thread, before displaying the login window. */
+    /**
+     * JavaFX invokes init off the application thread, before displaying the login window.
+     */
     @Override
     public void init() {
         try {
@@ -30,6 +32,12 @@ public class Main extends Application {
         }
     }
 
+    /**
+     * Shows the marketplace window, or a startup error if initialization failed.
+     *
+     * @param stage the primary JavaFX window
+     * @throws IOException if filesystem access or resource loading fails
+     */
     @Override
     public void start(Stage stage) throws IOException {
         if (startupFailure != null) {
@@ -47,6 +55,11 @@ public class Main extends Application {
         stage.show();
     }
 
+    /**
+     * Closes the runtime and releases its resources when JavaFX stops.
+     *
+     * @throws IOException if releasing the application lock or its channel fails
+     */
     @Override
     public void stop() throws IOException {
         if (runtime != null) {

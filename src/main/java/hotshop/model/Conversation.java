@@ -29,6 +29,13 @@ public final class Conversation {
     /**
      * Starts the buyer's conversation about an available or reserved listing. The buyer starts
      * it, so they have seen everything in it so far; the seller has not opened it yet.
+     *
+     * @param listing the listing whose state is used
+     * @param buyerId the buyer's user ID
+     * @param createdAt the creation time
+     * @throws IllegalArgumentException if the supplied values violate the model invariants
+     * @throws NullPointerException if a required value is null
+     * @throws IllegalStateException if the supplied listing or offer is not in the required state
      */
     public Conversation(Listing listing, UUID buyerId, Instant createdAt) {
         this(new Snapshot(UUID.randomUUID(), Objects.requireNonNull(listing, "Listing").getId(), buyerId,
@@ -53,7 +60,14 @@ public final class Conversation {
         sellerOpenedAt = validOpenedAt(saved.sellerOpenedAt());
     }
 
-    /** Restores a persisted conversation while enforcing the same invariants as creation. */
+    /**
+     * Restores a persisted conversation while enforcing the same invariants as creation.
+     *
+     * @param saved the persisted snapshot to validate and restore
+     * @return the restored conversation with its persisted identity
+     * @throws IllegalArgumentException if the supplied values violate the model invariants
+     * @throws NullPointerException if a required value is null
+     */
     public static Conversation restore(Snapshot saved) {
         return new Conversation(Objects.requireNonNull(saved, "Conversation snapshot"));
     }
@@ -61,6 +75,9 @@ public final class Conversation {
     /**
      * True while the listing is available or reserved: conversations about it can start and
      * receive messages. Sold and archived listings keep their conversations read-only.
+     *
+     * @param listing the listing whose state is used
+     * @return true if the listing is available or reserved
      */
     public static boolean isOpenFor(Listing listing) {
         return listing.getStatus() == ListingStatus.AVAILABLE || listing.getStatus() == ListingStatus.RESERVED;
@@ -69,6 +86,13 @@ public final class Conversation {
     /**
      * Records that a participant has read up to a message and opened the conversation at a time.
      * Positions only move forward, so an older position or time leaves the later one in place.
+     *
+     * @param participant the ID of the buyer or seller in this conversation
+     * @param sequence the message sequence number
+     * @param time the event time, not before the preceding event or creation
+     * @throws IllegalArgumentException if the user is not a participant, the sequence is negative, or the time
+     *     precedes creation
+     * @throws NullPointerException if a required participant or time is null
      */
     public void markRead(UUID participant, long sequence, Instant time) {
         requireParticipant(participant);
@@ -83,43 +107,96 @@ public final class Conversation {
         }
     }
 
+    /**
+     * Returns true if the user is this conversation's buyer or seller.
+     *
+     * @param userId the user ID to look up
+     * @return true if the user is this conversation's buyer or seller
+     */
     public boolean isParticipant(UUID userId) {
         return buyerId.equals(userId) || sellerId.equals(userId);
     }
 
+    /**
+     * Returns the other participant's user ID.
+     *
+     * @param participant the ID of the buyer or seller in this conversation
+     * @return the other participant's user ID
+     * @throws IllegalArgumentException if the user is not a participant
+     * @throws NullPointerException if a required participant or time is null
+     */
     public UUID getOtherParticipant(UUID participant) {
         requireParticipant(participant);
         return participant.equals(buyerId) ? sellerId : buyerId;
     }
 
-    /** The sequence number of the last message this participant has read; 0 before any. */
+    /**
+     * The sequence number of the last message this participant has read; 0 before any.
+     *
+     * @param participant the ID of the buyer or seller in this conversation
+     * @return the last read message sequence, or zero before any messages are read
+     * @throws IllegalArgumentException if the user is not a participant
+     * @throws NullPointerException if a required participant or time is null
+     */
     public long getReadSequence(UUID participant) {
         requireParticipant(participant);
         return participant.equals(buyerId) ? buyerReadSequence : sellerReadSequence;
     }
 
-    /** When this participant last opened the conversation; empty if they never have. */
+    /**
+     * When this participant last opened the conversation; empty if they never have.
+     *
+     * @param participant the ID of the buyer or seller in this conversation
+     * @return the last open time, or empty if the participant has never opened the conversation
+     * @throws IllegalArgumentException if the user is not a participant
+     * @throws NullPointerException if a required participant or time is null
+     */
     public Optional<Instant> getLastOpenedAt(UUID participant) {
         requireParticipant(participant);
         return Optional.ofNullable(participant.equals(buyerId) ? buyerOpenedAt : sellerOpenedAt);
     }
 
+    /**
+     * Returns the stable identity of this record.
+     *
+     * @return the stable identity of this record
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Returns the ID of the associated listing.
+     *
+     * @return the ID of the associated listing
+     */
     public UUID getListingId() {
         return listingId;
     }
 
+    /**
+     * Returns the buyer's user ID.
+     *
+     * @return the buyer's user ID
+     */
     public UUID getBuyerId() {
         return buyerId;
     }
 
+    /**
+     * Returns the seller's user ID.
+     *
+     * @return the seller's user ID
+     */
     public UUID getSellerId() {
         return sellerId;
     }
 
+    /**
+     * Returns the creation time.
+     *
+     * @return the creation time
+     */
     public Instant getCreatedAt() {
         return createdAt;
     }

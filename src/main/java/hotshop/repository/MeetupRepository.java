@@ -26,6 +26,13 @@ public final class MeetupRepository {
     private static final String MEETUP_COLUMNS = "meetups.*, transactions.buyer_id, transactions.seller_id "
             + "FROM meetups JOIN transactions ON transactions.id = meetups.transaction_id";
 
+    /**
+     * Inserts an offered slot in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param slot the offered slot to use
+     * @throws SQLException if database access fails
+     */
     public void insertSlot(Connection connection, MeetupSlot slot) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO meetup_slots (id, transaction_id, start_at, "
                 + "end_at, location, created_at) VALUES (?, ?, ?, ?, ?, ?)")) {
@@ -37,6 +44,14 @@ public final class MeetupRepository {
         }
     }
 
+    /**
+     * Returns the matching meetup slot, or empty if none exists.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the slot ID
+     * @return the matching meetup slot, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<MeetupSlot> findSlot(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM meetup_slots WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -44,7 +59,14 @@ public final class MeetupRepository {
         }
     }
 
-    /** Every slot offered for the sale, soonest first, including ones whose time has passed. */
+    /**
+     * Every slot offered for the sale, soonest first, including ones whose time has passed.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param transactionId the ID of the agreed sale
+     * @return all offered slots, including past ones, in ascending start-time order
+     * @throws SQLException if database access fails
+     */
     public List<MeetupSlot> findSlotsForSale(Connection connection, UUID transactionId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM meetup_slots WHERE transaction_id = ? ORDER BY start_at, id")) {
@@ -53,6 +75,13 @@ public final class MeetupRepository {
         }
     }
 
+    /**
+     * Deletes an offered slot; a missing slot is a no-op.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the slot ID
+     * @throws SQLException if database access fails
+     */
     public void deleteSlot(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("DELETE FROM meetup_slots WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -60,7 +89,13 @@ public final class MeetupRepository {
         }
     }
 
-    /** Removes every slot offered for the sale, once one is booked or the sale ends. */
+    /**
+     * Removes every slot offered for the sale, once one is booked or the sale ends.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param transactionId the ID of the agreed sale
+     * @throws SQLException if database access fails
+     */
     public void deleteSlotsForSale(Connection connection, UUID transactionId) throws SQLException {
         try (var statement = connection.prepareStatement("DELETE FROM meetup_slots WHERE transaction_id = ?")) {
             statement.setString(1, transactionId.toString());
@@ -68,6 +103,13 @@ public final class MeetupRepository {
         }
     }
 
+    /**
+     * Inserts a meetup and saves its proposal history in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param meetup the meetup whose state is used
+     * @throws SQLException if database access fails
+     */
     public void insertMeetup(Connection connection, Meetup meetup) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO meetups (id, transaction_id, start_at, end_at, "
                 + "location, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
@@ -81,7 +123,13 @@ public final class MeetupRepository {
         saveProposals(connection, meetup);
     }
 
-    /** Saves the meetup's time and status and every move proposal. */
+    /**
+     * Saves the meetup's time and status and every move proposal.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param meetup the meetup whose state is used
+     * @throws SQLException if database access fails
+     */
     public void updateMeetup(Connection connection, Meetup meetup) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "UPDATE meetups SET start_at = ?, end_at = ?, location = ?, status = ? WHERE id = ?")) {
@@ -95,6 +143,14 @@ public final class MeetupRepository {
         saveProposals(connection, meetup);
     }
 
+    /**
+     * Returns the matching meetup, or empty if none exists.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the meetup ID
+     * @return the matching meetup, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Meetup> findMeetup(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT " + MEETUP_COLUMNS + " WHERE meetups.id = ?")) {
             statement.setString(1, id.toString());
@@ -102,7 +158,14 @@ public final class MeetupRepository {
         }
     }
 
-    /** The sale's scheduled meetup, or else its most recent completed one; cancelled meetups are history only. */
+    /**
+     * The sale's scheduled meetup, or else its most recent completed one; cancelled meetups are history only.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param transactionId the ID of the agreed sale
+     * @return the scheduled or latest completed meetup, or empty if neither exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Meetup> findCurrentForSale(Connection connection, UUID transactionId) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT " + MEETUP_COLUMNS
                 + " WHERE meetups.transaction_id = ? "
@@ -113,7 +176,14 @@ public final class MeetupRepository {
         }
     }
 
-    /** Scheduled meetups in which the user takes part, as buyer or seller. */
+    /**
+     * Scheduled meetups in which the user takes part, as buyer or seller.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param userId the user ID to look up
+     * @return the scheduled meetups in ascending start-time order
+     * @throws SQLException if database access fails
+     */
     public List<Meetup> findScheduledForParticipant(Connection connection, UUID userId) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT " + MEETUP_COLUMNS + " WHERE meetups.status = "
                 + "'SCHEDULED' AND (transactions.buyer_id = ? OR transactions.seller_id = ?) "

@@ -11,7 +11,13 @@ public final class ServiceWorker implements AutoCloseable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             Thread.ofPlatform().name("hotshop-services").factory());
 
-    /** Queues one operation; failures complete its future exceptionally without stopping subsequent work. */
+    /**
+     * Queues one operation; failures complete its future exceptionally without stopping subsequent work.
+     *
+     * @param <T> the operation result type
+     * @param operation the operation to run on the service worker
+     * @return a future containing the operation result, or its failure
+     */
     public <T> CompletableFuture<T> submit(Callable<T> operation) {
         CompletableFuture<T> result = new CompletableFuture<>();
         try {
@@ -29,7 +35,9 @@ public final class ServiceWorker implements AutoCloseable {
         return result;
     }
 
-    /** Drains accepted operations before resources or the application lock are released. */
+    /**
+     * Drains accepted operations before resources or the application lock are released.
+     */
     @Override
     public void close() {
         executor.close();

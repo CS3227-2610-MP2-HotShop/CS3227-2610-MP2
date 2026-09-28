@@ -19,6 +19,13 @@ import hotshop.model.Message;
  * transaction and enforce permissions. Times are epoch milliseconds.
  */
 public final class ChatRepository {
+    /**
+     * Inserts a conversation and its initial read positions in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param conversation the conversation whose state is used
+     * @throws SQLException if database access fails
+     */
     public void insertConversation(Connection connection, Conversation conversation) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO conversations (id, listing_id, buyer_id, "
                 + "seller_id, created_at, buyer_read_sequence, buyer_opened_at, seller_read_sequence, "
@@ -34,7 +41,13 @@ public final class ChatRepository {
         }
     }
 
-    /** Saves both participants' read positions; the participants and listing never change. */
+    /**
+     * Saves both participants' read positions; the participants and listing never change.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param conversation the conversation whose state is used
+     * @throws SQLException if database access fails
+     */
     public void updateReadState(Connection connection, Conversation conversation) throws SQLException {
         try (var statement = connection.prepareStatement("UPDATE conversations SET buyer_read_sequence = ?, "
                 + "buyer_opened_at = ?, seller_read_sequence = ?, seller_opened_at = ? WHERE id = ?")) {
@@ -47,6 +60,14 @@ public final class ChatRepository {
         }
     }
 
+    /**
+     * Returns the matching conversation, or empty if none exists.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param id the conversation ID
+     * @return the matching conversation, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Conversation> findConversation(Connection connection, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("SELECT * FROM conversations WHERE id = ?")) {
             statement.setString(1, id.toString());
@@ -54,7 +75,15 @@ public final class ChatRepository {
         }
     }
 
-    /** The buyer's conversation about a listing, if they have one; there is at most one. */
+    /**
+     * The buyer's conversation about a listing, if they have one; there is at most one.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @param buyerId the buyer's user ID
+     * @return the matching conversation, or empty if none exists
+     * @throws SQLException if database access fails
+     */
     public Optional<Conversation> findConversation(Connection connection, UUID listingId, UUID buyerId)
             throws SQLException {
         try (var statement = connection.prepareStatement(
@@ -65,7 +94,14 @@ public final class ChatRepository {
         }
     }
 
-    /** Every conversation the user takes part in, as the buyer or the seller, in no particular order. */
+    /**
+     * Every conversation the user takes part in, as the buyer or the seller, in no particular order.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param userId the user ID to look up
+     * @return all conversations involving the user, in unspecified order
+     * @throws SQLException if database access fails
+     */
     public List<Conversation> findConversationsFor(Connection connection, UUID userId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM conversations WHERE buyer_id = ? OR seller_id = ?")) {
@@ -75,7 +111,13 @@ public final class ChatRepository {
         }
     }
 
-    /** Deletes every conversation about the listing and all their messages, messages first for the foreign key. */
+    /**
+     * Deletes every conversation about the listing and all their messages, messages first for the foreign key.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param listingId the ID of the listing
+     * @throws SQLException if database access fails
+     */
     public void deleteForListing(Connection connection, UUID listingId) throws SQLException {
         try (var statement = connection.prepareStatement("DELETE FROM messages WHERE conversation_id IN "
                 + "(SELECT id FROM conversations WHERE listing_id = ?)")) {
@@ -88,6 +130,13 @@ public final class ChatRepository {
         }
     }
 
+    /**
+     * Inserts a message with its assigned sequence in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param message the message to persist
+     * @throws SQLException if database access fails
+     */
     public void insertMessage(Connection connection, Message message) throws SQLException {
         try (var statement = connection.prepareStatement("INSERT INTO messages (id, conversation_id, sender_id, "
                 + "sequence, text, sent_at) VALUES (?, ?, ?, ?, ?, ?)")) {
@@ -101,7 +150,14 @@ public final class ChatRepository {
         }
     }
 
-    /** Every message in the conversation, in the order it was sent. */
+    /**
+     * Every message in the conversation, in the order it was sent.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param conversationId the ID of the conversation
+     * @return the messages in ascending sequence order
+     * @throws SQLException if database access fails
+     */
     public List<Message> findMessages(Connection connection, UUID conversationId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY sequence")) {
@@ -110,7 +166,14 @@ public final class ChatRepository {
         }
     }
 
-    /** The most recent message in the conversation, if it has any. */
+    /**
+     * The most recent message in the conversation, if it has any.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param conversationId the ID of the conversation
+     * @return the latest message, or empty if the conversation has none
+     * @throws SQLException if database access fails
+     */
     public Optional<Message> findLatestMessage(Connection connection, UUID conversationId) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY sequence DESC LIMIT 1")) {
@@ -119,7 +182,16 @@ public final class ChatRepository {
         }
     }
 
-    /** Messages from the other participant after the reader's read position. */
+    /**
+     * Messages from the other participant after the reader's read position.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param conversationId the ID of the conversation
+     * @param readerId the ID of the participant whose unread messages are counted
+     * @param readSequence the last read sequence number; messages after it are counted
+     * @return the number of messages from other senders after the read position
+     * @throws SQLException if database access fails
+     */
     public int countUnreadMessages(Connection connection, UUID conversationId, UUID readerId, long readSequence)
             throws SQLException {
         try (var statement = connection.prepareStatement("SELECT COUNT(*) FROM messages "

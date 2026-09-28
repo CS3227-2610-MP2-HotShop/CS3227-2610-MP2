@@ -42,7 +42,12 @@ public final class MarketplaceUi {
     private ScrollPane content;
     private Button conversationsLink;
 
-    /** Installs the initial logged-out scene; the caller owns showing and closing the runtime. */
+    /**
+     * Installs the initial logged-out scene; the caller owns showing and closing the runtime.
+     *
+     * @param stage the primary JavaFX window
+     * @param runtime the initialized application services and resources
+     */
     public MarketplaceUi(Stage stage, ApplicationRuntime runtime) {
         this.stage = stage;
         this.runtime = runtime;
@@ -68,7 +73,11 @@ public final class MarketplaceUi {
         login("");
     }
 
-    /** The shared stylesheet, also used by windows shown outside the marketplace scene. */
+    /**
+     * The shared stylesheet, also used by windows shown outside the marketplace scene.
+     *
+     * @return the external URL of the shared stylesheet
+     */
     public static String stylesheet() {
         return Objects.requireNonNull(MarketplaceUi.class.getResource("/hotshop/styles.css"),
                 "Missing styles.css").toExternalForm();

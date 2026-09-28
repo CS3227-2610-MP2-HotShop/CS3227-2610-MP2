@@ -38,7 +38,19 @@ public final class TransactionService {
     private final AuthenticatedSession session;
     private final Clock clock;
 
-    /** Wires the shared database, worker, and session with the repositories sales touch. */
+    /**
+     * Wires the shared database, worker, and session with the repositories sales touch.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param transactions the agreed-sale repository
+     * @param listings the listing repository
+     * @param offers the offer repository
+     * @param meetups the meetup repository
+     * @param users the user and credential repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param clock the clock supplying event times and the local time zone
+     */
     public TransactionService(Database database, TransactionRepository transactions, ListingRepository listings,
             OfferRepository offers, MeetupRepository meetups, UserRepository users, ServiceWorker worker,
             AuthenticatedSession session, Clock clock) {
@@ -56,6 +68,10 @@ public final class TransactionService {
     /**
      * Records the current user's confirmation that the item changed hands. The second confirmation
      * completes the sale, its meetup, and marks its listing sold in the same database transaction.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<SaleForParticipant> confirmCompletion(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -80,6 +96,10 @@ public final class TransactionService {
     /**
      * Cancels an active sale before anyone confirms, releasing its listing for new offers and
      * cancelling its meetup.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<SaleForParticipant> cancelSale(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -95,6 +115,10 @@ public final class TransactionService {
     /**
      * After the first confirmation, asks the other participant to agree to cancel. While the request
      * is pending, the sale stays active and further confirmations are blocked.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<SaleForParticipant> requestCancellation(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -112,6 +136,10 @@ public final class TransactionService {
     /**
      * The other participant agrees to the pending request; the sale is cancelled and its listing
      * released and its meetup cancelled, as for {@link #cancelSale}.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<SaleForParticipant> acceptCancellation(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
@@ -121,13 +149,25 @@ public final class TransactionService {
         });
     }
 
-    /** The other participant declines the pending request; existing confirmations stay. */
+    /**
+     * The other participant declines the pending request; existing confirmations stay.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<SaleForParticipant> rejectCancellation(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) ->
                 sale.rejectCancellation(requireResponder(sale, userId), userId, eventTime(sale)));
     }
 
-    /** The requester takes back their pending request; existing confirmations stay. */
+    /**
+     * The requester takes back their pending request; existing confirmations stay.
+     *
+     * @param saleId the ID of the agreed sale
+     * @return a future containing the updated sale as seen by the current participant; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<SaleForParticipant> withdrawCancellation(UUID saleId) {
         return applyToActiveSale(saleId, (connection, sale, userId) -> {
             var request = requirePendingRequest(sale);
@@ -139,17 +179,32 @@ public final class TransactionService {
         });
     }
 
-    /** Every sale where the current user is the seller, needing action first, then newest first. */
+    /**
+     * Every sale where the current user is the seller, needing action first, then newest first.
+     *
+     * @return a future containing the current seller's sales, with actionable sales first; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<List<SaleForParticipant>> getMySales() {
         return salesFor(transactions::findBySeller);
     }
 
-    /** Every sale where the current user is the buyer, needing action first, then newest first. */
+    /**
+     * Every sale where the current user is the buyer, needing action first, then newest first.
+     *
+     * @return a future containing the current buyer's purchases, with actionable sales first; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<List<SaleForParticipant>> getMyPurchases() {
         return salesFor(transactions::findByBuyer);
     }
 
-    /** The current user's seller summary; only completed sales count towards the total value. */
+    /**
+     * The current user's seller summary; only completed sales count towards the total value.
+     *
+     * @return a future containing the current seller's counts and completed-sale value in SGD cents; failures complete
+     *     it exceptionally
+     */
     public CompletableFuture<SalesDashboard> getSalesDashboard() {
         return worker.submit(() -> {
             UUID userId = session.requireUserId();
@@ -171,6 +226,14 @@ public final class TransactionService {
     /** Finds the current user's sales from one side, buyer or seller. */
     @FunctionalInterface
     private interface SaleFinder {
+        /**
+         * Retrieves the user's sales for the buyer or seller role selected by the implementation.
+         *
+         * @param connection the caller-owned database connection
+         * @param userId the authenticated user's ID
+         * @return the user's sales in the selected role, newest first
+         * @throws SQLException if database access fails
+         */
         List<Transaction> find(Connection connection, UUID userId) throws SQLException;
     }
 
@@ -184,6 +247,14 @@ public final class TransactionService {
     /** A change to one active sale, applied inside the operation's database transaction. */
     @FunctionalInterface
     private interface SaleChange {
+        /**
+         * Applies a participant's change to an active sale within the caller's transaction.
+         *
+         * @param connection the caller-owned database connection
+         * @param sale the active sale to change
+         * @param userId the authenticated participant's ID
+         * @throws SQLException if database access fails
+         */
         void apply(Connection connection, Transaction sale, UUID userId) throws SQLException;
     }
 

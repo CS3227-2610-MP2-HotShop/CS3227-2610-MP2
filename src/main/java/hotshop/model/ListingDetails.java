@@ -8,6 +8,18 @@ public record ListingDetails(String title, String description, Category category
     /** S$1,000,000; catches mistyped prices. */
     public static final long MAX_PRICE_CENTS = 100_000_000;
 
+    /**
+     * Validates and trims the listing terms.
+     *
+     * @param title the listing title, trimmed and limited to 120 Unicode code points
+     * @param description the listing description, trimmed and limited to 5,000 Unicode code points
+     * @param category the listing category
+     * @param priceCents the asking price in SGD cents, from 1 to 100,000,000 inclusive
+     * @param condition the item's condition
+     * @param pickupLocation the pickup location, trimmed and limited to 200 Unicode code points
+     * @throws IllegalArgumentException if the supplied values violate the documented validation limits
+     * @throws NullPointerException if a required value is null
+     */
     public ListingDetails {
         title = ModelValidation.text(title, 120, "Title");
         description = ModelValidation.text(description, 5000, "Description");

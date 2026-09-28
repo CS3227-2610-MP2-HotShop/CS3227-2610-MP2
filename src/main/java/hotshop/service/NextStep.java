@@ -24,6 +24,11 @@ public enum NextStep {
         this.description = description;
     }
 
+    /**
+     * Returns the user-facing description of the next step.
+     *
+     * @return the user-facing description of the next step
+     */
     public String getDescription() {
         return description;
     }

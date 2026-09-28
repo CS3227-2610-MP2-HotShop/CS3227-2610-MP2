@@ -28,7 +28,15 @@ public final class AccountService {
     private final Passwords passwords = new Passwords();
     private final ProfileImages images;
 
-    /** Wires the shared database, worker, session, and profile-specific managed image namespace. */
+    /**
+     * Wires the shared database, worker, session, and profile-specific managed image namespace.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param users the user and credential repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param storage the managed image storage for this service
+     */
     public AccountService(Database database, UserRepository users, ServiceWorker worker,
             AuthenticatedSession session, ImageStorage storage) {
         this.database = database;
@@ -38,7 +46,11 @@ public final class AccountService {
         images = new ProfileImages(database, users, storage);
     }
 
-    /** Lifecycle maintenance, queued with account operations; does not authenticate a user. */
+    /**
+     * Lifecycle maintenance, queued with account operations; does not authenticate a user.
+     *
+     * @return a future containing null after image recovery finishes; failures complete it exceptionally
+     */
     public CompletableFuture<Void> recoverImages() {
         return worker.submit(() -> {
             try {
@@ -50,7 +62,12 @@ public final class AccountService {
         });
     }
 
-    /** Requires login; imports validated image data, saves its reference, then retires the old copy. */
+    /**
+     * Requires login; imports validated image data, saves its reference, then retires the old copy.
+     *
+     * @param source the source image file
+     * @return a future containing the updated owner profile; failures complete it exceptionally
+     */
     public CompletableFuture<User> replaceProfileImage(Path source) {
         return worker.submit(() -> {
             UUID id = session.requireUserId();
@@ -62,7 +79,11 @@ public final class AccountService {
         });
     }
 
-    /** Requires login; clears the image reference before cleanup. An absent image is a no-op. */
+    /**
+     * Requires login; clears the image reference before cleanup. An absent image is a no-op.
+     *
+     * @return a future containing the updated owner profile; failures complete it exceptionally
+     */
     public CompletableFuture<User> removeProfileImage() {
         return worker.submit(() -> {
             UUID id = session.requireUserId();
@@ -74,7 +95,14 @@ public final class AccountService {
         });
     }
 
-    /** Requires a logged-out session; atomically saves a unique profile and credentials without logging in. */
+    /**
+     * Requires a logged-out session; atomically saves a unique profile and credentials without logging in.
+     *
+     * @param username the account username
+     * @param password the password to validate or verify, used without trimming
+     * @param displayName the display name, trimmed and limited to 80 Unicode code points
+     * @return a future containing the newly registered user without logging in; failures complete it exceptionally
+     */
     public CompletableFuture<User> register(String username, String password, String displayName) {
         return worker.submit(() -> {
             session.requireLoggedOut();
@@ -95,7 +123,13 @@ public final class AccountService {
         });
     }
 
-    /** Requires a logged-out session; establishes identity only after credential verification succeeds. */
+    /**
+     * Requires a logged-out session; establishes identity only after credential verification succeeds.
+     *
+     * @param username the account username
+     * @param password the password to validate or verify, used without trimming
+     * @return a future containing the authenticated user; failures complete it exceptionally
+     */
     public CompletableFuture<User> login(String username, String password) {
         return worker.submit(() -> {
             session.requireLoggedOut();
@@ -112,12 +146,21 @@ public final class AccountService {
         });
     }
 
-    /** Reads identity in queue order, returning empty when logged out. */
+    /**
+     * Reads identity in queue order, returning empty when logged out.
+     *
+     * @return a future containing the current user ID, or empty when logged out; failures complete it exceptionally
+     */
     public CompletableFuture<Optional<UUID>> getCurrentUserId() {
         return worker.submit(session::getCurrentUserId);
     }
 
-    /** Requires login; retrieves the current user's latest profile including private pickup preferences. */
+    /**
+     * Requires login; retrieves the current user's latest profile including private pickup preferences.
+     *
+     * @return a future containing the current user's profile, including private pickup preferences; failures complete
+     *     it exceptionally
+     */
     public CompletableFuture<User> getOwnProfile() {
         return worker.submit(() -> {
             UUID id = session.requireUserId();
@@ -125,7 +168,13 @@ public final class AccountService {
         });
     }
 
-    /** Requires login and the current password; saves a validated replacement while retaining the session. */
+    /**
+     * Requires login and the current password; saves a validated replacement while retaining the session.
+     *
+     * @param currentPassword the current password to verify
+     * @param newPassword the replacement password, which must satisfy the password policy
+     * @return a future containing null after the credential replacement is saved; failures complete it exceptionally
+     */
     public CompletableFuture<Void> changePassword(String currentPassword, String newPassword) {
         return worker.submit(() -> {
             UUID id = session.requireUserId();
@@ -139,7 +188,12 @@ public final class AccountService {
         });
     }
 
-    /** Requires login; returns permitted fields only, or NOT_FOUND when the requested user does not exist. */
+    /**
+     * Requires login; returns permitted fields only, or NOT_FOUND when the requested user does not exist.
+     *
+     * @param id the user ID
+     * @return a future containing the requested public profile; failures complete it exceptionally
+     */
     public CompletableFuture<PublicProfile> getPublicProfile(UUID id) {
         return worker.submit(() -> {
             session.requireUserId();
@@ -152,7 +206,13 @@ public final class AccountService {
         });
     }
 
-    /** Requires login; saves both text fields atomically. Null location clears the optional preference. */
+    /**
+     * Requires login; saves both text fields atomically. Null location clears the optional preference.
+     *
+     * @param displayName the display name, trimmed and limited to 80 Unicode code points
+     * @param preferredPickupLocation the private pickup preference, or null to leave it absent
+     * @return a future containing the updated owner profile; failures complete it exceptionally
+     */
     public CompletableFuture<User> updateProfile(String displayName, String preferredPickupLocation) {
         return worker.submit(() -> {
             UUID id = session.requireUserId();
@@ -176,7 +236,11 @@ public final class AccountService {
                 new ServiceException(ServiceException.Code.NOT_FOUND, "Profile was not found"));
     }
 
-    /** Clears session identity in queue order; already logged out is a successful no-op. */
+    /**
+     * Clears session identity in queue order; already logged out is a successful no-op.
+     *
+     * @return a future containing null after the session identity is cleared; failures complete it exceptionally
+     */
     public CompletableFuture<Void> logout() {
         return worker.submit(() -> {
             session.logout();

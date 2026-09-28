@@ -48,7 +48,19 @@ public final class OfferService {
     private final AuthenticatedSession session;
     private final Clock clock;
 
-    /** Wires the shared database, worker, and session with the repositories offers touch. */
+    /**
+     * Wires the shared database, worker, and session with the repositories offers touch.
+     *
+     * @param database the shared database and transaction coordinator
+     * @param offers the offer repository
+     * @param listings the listing repository
+     * @param transactions the agreed-sale repository
+     * @param chats the conversation and message repository
+     * @param users the user and credential repository
+     * @param worker the shared worker that serializes service operations
+     * @param session the shared authenticated session used to identify the acting user
+     * @param clock the clock supplying event times and the local time zone
+     */
     public OfferService(Database database, OfferRepository offers, ListingRepository listings,
             TransactionRepository transactions, ChatRepository chats, UserRepository users, ServiceWorker worker,
             AuthenticatedSession session, Clock clock) {
@@ -63,7 +75,14 @@ public final class OfferService {
         this.clock = clock;
     }
 
-    /** Makes an offer without a message; see {@link #submitOffer(UUID, long, String)}. */
+    /**
+     * Makes an offer without a message; see {@link #submitOffer(UUID, long, String)}.
+     *
+     * @param listingId the ID of the listing
+     * @param amountCents the offer amount in SGD cents, from 1 to 100,000,000 inclusive
+     * @return a future containing the saved offer with its listing and seller profile; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<OfferWithListing> submitOffer(UUID listingId, long amountCents) {
         return submitOffer(listingId, amountCents, null);
     }
@@ -73,6 +92,12 @@ public final class OfferService {
      * pending offer per listing; changing the amount means withdrawing and offering again. The
      * offer starts the buyer's conversation about the listing, or reuses it, in the same database
      * transaction. A message, when given, is sent in that conversation; null or blank means none.
+     *
+     * @param listingId the ID of the listing
+     * @param amountCents the offer amount in SGD cents, from 1 to 100,000,000 inclusive
+     * @param message an optional message to send with the offer; null or blank sends none
+     * @return a future containing the saved offer with its listing and seller profile; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<OfferWithListing> submitOffer(UUID listingId, long amountCents, String message) {
         return worker.submit(() -> {
@@ -112,7 +137,13 @@ public final class OfferService {
         });
     }
 
-    /** Takes back the current user's own pending offer; it stays in history as withdrawn. */
+    /**
+     * Takes back the current user's own pending offer; it stays in history as withdrawn.
+     *
+     * @param offerId the ID of the offer
+     * @return a future containing the withdrawn offer with its listing and seller profile; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<OfferWithListing> withdrawOffer(UUID offerId) {
         return worker.submit(() -> {
             UUID buyerId = session.requireUserId();
@@ -130,7 +161,12 @@ public final class OfferService {
         });
     }
 
-    /** Every offer the current user has made, in any status, newest first. */
+    /**
+     * Every offer the current user has made, in any status, newest first.
+     *
+     * @return a future containing the current buyer's offers with listing details, newest first; failures complete it
+     *     exceptionally
+     */
     public CompletableFuture<List<OfferWithListing>> getMyOffers() {
         return worker.submit(() -> {
             UUID buyerId = session.requireUserId();
@@ -147,6 +183,10 @@ public final class OfferService {
     /**
      * The seller's view of every offer on one of their listings: accepted offers with a live sale
      * first, then accepted offers whose sale was cancelled, then all others, each group newest first.
+     *
+     * @param listingId the ID of the listing
+     * @return a future containing the listing offers with buyer profiles in sale-priority order; failures complete it
+     *     exceptionally
      */
     public CompletableFuture<List<OfferWithBuyer>> getOffersForListing(UUID listingId) {
         return worker.submit(() -> {
@@ -170,6 +210,10 @@ public final class OfferService {
     /**
      * Seller only. In one database transaction: reserves the listing, accepts the offer, rejects
      * every other pending offer on it, and saves the new sale.
+     *
+     * @param offerId the ID of the offer
+     * @return a future containing the accepted offer, reserved listing, and newly created sale ID; failures complete
+     *     it exceptionally
      */
     public CompletableFuture<AcceptedOffer> acceptOffer(UUID offerId) {
         return worker.submit(() -> {
@@ -200,6 +244,9 @@ public final class OfferService {
 
     /**
      * Seller only; declines one pending offer and leaves the listing available for others.
+     *
+     * @param offerId the ID of the offer
+     * @return a future containing the rejected offer and its buyer profile; failures complete it exceptionally
      */
     public CompletableFuture<OfferWithBuyer> rejectOffer(UUID offerId) {
         return worker.submit(() -> {

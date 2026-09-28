@@ -10,7 +10,14 @@ import java.util.Set;
  * its own files; references are checked again before deleting any image.
  */
 public final class ImageCleanupRepository {
-    /** Records an idempotent cleanup request in the caller's transaction. */
+    /**
+     * Records an idempotent cleanup request in the caller's transaction.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param namespace the image namespace whose cleanup queue is used
+     * @param filename the storage-relative image filename
+     * @throws SQLException if database access fails
+     */
     public void schedule(Connection connection, String namespace, String filename) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "INSERT OR IGNORE INTO image_cleanup(namespace, filename) VALUES (?, ?)")) {
@@ -20,7 +27,14 @@ public final class ImageCleanupRepository {
         }
     }
 
-    /** Removes a handled request after cleanup or discovery of a live reference. */
+    /**
+     * Removes a handled request after cleanup or discovery of a live reference.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param namespace the image namespace whose cleanup queue is used
+     * @param filename the storage-relative image filename
+     * @throws SQLException if database access fails
+     */
     public void finish(Connection connection, String namespace, String filename) throws SQLException {
         try (var statement = connection.prepareStatement(
                 "DELETE FROM image_cleanup WHERE namespace = ? AND filename = ?")) {
@@ -30,7 +44,14 @@ public final class ImageCleanupRepository {
         }
     }
 
-    /** Reads one namespace's pending filenames without deleting files or changing the queue. */
+    /**
+     * Reads one namespace's pending filenames without deleting files or changing the queue.
+     *
+     * @param connection the caller-owned connection for the current database transaction
+     * @param namespace the image namespace whose cleanup queue is used
+     * @return the filenames awaiting cleanup in this namespace
+     * @throws SQLException if database access fails
+     */
     public Set<String> getPending(Connection connection, String namespace) throws SQLException {
         Set<String> result = new HashSet<>();
         try (var statement = connection.prepareStatement("SELECT filename FROM image_cleanup WHERE namespace = ?")) {

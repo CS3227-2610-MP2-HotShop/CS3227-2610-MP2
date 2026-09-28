@@ -12,6 +12,13 @@ import hotshop.model.MeetupSlot;
  * first, and the sale's meetup (scheduled, or completed for history). Models are detached copies.
  */
 public record MeetupSummary(UUID saleId, List<MeetupSlot> offeredSlots, Optional<Meetup> meetup) {
+    /**
+     * Creates a meetup summary with an unmodifiable copy of its offered slots.
+     *
+     * @param saleId the ID of the agreed sale
+     * @param offeredSlots the offered slots, copied into an unmodifiable list
+     * @param meetup the scheduled or completed meetup, or empty if none exists
+     */
     public MeetupSummary {
         offeredSlots = List.copyOf(offeredSlots);
     }

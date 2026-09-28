@@ -96,11 +96,24 @@ final class SearchPage {
         choice.getItems().addAll(values);
         choice.setMaxWidth(Double.MAX_VALUE);
         choice.setConverter(new StringConverter<>() {
+            /**
+             * Formats an enum option for display in the choice control.
+             *
+             * @param value the option, or null for an empty label
+             * @return the option label, or an empty string for null
+             */
             @Override
             public String toString(T value) {
                 return value == null ? "" : UiControls.title(value);
             }
 
+            /**
+             * Rejects text conversion because users must choose an existing option.
+             *
+             * @param text the typed text, which is not supported
+             * @return no value; this operation always throws
+             * @throws UnsupportedOperationException always; free-text conversion is unsupported
+             */
             @Override
             public T fromString(String text) {
                 throw new UnsupportedOperationException("Choose an existing option");
