@@ -1,0 +1,29 @@
+{
+  "name": "cs3227-2610-mp2",
+  "version": "1.0.0",
+  "description": "A minimal JavaFX starter using Java 25 and Gradle 9.1.0.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs:build": "markbind build",
+    "docs:serve": "markbind serve --no-open"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/b2-4ac/CS3227-2610-MP2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/b2-4ac/CS3227-2610-MP2/issues"
+  },
+  "homepage": "https://github.com/b2-4ac/CS3227-2610-MP2#readme",
+  "devDependencies": {
+    "markbind-cli": "7.1.1"
+  }
+}
