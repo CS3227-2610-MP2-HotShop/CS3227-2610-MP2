@@ -13,3 +13,4 @@ bin/
 node_modules/
 _site/
 _markbind/logs/
+tools/
