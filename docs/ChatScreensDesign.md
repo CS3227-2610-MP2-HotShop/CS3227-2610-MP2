@@ -3,7 +3,7 @@
 Status: agreed through a grill-with-docs interview on 2026-09-26 and
 implemented the same day. See "Implementation notes" at the end for details
 settled during implementation. The interview record is in
-[the feature log](../logs/2026-09-26-chat-screens.md).
+[the feature log](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/blob/main/logs/2026-09-26-chat-screens.md).
 Builds on the implemented [ChatService Design](ChatServiceDesign.md) and the
 screen conventions in [UI Design Scope](UiDesignScope.md).
 
