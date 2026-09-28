@@ -21,7 +21,13 @@ Meetup scheduling consists of two related concepts:
 * **Meetup slots** — possible times and locations offered by a seller for a specific sale.
 * **Meetups** — a scheduled arrangement created when the buyer books one of those slots.
 
-Slots are specific to a `(seller, buyer, sale)` relationship rather than representing global seller availability.
+Slots are specific to a `(seller, buyer, sale)` relationship rather than representing global seller availability, so booking one can safely delete the rest. The same time can be offered to two buyers, and the first to book gets it.
+
+[MeetupService Design](../MeetupServiceDesign.html) records the agreed requirements.
+How a sale's meetup moves from offered times to a booked meetup, and how the
+sale's outcome closes it:
+
+[![State diagram of arranging a meetup: offered times, booking, move proposals, cancelling, and the sale's outcome](../diagrams/meetup_state_uml.png)](../diagrams/meetup_state_uml.png)
 
 ### Access, time limits, and clocks
 
@@ -50,7 +56,7 @@ tests use a fixed UTC `TestClock`.
 
 `MeetupService` owns meetup scheduling rules, conflict detection, slots, and rescheduling proposals.
 
-`TransactionService` remains responsible for transaction lifecycle changes. When a transaction is completed or cancelled, it invokes the corresponding `MeetupService` transition as part of the surrounding database transaction.
+`TransactionService` remains responsible for transaction lifecycle changes. When a transaction is completed or cancelled, it completes or cancels the sale's meetup through the package-private `SaleMeetups` helper, as part of the surrounding database transaction, rather than calling `MeetupService`.
 
 This allows meetup state to remain consistent with transaction state without duplicating transaction rules inside `MeetupService`.
 

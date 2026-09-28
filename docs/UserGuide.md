@@ -32,3 +32,5 @@ This guide aims to:
    [arrange meetups](userGuide/Meetups.html).
 3. Provide a reference for the [Marketplace Rules](userGuide/MarketplaceRules.html),
    including restrictions and important behaviour to know when buying and selling.
+4. Define the marketplace terms used throughout, in the
+   [Glossary](userGuide/Glossary.html).

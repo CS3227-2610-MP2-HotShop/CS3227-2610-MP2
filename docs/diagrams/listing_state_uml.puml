@@ -1,0 +1,28 @@
+@startuml listing_state_uml
+!pragma layout smetana
+skinparam shadowing false
+hide empty description
+
+title Life of a listing
+
+[*] --> Available : seller creates the listing
+
+Available --> Available : seller edits it\n(an actual change rejects pending offers)
+Available --> Reserved : seller accepts an offer\n(other pending offers rejected)
+Reserved --> Available : sale cancelled
+Reserved --> Sold : sale completed
+Available --> Archived : seller archives it\n(pending offers rejected)
+Sold --> Archived : seller archives it
+
+Available --> [*] : seller deletes it\n(no offer history only)
+Archived --> [*] : seller deletes it\n(no offer history only)
+
+note right of Reserved
+  Cannot be edited, archived, or
+  deleted while its sale is active.
+end note
+note bottom of Archived
+  Archiving is final. Deleting also deletes
+  the listing's enquiry conversations.
+end note
+@enduml

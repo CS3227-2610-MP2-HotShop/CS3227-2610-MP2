@@ -12,7 +12,9 @@ A conversation is between one buyer and the seller about one listing. Open one i
 any of these ways:
 
 - **Chat with seller** on another seller's listing. If you haven't talked about
-  that listing yet, the page is empty; your first message starts the conversation.
+  that listing yet, the page shows "No messages yet.", a hint to send a message,
+  and a "No offer yet" bar, with **Make Offer** when the listing is available.
+  Your first message, or your first offer, starts the conversation.
 - **Chat with buyer** beside an offer in your listing's Incoming Offers.
 - **Open Chat** on a sale's details, for either of you.
 - **Conversations** in the sidebar, which lists every conversation, buying or
@@ -44,9 +46,15 @@ Until the two of you have a sale, it shows the buyer's latest offer:
   ("Accepted · Sale Cancelled") with **View Sale**, and the buyer can also **Make
   Offer** once the listing is available again.
 
-During an active sale the bar shows the meetup instead (see Meetups below), and
-after a completed sale it shows "Sale completed" and where you met. **View Sale**
-is always there once you have a sale.
+During an active sale the bar shows the meetup instead (see
+[Meetups](Meetups.html)), and after a completed sale it shows "Sale completed"
+and where you met. **View Sale** is always there once you have a sale.
+
+![A seller's conversation about a listing called Desk: the header with the buyer, role, status, and View Listing; the "No offer yet" bar; and two messages](../images/conversation-page.png)
+
+*A seller's view of a conversation before any offer: the other person, your role,
+and the listing's status at the top, then the offer bar and the messages. The
+send box, with its 1,000-character counter, is at the bottom of the page.*
 
 ### Writing and sending messages
 
@@ -67,4 +75,8 @@ about available or reserved listings.
 
 Only one person is logged in at a time, so you see the other person's replies the
 next time you log in.
+
+For every chat limit and rule, see
+[Conversations and messages](MarketplaceRules.html#conversations-and-messages)
+in the Marketplace rules.
 

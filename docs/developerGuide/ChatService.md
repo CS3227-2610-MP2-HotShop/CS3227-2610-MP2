@@ -10,6 +10,8 @@
 
 The service uses SQLite for persistence and operates on behalf of the currently authenticated user.
 
+[ChatService Design](../ChatServiceDesign.html) records the agreed requirements.
+
 ### Design
 
 A conversation is uniquely associated with:
@@ -83,6 +85,11 @@ This design avoids duplicating offer state inside the chat subsystem.
 Sending a message is treated as opening the conversation for the sender and therefore advances the sender's read state.
 
 For offer events, only events caused by the other participant are considered unread. For example, an offer that a seller personally accepts or rejects is not subsequently considered unread for that seller.
+
+How a buyer's first message reaches the seller, and how opening the
+conversation clears its unread count:
+
+[![Sequence diagram of a buyer messaging a seller, the seller's unread count, and the seller opening the conversation](../diagrams/chat_unread_uml.png)](../diagrams/chat_unread_uml.png)
 
 ### Conversation Retrieval and Ordering
 

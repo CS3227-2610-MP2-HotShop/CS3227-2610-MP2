@@ -17,6 +17,22 @@ necessary. Import the root directory as a Gradle project in your IDE.
 
 Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network access.
 
+### Diagrams
+
+The seven diagrams of listings, offers, sales, meetups, and chat (the
+`*_uml.puml` files) are PlantUML sources in `docs/diagrams/`, committed next to
+the PNGs the guide shows. After editing a source, regenerate its PNG with the
+PlantUML jar (1.2026.8, from the
+[PlantUML releases](https://github.com/plantuml/plantuml/releases)) placed in the
+git-ignored `tools/` folder:
+
+```powershell
+java -jar tools\plantuml.jar -tpng -charset UTF-8 docs\diagrams\sale_models_uml.puml
+```
+
+The class and state diagrams use PlantUML's built-in Smetana layout, so Graphviz
+is not needed. Commit the `.puml` and the regenerated `.png` together.
+
 ## Dependencies and checks
 
 ### Libraries and build configuration
