@@ -10,12 +10,13 @@
 
 - [OpenAI Codex](https://openai.com/codex/): AI assistance with project scaffolding,
   implementation, tests, documentation, and review. The task records in
-  [logs](../logs/) describe the scope and verification of individual interactions;
+  [logs](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/tree/main/logs)
+  describe the scope and verification of individual interactions;
   generated output was adapted to this project's requirements.
-- [`setup-javafx-project`](../.agents/skills/setup-javafx-project/SKILL.md):
+- [`setup-javafx-project`](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/blob/main/.agents/skills/setup-javafx-project/SKILL.md):
   repository-local skill used to guide the initial JavaFX/Gradle scaffold, build
   configuration, CI, and guide structure, as recorded in the
-  [scaffold log](../logs/2026-09-16-create-hotshop-javafx-scaffold.md). This link is
+  [scaffold log](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/blob/main/logs/2026-09-16-create-hotshop-javafx-scaffold.md). This link is
   the local source; no external author or upstream source is recorded here.
 - [Claude Code](https://claude.com/claude-code) (Anthropic): AI assistance for
   the listing, offer, sale, meetup, and chat services and screens, including
