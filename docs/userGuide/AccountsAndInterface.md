@@ -8,7 +8,7 @@
 
 ### Registering and logging in
 
-[![HotShop Registration Page](../images/register-page.png)]
+![HotShop Registration Page](../images/register-page.png)
 
 Choose **Create an account** to register with a username, display name, password,
 and password confirmation, then choose **Register**. Registration returns to
