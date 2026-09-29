@@ -6,7 +6,7 @@
 
 ## Search and listings
 
-[![HotShop Search Bar](../images/search-bar.png)]
+![HotShop Search Bar](../images/search-bar.png)
 
 ### Searching and filtering
 
