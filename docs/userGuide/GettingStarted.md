@@ -43,6 +43,38 @@ empty database. If you selected a custom data folder, reset that folder instead.
 
 ## Run the packaged application
 
+### Download a prebuilt JAR
+
+Prebuilt JARs for 64-bit Windows and Linux are attached to the
+[latest release](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/releases/latest),
+and are also in the repository's `release/` folder:
+
+- `HotShop-windows.jar` for Windows
+- `HotShop-linux.jar` for Linux
+
+Each JAR includes JavaFX but not Java itself, so install **JDK 25** first. There
+is no macOS JAR, so on a Mac, build one as described below. Start the downloaded JAR
+from the folder you saved it in, for example on Windows:
+
+```powershell
+java -jar HotShop-windows.jar
+```
+
+<box type="warning">
+
+**Windows 11 with Smart App Control turned on may stop HotShop from starting.**
+HotShop's database library unpacks a small unsigned file each time it starts,
+and Smart App Control can block it. HotShop then shows **HotShop startup failed**
+("Unable to open HotShop data") and exits when you close it, even though the data
+folder is fine. This affects `gradlew run` too. You can see whether it is on in Windows Security, under
+**App & browser control > Smart App Control**. Turning it off cannot be undone
+without reinstalling Windows, so consider running HotShop on another computer
+instead.
+
+</box>
+
+### Build the JAR yourself
+
 Build on the operating system and architecture where the JAR will run:
 
 ```powershell
