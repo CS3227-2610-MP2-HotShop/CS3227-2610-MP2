@@ -4,7 +4,9 @@
   pageNav: 3
 ---
 
-## Appendix: Requirements
+## Appendix: Future requirements
+
+The current requirements are in [Requirements](Requirements.html).
 
 ### Wishlist user stories (future release)
 
@@ -19,6 +21,8 @@ not supported workflows or claims about the current data model.
 | logged-in buyer | remove a listing from my wishlist | I can keep only the items I am still interested in. |
 
 ## Appendix: Planned enhancements
+
+Team size: 2
 
 These four proposals refine existing features and are not implemented in this
 release. The deferred wishlist above is a future feature, not an enhancement in

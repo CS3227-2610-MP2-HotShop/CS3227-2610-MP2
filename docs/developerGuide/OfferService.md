@@ -10,6 +10,8 @@
 
 Offer data is persisted using SQLite.
 
+[OfferService Design](../OfferServiceDesign.html) records the agreed requirements.
+
 ### Design
 
 An `Offer` belongs to a buyer and a listing and contains an immutable offered amount.
@@ -69,6 +71,13 @@ save a `Transaction`. It returns `AcceptedOffer` (offer, reserved listing, sale
 ID). `OfferWithListing` and `OfferWithBuyer` carry the sale status for accepted
 offers, so screens can show "Accepted, sale cancelled" without a new offer status.
 
+The first diagram follows accepting an offer through its single transaction; the
+second shows how making an offer starts or reuses the buyer's conversation.
+
+[![Sequence diagram of accepting an offer inside one database transaction on the service worker](../diagrams/accept_offer_uml.png)](../diagrams/accept_offer_uml.png)
+
+[![Sequence diagram of making an offer, which starts or reuses the buyer's conversation and adds an optional message](../diagrams/make_offer_uml.png)](../diagrams/make_offer_uml.png)
+
 ### Service Boundaries
 
 `OfferService` owns offer state transitions but does not manage the subsequent sale lifecycle.
@@ -109,9 +118,10 @@ The transaction table does not persist `Transaction`'s derived last-event time. 
 
 ### Shared support and refusal messages
 
-`ServiceSupport` holds plumbing shared by ListingService and OfferService: the
-truncated current time, transaction error mapping, public-profile lookup, status
-words, and price formatting (`S$40.00`). `ServiceException` has factories for
+`ServiceSupport` holds plumbing shared by all five marketplace services (see
+[Marketplace Services](MarketplaceServices.html)): the truncated current time,
+transaction error mapping, public-profile lookup, status words, price formatting
+(`S$40.00`), and message times on a 24-hour clock. `ServiceException` has factories for
 its codes. Refusal messages say what is wrong and what to do, using real values,
 and never mention SQL. Tests assert the code and key values in selected
 messages, not exact wording.

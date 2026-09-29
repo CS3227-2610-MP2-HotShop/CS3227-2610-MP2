@@ -1,8 +1,7 @@
 {
-  "baseUrl": "",
+  "baseUrl": "/CS3227-2610-MP2",
   "titlePrefix": "",
-  "titleSuffix": "ProjectEx",
-  "faviconPath": "images/SeEduLogo.png",
+  "titleSuffix": "HotShop",
   "style": {
     "codeTheme": "light"
   },

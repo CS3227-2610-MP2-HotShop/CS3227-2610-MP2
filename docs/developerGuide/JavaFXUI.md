@@ -13,7 +13,7 @@ history, session reset, and unsaved-change guards. Feature page classes construc
 JavaFX controls programmatically; the old welcome-only FXML resource was removed.
 No new library is required.
 
-[![UI shell class diagram showing MarketplaceUi, feature helpers, and the UiPage lifecycle](../diagrams/ui_shell_uml.png)](diagrams/ui_shell_uml.png)
+[![UI shell class diagram showing MarketplaceUi, feature helpers, and the UiPage lifecycle](../diagrams/ui_shell_uml.png)](../diagrams/ui_shell_uml.png)
 
 ### Shared Styling and Listing Cards
 
@@ -63,7 +63,7 @@ at the minimum window size.
 
 #### Conversation Layout and Drafts
 
-[Chat Screens Design](ChatScreensDesign.md) records the agreed layout and
+[Chat Screens Design](../ChatScreensDesign.html) records the agreed layout and
 behaviour. `ChatPages` holds the Conversations list and the entry points
 (`withSeller`, `withBuyer`, and opening from the list). `ConversationPage` is one
 conversation: header, offer bar, messages, and send box. It keeps its `TextArea`
@@ -77,7 +77,9 @@ minimum. `UiPage.setHeadingExtras` places controls on the title's row.
 
 `OfferBar` is a pure record that maps the viewer's role, the latest offer, the
 listing status, and the sale status to the bar's text and `OfferBar.Action`s, so
-its rules are tested without JavaFX (`OfferBarTest`). The actions call
+its rules are tested without JavaFX (`OfferBarTest`). For example, after an
+accepted offer's sale is cancelled, the buyer gets Make Offer again once the
+listing is available. The actions call
 OfferService through `OfferPages.makeOffer` and `OfferPages.accept`, which the
 listing page also uses. `ConversationSummary` carries only an active sale's ID,
 so for an accepted offer without one the page finds the sale's status in
@@ -101,7 +103,7 @@ queued, so a conversation the new page opens is already counted as read.
 
 #### Meetup State and Formatting
 
-[Meetup Screens Design](MeetupScreensDesign.md) records the agreed behaviour.
+[Meetup Screens Design](../MeetupScreensDesign.html) records the agreed behaviour.
 The conversation keeps one fixed bar for the latest stage of the deal:
 `MeetupBar.replacesOfferBar` decides that an active or completed sale shows the
 meetup bar instead of the offer bar. `MeetupBar` is a pure record, like
@@ -129,8 +131,8 @@ loads `getMeetupSummary`; for a completed sale it uses the `MeetupSummary` on th
 matching `SaleForParticipant`. Sale Details shows the bar's text for an active
 sale; My Sales and My Purchases show
 `MeetupBar.summary`; and the Dashboard shows
-`SalesDashboard.upcomingMeetups`. There is no separate meetup page, so the old
-"Meetups" and "Availability & Meetups" sidebar entries are gone.
+`SalesDashboard.upcomingMeetups`. There is no separate meetup page or sidebar
+entry: meetups are always arranged inside the sale's conversation.
 
 #### Meetup Details on Listing Cards
 

@@ -51,3 +51,7 @@ Choose **Dashboard** in the sidebar to open **Seller Dashboard**. Its tiles are:
 
 Use the **My Listings** and **My Sales** buttons to open those pages.
 
+For all offer and sale rules, see [Offers](MarketplaceRules.html#offers) and
+[Sales and completion](MarketplaceRules.html#sales-and-completion) in the
+Marketplace rules.
+

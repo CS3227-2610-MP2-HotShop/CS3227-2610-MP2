@@ -54,10 +54,11 @@ The listing service enforces these rules. Every listing action requires login.
   listings can be edited; saving without any change does not count as an edit.
 - **Editing a listing rejects all of its pending offers**, because the buyers
   offered on the old details. Saving without any change keeps them.
-- Archiving hides an available or sold listing from search but keeps it, and
-  people with a link to it can still open it. Archived listings cannot be
-  reopened. **Archiving also rejects all pending offers.** A reserved listing
-  cannot be archived.
+- Archiving hides an available or sold listing from search but keeps it. You and
+  the people involved can still open it from My Listings, My Offers, their
+  conversations, and their sales. Archived listings cannot be reopened.
+  **Archiving also rejects all pending offers.** A reserved listing cannot be
+  archived.
 - Deleting permanently removes an available or archived listing and its photos.
   Reserved and sold listings cannot be deleted, and neither can any listing that
   has ever received an offer, even one that was later withdrawn; archive it
@@ -80,8 +81,9 @@ The offer service enforces these rules. Every offer action requires login.
   withdraw your offer and make a new one. Only pending offers can be withdrawn.
 - Buyers see all of their own offers, newest first, with each listing's current
   status. Other buyers never see your offer or its amount.
-- Sellers see every offer on their own listing: the accepted offer first, then
-  the others newest first.
+- Sellers see every offer on their own listing, in Incoming Offers: the offer
+  whose sale is active or completed first, then accepted offers whose sale was
+  cancelled, then all other offers, newest first.
 - Accepting an offer reserves the listing and automatically rejects every other
   pending offer on it. Only pending offers can be accepted or rejected, and only
   by the seller.
@@ -129,10 +131,11 @@ only the sale's buyer and seller can see or act on its meetup.
 
 - Meetups are arranged for an active sale. The seller offers the buyer up to 3
   meetup times, each with a start, an end, and a pickup location (1-200
-  characters). A time lasts 15 minutes to 4 hours, starts in the future, and
-  starts on or before the 60th day after today (at any time that day, so an
-  evening meetup on day 60 may end on day 61). A sale's offered times cannot overlap each other,
-  or any meetup the seller already has.
+  characters). A time lasts 15 minutes to 4 hours (chosen from 15, 30, or 45
+  minutes, or 1, 1.5, 2, 3, or 4 hours), starts in the future in 15-minute
+  steps, and starts on or before the 60th day after today (at any time that day,
+  so an evening meetup on day 60 may end on day 61). A sale's offered times
+  cannot overlap each other, or any meetup the seller already has.
 - Only the buyer books, by choosing one of the offered times. Booking deletes the
   sale's other offered times. Neither of you can book a time that overlaps
   another meetup you already have, whether you are buying or selling in it. If
@@ -142,12 +145,14 @@ only the sale's buyer and seller can see or act on its meetup.
 - Either of you can propose moving a booked meetup to a new time and place. The
   other person accepts (the meetup moves) or rejects (it stays as booked), and
   you can withdraw your own proposal. Only one proposal can be pending at a time.
+  While it is pending, the bar hides **Propose Move** and **Cancel Meetup**.
 - Either of you can cancel a booked meetup. The sale stays active, so the seller
   offers new times and the buyer books again.
 - Completing the sale completes its meetup, and cancelling the sale cancels it.
-  You can confirm completion with or without a meetup. A meetup whose time has
-  passed stays booked, and the next step becomes "Did the handover happen?
-  Confirm completion".
+  You can confirm completion with or without a meetup. A meetup whose end time
+  has passed stays booked, the bar no longer shows **Propose Move** or **Cancel
+  Meetup**, and the next step becomes "Did the handover happen? Confirm
+  completion".
 - Each sale in My Sales and My Purchases shows a meetup summary. Reserved
   listings show offered-time counts or booked dates, times, and place in their
   dedicated meetup area.
@@ -186,5 +191,6 @@ a conversation's buyer and seller can read it.
 - Your conversations are listed together, whether you're buying or selling.
   Conversations with a pending offer or an active sale come first, then the rest.
   Within each group, unread conversations come first, then the most recent.
-- Each conversation shows the buyer's latest offer and its status, and a preview
-  of the latest message or offer news, such as "Offer of S$40.00 accepted".
+- Each card on the Conversations page shows a preview of the latest message or
+  offer news, such as "Offer of S$40.00 accepted". The buyer's latest offer and
+  its status appear in the bar at the top of the conversation itself.

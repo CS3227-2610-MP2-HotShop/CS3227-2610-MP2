@@ -30,6 +30,8 @@ The main objectives of this guide are to:
    and feature services.
 3. Provide a reference for environment setup, dependencies, development checks,
    packaging, and engineering tools.
+4. Record the product's [requirements](developerGuide/Requirements.html) and the
+   steps for [manual testing](developerGuide/ManualTesting.html).
 
 Proposed features and enhancements are documented separately in
 [Future Work](developerGuide/FutureWork.html).
@@ -46,7 +48,7 @@ Targeted development checks:
 ```powershell
 .\gradlew.bat test --tests hotshop.service.AccountServiceTest
 .\gradlew.bat test --tests hotshop.service.ProfileImageTest
-.\gradlew.bat test --tests "hotshop.service.Listing*"
+.\gradlew.bat test --tests "hotshop.service.Listing*" --tests hotshop.service.PublicListingsTest
 .\gradlew.bat test --tests hotshop.service.OfferServiceTest
 .\gradlew.bat test --tests hotshop.service.TransactionServiceTest
 .\gradlew.bat test --tests hotshop.service.MeetupServiceTest --tests "hotshop.model.Meetup*"

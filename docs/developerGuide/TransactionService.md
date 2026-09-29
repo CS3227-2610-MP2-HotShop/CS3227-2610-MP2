@@ -31,6 +31,11 @@ A transaction follows these rules:
 
 Offers that were rejected when the sale was originally agreed remain rejected if the transaction is later cancelled.
 
+[TransactionService Design](../TransactionServiceDesign.html) records the agreed
+requirements. The sale's states, and what each participant can do in them:
+
+[![State diagram of a sale from acceptance through confirmations, cancellation requests, completion, or cancellation](../diagrams/sale_state_uml.png)](../diagrams/sale_state_uml.png)
+
 ### Service access and operations
 
 Access it through `ApplicationRuntime.getTransactions()`. Every operation
@@ -109,13 +114,20 @@ Only public profile information about the other participant is exposed.
 
 The service derives a next step for each transaction so that presentation code does not need to reproduce transaction-state rules.
 
-| Transaction state | Next step |
+`SaleProgress.nextStep` checks these in order and returns the first that applies:
+
+| Transaction state | Next step (`NextStep`) |
 | --- | --- |
-| Active, viewer has not confirmed, no pending cancellation | Meet to hand over the item, then confirm completion |
-| Active, viewer has confirmed, no pending cancellation | Wait for the other participant to confirm |
-| Pending cancellation requested by the other participant | Respond to the cancellation request |
-| Pending cancellation requested by the viewer | Wait for the other participant to respond |
 | Completed or cancelled | None |
+| Pending cancellation requested by the viewer | Waiting for the other participant to respond to your request |
+| Pending cancellation requested by the other participant | Respond to the other participant's cancellation request |
+| Viewer has confirmed | Waiting for the other participant to confirm |
+| Booked meetup with a move proposed by the viewer | Waiting for them to respond to your proposed time |
+| Booked meetup with a move proposed by the other participant | Respond to the proposal to move the meetup |
+| Booked meetup that has not ended | Meet at the booked time and place, then confirm completion |
+| Booked meetup that has ended | Did the handover happen? Confirm completion |
+| Times offered, no booking | Buyer: Choose one of the offered times. Seller: Waiting for the buyer to choose a time |
+| No times offered | Seller: Offer meetup times. Buyer: Waiting for the seller to offer meetup times |
 
 `Cancel sale` and `Request cancellation` are exposed as available actions when permitted rather than as next steps.
 
@@ -123,10 +135,11 @@ The service derives a next step for each transaction so that presentation code d
 
 The seller dashboard aggregates transaction-related information:
 
-* **Pending offers** — pending offers across all listings belonging to the seller.
-* **Active sales** — number of active transactions where the current user is the seller.
-* **Completed sales** — number of completed transactions where the current user is the seller.
-* **Total sales value** — sum of the agreed prices of completed sales only.
+* **Pending offers**: Pending offers across all listings belonging to the seller.
+* **Active sales**: Number of active transactions where the current user is the seller.
+* **Completed sales**: Number of completed transactions where the current user is the seller.
+* **Completed sales value**: Sum of the agreed prices of completed sales only.
+* **Upcoming meetups**: The seller's scheduled meetups that have not started.
 
 ### Relationship With Other Services
 
@@ -174,7 +187,9 @@ one database transaction (`applyToActiveSale`). `SaleProgress` turns a sale's
 state into the viewer's `NextStep` (with display text), `SaleAction`s, and list
 position, using the same model queries the rules use, so screens never offer an
 action that would be refused. Completing a sale completes its scheduled meetup,
-and cancelling it cancels the meetup, in the same transaction.
+and cancelling it cancels the meetup, in the same transaction, through the
+package-private `SaleMeetups` helper, so the sale and its meetup can never
+disagree.
 
 
 ### Error Handling

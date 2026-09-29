@@ -4,7 +4,7 @@ Status: agreed through a grill-with-docs interview on 2026-09-26 and
 implemented the same day. See "Implementation notes" at the end.
 Builds on the implemented [MeetupService Design](MeetupServiceDesign.md) and the
 conversation page in [Chat Screens Design](ChatScreensDesign.md). The interview
-record is in [the feature log](../logs/2026-09-26-meetup-screens.md).
+record is in [the feature log](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/blob/main/logs/2026-09-26-meetup-screens.md).
 
 ## Agreed scope
 

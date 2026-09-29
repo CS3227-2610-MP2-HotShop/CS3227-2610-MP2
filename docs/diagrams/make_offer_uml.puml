@@ -1,0 +1,35 @@
+@startuml make_offer_uml
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+hide footbox
+
+title Making an offer starts or reuses the buyer's conversation
+
+actor Buyer
+participant "Make Offer\n(UI)" as UI
+participant OfferService
+participant Conversations
+participant OfferRepository
+participant ChatRepository
+
+Buyer -> UI : Submit Offer (amount, optional message)
+UI -> OfferService : submitOffer(listingId, amount, message)
+OfferService -> OfferService : check amount; check message\nwith Conversations.requireText
+note right of OfferService
+  Everything below runs in one database
+  transaction on the service worker.
+end note
+OfferService -> OfferService : check listing is another seller's\nand available; no pending offer yet
+OfferService -> OfferRepository : insert new pending Offer
+OfferService -> Conversations : findOrStart(listing, buyer)
+Conversations -> ChatRepository : find the buyer's conversation
+alt no conversation yet
+  Conversations -> ChatRepository : insert new Conversation
+end
+opt message given
+  OfferService -> Conversations : append(conversation, buyer, text)
+  Conversations -> ChatRepository : insert next Message
+  Conversations -> ChatRepository : mark read up to it for the buyer
+end
+OfferService --> UI : OfferWithListing
+@enduml

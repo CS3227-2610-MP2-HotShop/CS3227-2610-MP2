@@ -10,6 +10,8 @@
 
 Listing data is persisted using SQLite, while listing images are managed separately on the filesystem.
 
+[ListingService Design](../ListingServiceDesign.html) records the agreed requirements.
+
 ### Design
 
 Every listing belongs to a seller identified using the application's current authenticated session. Service operations do not accept a seller ID from presentation code, preventing callers from performing operations on behalf of another user.
@@ -37,6 +39,7 @@ session, and database with AccountService, and every operation requires login.
 | `archiveListing(id)` | Owner only; available or sold listings. |
 | `deleteListing(id)` | Owner only; available or archived listings; removes photos. |
 | `getMyListings()` | Current user's listings as `OwnListing` (listing plus pending offer count): reserved, available, sold, archived, each newest first. |
+| `getPublicListings(sellerId)` | Any user; a profile's available listings, newest first. |
 | `getListing(id)` | Any existing listing in any status. |
 | `searchListings(search)` | Other sellers' available listings only. |
 
@@ -52,9 +55,15 @@ session, and database with AccountService, and every operation requires login.
 
 This keeps transaction-specific business rules outside `ListingService`.
 
-`OfferService` also coordinates listing modifications with offer state. When a listing is materially edited or archived, affected pending offers are rejected within the same database transaction.
+Edits and archives are different. When a listing is materially edited or archived, `ListingService` itself rejects the listing's pending offers within the same database transaction, through the shared `PendingOffers` helper. `Listing.update` reports whether anything really changed, so saving without a change keeps the offers.
 
 Deletion similarly respects historical data managed by other services. Listings with offer or transaction history cannot be deleted. Enquiry-only conversations associated with a deletable listing are removed as part of the deletion operation.
+
+### Listing states
+
+A listing's statuses, and what moves it between them:
+
+[![State diagram of a listing: available, reserved, sold, and archived, with editing, deleting, and the sale's outcome](../diagrams/listing_state_uml.png)](../diagrams/listing_state_uml.png)
 
 ### Draft validation and photo storage
 
@@ -114,7 +123,6 @@ tests use the real services.
 | Error | Meaning |
 | --- | --- |
 | `VALIDATION` | Supplied listing data, image data, or search parameters are invalid. |
-| `AUTHENTICATION` | Authentication failed. |
 | `SESSION` | The required authenticated session is unavailable. |
 | `NOT_FOUND` | The requested listing does not exist or has been deleted. |
 | `STORAGE` | A database or filesystem operation fails. |
@@ -138,4 +146,5 @@ Tests focus on:
 * image validation, ordering, rollback, and cleanup;
 * search filtering and ordering;
 * persistence and restoration of listing state; and
-* database migration from existing schemas.## Listing Service
+* database migration from existing schemas.
+

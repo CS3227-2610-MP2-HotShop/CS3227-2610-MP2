@@ -40,7 +40,7 @@ The following sequence follows a UI request through the service queue and back
 to the page. `UiPage` handles presentation; `ServiceWorker` only executes the
 callable and completes its future.
 
-[![ServiceWorker sequence showing background execution and completion handling on the JavaFX thread](../diagrams/service_worker_uml.png)](diagrams/service_worker_uml.png)
+[![ServiceWorker sequence showing background execution and completion handling on the JavaFX thread](../diagrams/service_worker_uml.png)](../diagrams/service_worker_uml.png)
 
 Completion callbacks can run on the service worker. `UiPage` therefore uses
 `Platform.runLater` to handle the result on the FX thread, clears its busy state,

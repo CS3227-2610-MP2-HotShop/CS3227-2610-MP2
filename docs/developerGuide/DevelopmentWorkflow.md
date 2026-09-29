@@ -17,6 +17,22 @@ necessary. Import the root directory as a Gradle project in your IDE.
 
 Use `./gradlew` on macOS/Linux. Initial dependency resolution requires network access.
 
+### Diagrams
+
+The seven diagrams of listings, offers, sales, meetups, and chat (the
+`*_uml.puml` files) are PlantUML sources in `docs/diagrams/`, committed next to
+the PNGs the guide shows. After editing a source, regenerate its PNG with the
+PlantUML jar (1.2026.8, from the
+[PlantUML releases](https://github.com/plantuml/plantuml/releases)) placed in the
+git-ignored `tools/` folder:
+
+```powershell
+java -jar tools\plantuml.jar -tpng -charset UTF-8 docs\diagrams\sale_models_uml.puml
+```
+
+The class and state diagrams use PlantUML's built-in Smetana layout, so Graphviz
+is not needed. Commit the `.puml` and the regenerated `.png` together.
+
 ## Dependencies and checks
 
 ### Libraries and build configuration
@@ -49,16 +65,29 @@ The workflow also supports manual dispatch.
 
 ## GitHub Pages
 
-After pushing, open repository Settings > Pages, select **Deploy from a branch**,
-select the branch containing these files and **/docs**, and save.
-GitHub publishes the site after its Pages build completes.
-Hosting has not been enabled by this local setup.
+The guides are a [MarkBind](https://markbind.org/) site. Every push to `main`
+runs `.github/workflows/docs.yml`, which builds the site with MarkBind and
+deploys `_site/` to GitHub Pages, at
+<https://cs3227-2610-mp2-hotshop.github.io/CS3227-2610-MP2/>. The repository's
+Pages source is set to **GitHub Actions**.
+
+To preview the site locally, install Node.js and run:
+
+```powershell
+npm ci
+npm run docs:serve
+```
+
+`npm run docs:build` writes the site to the git-ignored `_site/` folder instead.
+The site is served from the repository's subpath, so `baseUrl` in `site.json`
+must stay `/CS3227-2610-MP2`. Links to files outside `docs/`, such as `logs/`,
+must be full GitHub links, because only `docs/` pages are published.
 
 ## Engineering skills
 
 ### Agent configuration
 
-Agent skill configuration lives in [docs/agents](../agents/). It defines the
+Agent skill configuration lives in [docs/agents](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/tree/main/docs/agents). It defines the
 [team GitHub issue tracker](../agents/issue-tracker.md),
 [triage labels](../agents/triage-labels.md), and
 [domain documentation rules](../agents/domain.md). `AGENTS.md` directs agents
