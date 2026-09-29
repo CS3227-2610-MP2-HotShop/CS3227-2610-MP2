@@ -57,6 +57,29 @@ snapshots, and cancellation permissions/history. For a targeted run, use
 architecture because JavaFX native libraries are platform-specific.
 The JAR requires a separately installed Java 25 runtime.
 
+### Published JARs
+
+Prebuilt JARs are committed as `release/HotShop-windows.jar` and
+`release/HotShop-linux.jar` (the only JARs `.gitignore` lets through) and
+attached to each GitHub Release. To refresh them for a commit on `main`:
+
+1. Build the Windows JAR locally with `.\gradlew.bat shadowJar`, then copy
+   `release/HotShop.jar` to `release/HotShop-windows.jar`.
+2. Download the Linux JAR that CI built for the same commit, then copy it to
+   `release/HotShop-linux.jar`:
+
+   ```powershell
+   gh run list --branch main --workflow "Gradle verification" --limit 1
+   gh run download <run-id> -n HotShop-linux -D linux-jar
+   ```
+
+Both JARs should contain identical `hotshop/` classes. Only the JavaFX native
+libraries differ.
+
+On Windows 11, Smart App Control blocks the unsigned native library that SQLite
+JDBC unpacks into `%TEMP%`, so every database test and the application itself
+fail on a machine where it is on. CI runs on Linux, so it is unaffected.
+
 ### Continuous integration
 
 GitHub Actions runs tests, Checkstyle, check, build, and shadowJar on pull

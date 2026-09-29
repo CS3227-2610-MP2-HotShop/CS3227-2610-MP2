@@ -1,6 +1,8 @@
 .gradle/
 build/
 release/*.jar
+!release/HotShop-windows.jar
+!release/HotShop-linux.jar
 .idea/
 *.iml
 .classpath

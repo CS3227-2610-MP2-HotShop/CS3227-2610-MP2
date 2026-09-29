@@ -37,6 +37,15 @@ When HotShop opens, create an account from the login page, then log in to get
 started. Your data is saved in the `.hotshop` folder in your home directory and
 is kept between runs.
 
+## Prebuilt JARs
+
+Ready-to-run JARs for 64-bit Windows (`HotShop-windows.jar`) and Linux
+(`HotShop-linux.jar`) are attached to the
+[latest release](https://github.com/CS3227-2610-MP2-HotShop/CS3227-2610-MP2/releases/latest)
+and kept in `release/`. They still need Java 25. See the
+[User Guide](https://cs3227-2610-mp2-hotshop.github.io/CS3227-2610-MP2/docs/userGuide/GettingStarted.html)
+for how to run them.
+
 ## Build a runnable JAR (optional)
 
 Run `.\gradlew.bat shadowJar` on Windows or `./gradlew shadowJar` on macOS/Linux.
