@@ -8,6 +8,8 @@
 
 ### Registering and logging in
 
+[![HotShop Registration Page](../images/register-page.png)]
+
 Choose **Create an account** to register with a username, display name, password,
 and password confirmation, then choose **Register**. Registration returns to
 login with your username filled in and the message "Account created. Log in to
@@ -65,4 +67,3 @@ Conversations.
 The wishlist has no screens yet. Its navigation entry and the listing page's
 **Save to wishlist** button are disabled and labelled **Coming soon**. They do not
 open placeholder feature screens.
-

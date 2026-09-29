@@ -6,6 +6,8 @@
 
 ## Search and listings
 
+[![HotShop Search Bar](../images/search-bar.png)]
+
 ### Searching and filtering
 
 Search starts with guidance and no results. Enter a title query and press Enter
@@ -57,4 +59,3 @@ Listing**, and Incoming Offers. Actions unavailable in the listing's state are
 disabled with an explanation. Saving actual changes with pending offers asks for
 confirmation because those offers will be rejected. Archival and permanent deletion
 also explain their consequences before proceeding.
-
