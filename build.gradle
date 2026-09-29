@@ -19,9 +19,17 @@ java {
     }
 }
 
+def javafxPlatform = providers.gradleProperty('javafxPlatform').orNull
+if (javafxPlatform != null && !(javafxPlatform in ['win', 'linux', 'mac', 'mac-aarch64'])) {
+    throw new GradleException('javafxPlatform must be win, linux, mac, or mac-aarch64')
+}
+
 javafx {
     version = '25.0.2'
     modules = ['javafx.controls', 'javafx.fxml']
+    if (javafxPlatform != null) {
+        platform = javafxPlatform
+    }
 }
 
 application {
@@ -51,7 +59,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('shadowJar') {
-    archiveFileName = 'HotShop.jar'
+    archiveFileName = javafxPlatform == null ? 'HotShop.jar' : "HotShop-${javafxPlatform}.jar"
     destinationDirectory = layout.projectDirectory.dir('release')
     mergeServiceFiles()
     manifest {

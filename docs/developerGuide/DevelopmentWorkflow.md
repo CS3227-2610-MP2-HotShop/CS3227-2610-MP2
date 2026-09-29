@@ -57,10 +57,27 @@ snapshots, and cancellation permissions/history. For a targeted run, use
 architecture because JavaFX native libraries are platform-specific.
 The JAR requires a separately installed Java 25 runtime.
 
+To select JavaFX dependencies for another platform, pass `-PjavafxPlatform`.
+Supported values are `win`, `linux`, `mac` (Intel), and `mac-aarch64` (Apple Silicon).
+For example, either macOS JAR can be packaged from Windows:
+
+```powershell
+.\gradlew.bat shadowJar -PjavafxPlatform=mac
+.\gradlew.bat shadowJar -PjavafxPlatform=mac-aarch64
+```
+
+These commands write `release/HotShop-mac.jar` and `release/HotShop-mac-aarch64.jar`.
+Use `./gradlew` on macOS/Linux. Omitting the property preserves the default
+host-platform build and filename `HotShop.jar`. An explicit target produces
+`HotShop-<target>.jar`; `win` therefore produces `HotShop-win.jar`.
+Run tests without this property on the build host. A cross-platform packaging
+build does not verify native execution: launch each resulting JAR on its target
+OS with a matching Java 25 JVM architecture before publishing it.
+
 ### Published JARs
 
 Prebuilt JARs are committed as `release/HotShop-windows.jar` and
-`release/HotShop-linux.jar` (the only JARs `.gitignore` lets through) and
+`release/HotShop-linux.jar` and
 attached to each GitHub Release. To refresh them for a commit on `main`:
 
 1. Build the Windows JAR locally with `.\gradlew.bat shadowJar`, then copy
@@ -73,8 +90,11 @@ attached to each GitHub Release. To refresh them for a commit on `main`:
    gh run download <run-id> -n HotShop-linux -D linux-jar
    ```
 
-Both JARs should contain identical `hotshop/` classes. Only the JavaFX native
-libraries differ.
+The repository also permits `release/HotShop-mac.jar` and
+`release/HotShop-mac-aarch64.jar`, generated with the target commands above.
+Creating these files locally does not attach them to a GitHub Release.
+JARs built from the same source should contain identical `hotshop/` classes;
+the JavaFX platform dependencies differ.
 
 On Windows 11, Smart App Control blocks the unsigned native library that SQLite
 JDBC unpacks into `%TEMP%`, so every database test and the application itself

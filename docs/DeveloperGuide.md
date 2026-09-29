@@ -15,7 +15,8 @@ codebase, and development workflow of HotShop, a JavaFX desktop marketplace with
 local SQLite storage.
 
 Start with [Development Workflow](developerGuide/DevelopmentWorkflow.html) to set
-up your environment, run checks, and build the application. Then read
+up your environment, run checks, and build the application, including selecting
+the JavaFX platform for Intel and Apple Silicon macOS JARs. Then read
 [Architecture Overview](developerGuide/ArchitectureOverview.html) to understand
 how the application is organised. Use the sidebar to explore each topic in detail.
 

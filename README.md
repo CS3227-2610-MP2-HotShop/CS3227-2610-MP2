@@ -46,6 +46,11 @@ and kept in `release/`. They still need Java 25. See the
 [User Guide](https://cs3227-2610-mp2-hotshop.github.io/CS3227-2610-MP2/docs/userGuide/GettingStarted.html)
 for how to run them.
 
+The `release/` folder also contains `HotShop-mac.jar` for Intel Java runtimes
+and `HotShop-mac-aarch64.jar` for Apple Silicon Java runtimes. Both require Java 25.
+These macOS JARs were packaged on Windows and still require launch verification
+on their respective Mac architectures.
+
 ## Build a runnable JAR (optional)
 
 Run `.\gradlew.bat shadowJar` on Windows or `./gradlew shadowJar` on macOS/Linux.
@@ -57,6 +62,11 @@ java -jar release/HotShop.jar
 
 Build the JAR on the operating system and architecture where you will run it.
 It bundles JavaFX and other dependencies, but still requires Java 25.
+
+To package macOS dependencies explicitly, use `shadowJar -PjavafxPlatform=mac`
+or `shadowJar -PjavafxPlatform=mac-aarch64` with the Gradle Wrapper. These create
+`release/HotShop-mac.jar` and `release/HotShop-mac-aarch64.jar`, respectively,
+even when packaging on another operating system.
 
 ## Guides
 

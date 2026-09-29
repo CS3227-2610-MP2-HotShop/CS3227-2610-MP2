@@ -18,7 +18,8 @@ Welcome to the HotShop User Guide. This guide explains how to get started and
 use HotShop's marketplace features.
 
 Begin with [Getting Started](userGuide/GettingStarted.html) for requirements and
-launch instructions. Then read [Accounts and Interface](userGuide/AccountsAndInterface.html)
+launch instructions, including the Intel and Apple Silicon macOS JARs.
+Then read [Accounts and Interface](userGuide/AccountsAndInterface.html)
 to create an account and find your way around. Use the sidebar to explore each
 topic in detail.
 

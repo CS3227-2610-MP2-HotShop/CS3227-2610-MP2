@@ -52,13 +52,27 @@ and are also in the repository's `release/` folder:
 - `HotShop-windows.jar` for Windows
 - `HotShop-linux.jar` for Linux
 
-Each JAR includes JavaFX but not Java itself, so install **JDK 25** first. There
-is no macOS JAR, so on a Mac, build one as described below. Start the downloaded JAR
-from the folder you saved it in, for example on Windows:
+macOS JARs are available in the repository's `release/` folder:
+
+- `HotShop-mac.jar` for an Intel (x86-64) Java runtime
+- `HotShop-mac-aarch64.jar` for an Apple Silicon (AArch64) Java runtime
+
+Each JAR includes JavaFX but not Java itself, so install **JDK 25** first.
+Choose the JAR matching your Java runtime's architecture. The macOS packages
+were built on Windows; native macOS launch verification is still required.
+Start the downloaded JAR from the folder you saved it in, for example on Windows:
 
 ```powershell
 java -jar HotShop-windows.jar
 ```
+
+On an Apple Silicon Mac with an AArch64 JDK 25, run:
+
+```bash
+java -jar HotShop-mac-aarch64.jar
+```
+
+With an Intel JDK 25, use `java -jar HotShop-mac.jar` instead.
 
 <box type="warning">
 
@@ -84,6 +98,11 @@ java -jar release/HotShop.jar
 
 The JAR includes JavaFX libraries for the build machine's platform, but does not
 include Java itself. The CI artifact targets Linux.
+
+To build a specific macOS package, run `./gradlew shadowJar -PjavafxPlatform=mac`
+or `./gradlew shadowJar -PjavafxPlatform=mac-aarch64`. On Windows, replace
+`./gradlew` with `.\gradlew.bat`. The output is `release/HotShop-mac.jar` or
+`release/HotShop-mac-aarch64.jar`, respectively.
 
 To use a separate data folder, put the Java system property before `-jar`, for
 example on Windows:
